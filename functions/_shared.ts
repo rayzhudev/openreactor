@@ -1,5 +1,6 @@
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const GITHUB_API_VERSION = "2022-11-28";
+const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
 
 export interface Env {
@@ -282,6 +283,7 @@ async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Pro
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/vnd.github+json");
   headers.set("X-GitHub-Api-Version", GITHUB_API_VERSION);
+  headers.set("User-Agent", GITHUB_USER_AGENT);
 
   if (env.GITHUB_TOKEN) {
     headers.set("Authorization", `Bearer ${env.GITHUB_TOKEN}`);
