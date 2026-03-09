@@ -9,6 +9,13 @@ export interface Env {
   GITHUB_LABELS?: string;
 }
 
+interface NormalizedEnv {
+  GITHUB_OWNER: string;
+  GITHUB_REPO: string;
+  GITHUB_TOKEN: string;
+  GITHUB_LABELS: string;
+}
+
 interface FeatureRequestInput {
   name?: string;
   contact?: string;
@@ -58,14 +65,16 @@ export async function handleHealth(env: Env): Promise<Response> {
 }
 
 export async function handleListRequests(env: Env): Promise<Response> {
-  if (!isRepoConfigured(env)) {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
     return jsonResponse({ items: [], repoUrl: null });
   }
 
   try {
     const issues = await githubRequest<GitHubIssue[]>(
-      env,
-      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues?state=open&sort=created&direction=desc&per_page=30`
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=open&sort=created&direction=desc&per_page=30`
     );
 
     const items = issues
@@ -82,7 +91,7 @@ export async function handleListRequests(env: Env): Promise<Response> {
 
     return jsonResponse({
       items,
-      repoUrl: getRepoUrl(env)
+      repoUrl: getRepoUrl(normalized)
     });
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
@@ -90,7 +99,9 @@ export async function handleListRequests(env: Env): Promise<Response> {
 }
 
 export async function handleCreateRequest(request: Request, env: Env): Promise<Response> {
-  if (!isSubmissionConfigured(env)) {
+  const normalized = normalizeEnv(env);
+
+  if (!isSubmissionConfigured(normalized)) {
     return jsonResponse(
       { error: "Submissions are not configured yet. Add GitHub repository settings and a token." },
       503
@@ -119,8 +130,8 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
 
   try {
     const issue = await githubRequest<GitHubIssue>(
-      env,
-      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues`,
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues`,
       {
         method: "POST",
         body: JSON.stringify({
@@ -244,19 +255,20 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
 }
 
 async function getExistingLabels(env: Env): Promise<string[]> {
-  const configuredLabels = (env.GITHUB_LABELS ?? "")
+  const normalized = normalizeEnv(env);
+  const configuredLabels = normalized.GITHUB_LABELS
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
 
-  if (!configuredLabels.length || !env.GITHUB_TOKEN || !isRepoConfigured(env)) {
+  if (!configuredLabels.length || !normalized.GITHUB_TOKEN || !isRepoConfigured(normalized)) {
     return [];
   }
 
   try {
     const labels = await githubRequest<Array<{ name?: string }>>(
-      env,
-      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/labels?per_page=100`
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/labels?per_page=100`
     );
 
     const available = new Set(labels.map((label) => label.name).filter(Boolean));
@@ -311,19 +323,22 @@ function getIssueStatus(issue: GitHubIssue): string {
 }
 
 function getRepoUrl(env: Env): string | null {
-  if (!isRepoConfigured(env)) {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
     return null;
   }
 
-  return `https://github.com/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+  return `https://github.com/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}`;
 }
 
 function isRepoConfigured(env: Env): boolean {
-  return Boolean(env.GITHUB_OWNER && env.GITHUB_REPO);
+  return Boolean(normalizeEnv(env).GITHUB_OWNER && normalizeEnv(env).GITHUB_REPO);
 }
 
 function isSubmissionConfigured(env: Env): boolean {
-  return Boolean(env.GITHUB_OWNER && env.GITHUB_REPO && env.GITHUB_TOKEN);
+  const normalized = normalizeEnv(env);
+  return Boolean(normalized.GITHUB_OWNER && normalized.GITHUB_REPO && normalized.GITHUB_TOKEN);
 }
 
 function jsonResponse(data: Record<string, unknown>, status = 200): Response {
@@ -351,6 +366,15 @@ function corsHeaders(): Record<string, string> {
 
 function clean(value?: string): string {
   return (value ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+function normalizeEnv(env: Env): NormalizedEnv {
+  return {
+    GITHUB_OWNER: clean(env.GITHUB_OWNER),
+    GITHUB_REPO: clean(env.GITHUB_REPO),
+    GITHUB_TOKEN: clean(env.GITHUB_TOKEN),
+    GITHUB_LABELS: clean(env.GITHUB_LABELS)
+  };
 }
 
 async function safeErrorDetail(response: Response): Promise<string> {
