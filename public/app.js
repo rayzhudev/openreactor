@@ -1,49 +1,12 @@
 const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
-const queueNode = document.querySelector("#queue");
+const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
-const repoLink = document.querySelector("#repo-link");
 
 boot();
 
 async function boot() {
-  await Promise.all([loadMeta(), loadQueue()]);
   form.addEventListener("submit", onSubmit);
-}
-
-async function loadMeta() {
-  try {
-    const response = await fetch("/api/meta");
-    const data = await response.json();
-
-    if (data.repoUrl) {
-      repoLink.href = data.repoUrl;
-      repoLink.hidden = false;
-    }
-  } catch {
-    // The page is still useful even if repo metadata cannot be shown.
-  }
-}
-
-async function loadQueue() {
-  queueNode.innerHTML = "<p class=\"queue-state\">Loading queue...</p>";
-
-  try {
-    const response = await fetch("/api/requests");
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Queue request failed.");
-    }
-
-    renderQueue(data.items || []);
-  } catch (error) {
-    queueNode.innerHTML = "";
-    const message = document.createElement("p");
-    message.className = "queue-state";
-    message.textContent = error instanceof Error ? error.message : "Unable to load queue.";
-    queueNode.append(message);
-  }
 }
 
 async function onSubmit(event) {
@@ -53,7 +16,10 @@ async function onSubmit(event) {
   submitButton.disabled = true;
   submitButton.textContent = "Sending...";
 
-  const payload = Object.fromEntries(new FormData(form).entries());
+  const formData = new FormData(form);
+  const request = `${formData.get("request") ?? ""}`.trim();
+  const website = `${formData.get("website") ?? ""}`;
+  const payload = buildPayload(request, website);
 
   try {
     const response = await fetch("/api/requests", {
@@ -78,61 +44,42 @@ async function onSubmit(event) {
 
     form.reset();
     setStatus(`Request queued as issue #${data.number}.`, "success");
-    await loadQueue();
+    requestField.focus();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Send to queue";
+    submitButton.innerHTML = "<span aria-hidden=\"true\">+</span>";
   }
 }
 
-function renderQueue(items) {
-  queueNode.innerHTML = "";
+function buildPayload(request, website) {
+  const summary = summarizeRequest(request);
 
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "queue-state";
-    empty.textContent = "No live requests yet.";
-    queueNode.append(empty);
-    return;
+  return {
+    website,
+    summary,
+    problem: request,
+    outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
+    constraints: "",
+    successCriteria: "",
+    notes: ""
+  };
+}
+
+function summarizeRequest(request) {
+  const normalized = request.replace(/\s+/g, " ").trim();
+  const sentence = normalized.split(/[.!?](?:\s|$)/)[0] || normalized;
+
+  if (sentence.length >= 8 && sentence.length <= 120) {
+    return sentence;
   }
 
-  for (const item of items) {
-    const card = document.createElement("article");
-    card.className = "queue-card";
-
-    const meta = document.createElement("div");
-    meta.className = "queue-meta";
-
-    const badge = document.createElement("span");
-    badge.className = `status-badge status-${item.status}`;
-    badge.textContent = item.status.replace("-", " ");
-
-    const date = document.createElement("span");
-    date.className = "queue-date";
-    date.textContent = new Date(item.createdAt).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-
-    meta.append(badge, date);
-
-    const title = document.createElement("a");
-    title.className = "queue-title";
-    title.href = item.url;
-    title.target = "_blank";
-    title.rel = "noreferrer";
-    title.textContent = item.title;
-
-    const number = document.createElement("p");
-    number.className = "queue-number";
-    number.textContent = `Issue #${item.number}`;
-
-    card.append(meta, title, number);
-    queueNode.append(card);
+  if (normalized.length <= 120) {
+    return normalized;
   }
+
+  return `${normalized.slice(0, 117).trimEnd()}...`;
 }
 
 function setStatus(message, tone) {
