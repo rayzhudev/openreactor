@@ -15,7 +15,7 @@ OpenReactor needs these environment values:
 
 - `GITHUB_OWNER`: GitHub owner or organization
 - `GITHUB_REPO`: target repository
-- `GITHUB_TOKEN`: token used to create issues
+- `GITHUB_TOKEN`: optional token used to create issues directly via API
 - `GITHUB_LABELS`: optional comma-separated labels to apply when those labels already exist
 
 ## Local development
@@ -74,7 +74,7 @@ bunx wrangler pages deployment list --project-name openreactor
 Use a token that can read repository issues and create new issues in the target
 repository. For a fine-grained personal access token, repository `Issues` write
 permission is the key requirement. Public issue listing may work without a token,
-but issue creation requires one.
+and the site can fall back to a prefilled GitHub issue creation URL without one.
 
 GitHub docs:
 

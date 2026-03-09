@@ -73,7 +73,7 @@ export async function handleListRequests(env: Env): Promise<Response> {
   }
 
   try {
-    const issues = await githubRequest<GitHubIssue[]>(
+    const issues = await githubRequestWithFallback<GitHubIssue[]>(
       normalized,
       `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=open&sort=created&direction=desc&per_page=30`
     );
@@ -102,9 +102,9 @@ export async function handleListRequests(env: Env): Promise<Response> {
 export async function handleCreateRequest(request: Request, env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
 
-  if (!isSubmissionConfigured(normalized)) {
+  if (!isRepoConfigured(normalized)) {
     return jsonResponse(
-      { error: "Submissions are not configured yet. Add GitHub repository settings and a token." },
+      { error: "Submissions are not configured yet. Add GitHub repository settings." },
       503
     );
   }
@@ -126,8 +126,19 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
     return jsonResponse({ error: validated.error }, 400);
   }
 
-  const labels = await getExistingLabels(env);
+  const fallbackUrl = buildIssueCreateUrl(normalized, validated, request);
+  const labels = await getExistingLabels(normalized);
   const body = buildIssueBody(validated, request);
+
+  if (!normalized.GITHUB_TOKEN) {
+    return jsonResponse(
+      {
+        mode: "github_redirect",
+        url: fallbackUrl
+      },
+      200
+    );
+  }
 
   try {
     const issue = await githubRequest<GitHubIssue>(
@@ -145,12 +156,24 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
 
     return jsonResponse(
       {
+        mode: "created",
         number: issue.number,
         url: issue.html_url
       },
       201
     );
   } catch (error) {
+    if (isGithubAuthError(error)) {
+      console.warn("Falling back to GitHub issue URL after API auth failure.", error);
+      return jsonResponse(
+        {
+          mode: "github_redirect",
+          url: fallbackUrl
+        },
+        200
+      );
+    }
+
     return errorResponse("GitHub issue creation failed.", 502, error);
   }
 }
@@ -267,7 +290,7 @@ async function getExistingLabels(env: Env): Promise<string[]> {
   }
 
   try {
-    const labels = await githubRequest<Array<{ name?: string }>>(
+    const labels = await githubRequestWithFallback<Array<{ name?: string }>>(
       normalized,
       `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/labels?per_page=100`
     );
@@ -304,6 +327,23 @@ async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Pro
   }
 
   return (await response.json()) as T;
+}
+
+async function githubRequestWithFallback<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await githubRequest<T>(env, path, init);
+  } catch (error) {
+    if (!env.GITHUB_TOKEN || !isGithubAuthError(error)) {
+      throw error;
+    }
+
+    const withoutToken = {
+      ...env,
+      GITHUB_TOKEN: ""
+    };
+
+    return githubRequest<T>(withoutToken, path, init);
+  }
 }
 
 function getIssueStatus(issue: GitHubIssue): string {
@@ -343,6 +383,26 @@ function isSubmissionConfigured(env: Env): boolean {
   return Boolean(normalized.GITHUB_OWNER && normalized.GITHUB_REPO && normalized.GITHUB_TOKEN);
 }
 
+function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: Request): string {
+  const title = `[Request] ${input.summary}`;
+  const body = buildIssueBody(input, request);
+  const url = new URL(`https://github.com/${normalizeEnv(env).GITHUB_OWNER}/${normalizeEnv(env).GITHUB_REPO}/issues/new`);
+
+  url.searchParams.set("title", title);
+  url.searchParams.set("body", body);
+
+  const labels = normalizeEnv(env).GITHUB_LABELS
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (labels.length) {
+    url.searchParams.set("labels", labels.join(","));
+  }
+
+  return url.toString();
+}
+
 function jsonResponse(data: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -377,6 +437,10 @@ function normalizeEnv(env: Env): NormalizedEnv {
     GITHUB_TOKEN: clean(env.GITHUB_TOKEN).replace(/\s+/g, ""),
     GITHUB_LABELS: clean(env.GITHUB_LABELS)
   };
+}
+
+function isGithubAuthError(error: unknown): boolean {
+  return error instanceof Error && /\b(401|403)\b/.test(error.message);
 }
 
 async function safeErrorDetail(response: Response): Promise<string> {

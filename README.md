@@ -13,6 +13,10 @@ The current MVP is intentionally small:
 - GitHub issue creation
 - public queue view backed by GitHub issues
 
+If a GitHub API token is not available or not permitted for issue creation, the
+form falls back to a prefilled GitHub issue creation flow. That keeps the MVP
+live without blocking on backend auth.
+
 Everything else in the broader product spec is deferred until this loop is live.
 
 ## Local development

@@ -70,6 +70,12 @@ async function onSubmit(event) {
       throw new Error(data.error || "Submission failed.");
     }
 
+    if (data.mode === "github_redirect" && data.url) {
+      setStatus("Redirecting to GitHub to complete the issue submission...", "success");
+      window.location.assign(data.url);
+      return;
+    }
+
     form.reset();
     setStatus(`Request queued as issue #${data.number}.`, "success");
     await loadQueue();
