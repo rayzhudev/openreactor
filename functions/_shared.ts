@@ -372,7 +372,7 @@ function normalizeEnv(env: Env): NormalizedEnv {
   return {
     GITHUB_OWNER: clean(env.GITHUB_OWNER),
     GITHUB_REPO: clean(env.GITHUB_REPO),
-    GITHUB_TOKEN: clean(env.GITHUB_TOKEN),
+    GITHUB_TOKEN: clean(env.GITHUB_TOKEN).replace(/\s+/g, ""),
     GITHUB_LABELS: clean(env.GITHUB_LABELS)
   };
 }
