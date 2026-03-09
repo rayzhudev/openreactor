@@ -1,13 +1,24 @@
+import { createPrivateKey, sign } from "node:crypto";
+
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
+const APP_JWT_LIFETIME_SECONDS = 9 * 60;
+const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
+
+const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
+const installationIdCache = new Map<string, string>();
 
 export interface Env {
   GITHUB_OWNER?: string;
   GITHUB_REPO?: string;
   GITHUB_TOKEN?: string;
   GITHUB_LABELS?: string;
+  GITHUB_APP_ID?: string;
+  GITHUB_APP_CLIENT_ID?: string;
+  GITHUB_APP_INSTALLATION_ID?: string;
+  GITHUB_APP_PRIVATE_KEY?: string;
 }
 
 interface NormalizedEnv {
@@ -15,6 +26,10 @@ interface NormalizedEnv {
   GITHUB_REPO: string;
   GITHUB_TOKEN: string;
   GITHUB_LABELS: string;
+  GITHUB_APP_ID: string;
+  GITHUB_APP_CLIENT_ID: string;
+  GITHUB_APP_INSTALLATION_ID: string;
+  GITHUB_APP_PRIVATE_KEY: string;
 }
 
 interface FeatureRequestInput {
@@ -53,7 +68,8 @@ interface GitHubIssue {
 export async function handleMeta(env: Env): Promise<Response> {
   return jsonResponse({
     configured: isRepoConfigured(env),
-    repoUrl: getRepoUrl(env)
+    repoUrl: getRepoUrl(env),
+    authMode: getGitHubAuthMode(env)
   });
 }
 
@@ -61,7 +77,9 @@ export async function handleHealth(env: Env): Promise<Response> {
   return jsonResponse({
     ok: true,
     repoConfigured: isRepoConfigured(env),
-    submissionConfigured: isSubmissionConfigured(env)
+    submissionConfigured: isSubmissionConfigured(env),
+    apiAuthConfigured: hasGitHubApiAuth(env),
+    authMode: getGitHubAuthMode(env)
   });
 }
 
@@ -130,7 +148,7 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
   const labels = await getExistingLabels(normalized);
   const body = buildIssueBody(validated, request);
 
-  if (!normalized.GITHUB_TOKEN) {
+  if (!hasGitHubApiAuth(normalized)) {
     return jsonResponse(
       {
         mode: "github_redirect",
@@ -285,7 +303,7 @@ async function getExistingLabels(env: Env): Promise<string[]> {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  if (!configuredLabels.length || !normalized.GITHUB_TOKEN || !isRepoConfigured(normalized)) {
+  if (!configuredLabels.length || !isRepoConfigured(normalized)) {
     return [];
   }
 
@@ -308,8 +326,9 @@ async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Pro
   headers.set("X-GitHub-Api-Version", GITHUB_API_VERSION);
   headers.set("User-Agent", GITHUB_USER_AGENT);
 
-  if (env.GITHUB_TOKEN) {
-    headers.set("Authorization", `Bearer ${env.GITHUB_TOKEN}`);
+  const accessToken = await getGitHubAccessToken(env);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   if (init?.body && !headers.has("Content-Type")) {
@@ -333,12 +352,16 @@ async function githubRequestWithFallback<T>(env: Env, path: string, init?: Reque
   try {
     return await githubRequest<T>(env, path, init);
   } catch (error) {
-    if (!env.GITHUB_TOKEN || !isGithubAuthError(error)) {
+    if (!hasGitHubApiAuth(env) || !isGithubAuthError(error)) {
       throw error;
     }
 
     const withoutToken = {
       ...env,
+      GITHUB_APP_ID: "",
+      GITHUB_APP_CLIENT_ID: "",
+      GITHUB_APP_INSTALLATION_ID: "",
+      GITHUB_APP_PRIVATE_KEY: "",
       GITHUB_TOKEN: ""
     };
 
@@ -379,19 +402,19 @@ function isRepoConfigured(env: Env): boolean {
 }
 
 function isSubmissionConfigured(env: Env): boolean {
-  const normalized = normalizeEnv(env);
-  return Boolean(normalized.GITHUB_OWNER && normalized.GITHUB_REPO && normalized.GITHUB_TOKEN);
+  return Boolean(isRepoConfigured(env));
 }
 
 function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: Request): string {
   const title = `[Request] ${input.summary}`;
   const body = buildIssueBody(input, request);
-  const url = new URL(`https://github.com/${normalizeEnv(env).GITHUB_OWNER}/${normalizeEnv(env).GITHUB_REPO}/issues/new`);
+  const normalized = normalizeEnv(env);
+  const url = new URL(`https://github.com/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues/new`);
 
   url.searchParams.set("title", title);
   url.searchParams.set("body", body);
 
-  const labels = normalizeEnv(env).GITHUB_LABELS
+  const labels = normalized.GITHUB_LABELS
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
@@ -436,12 +459,153 @@ function normalizeEnv(env: Env): NormalizedEnv {
     GITHUB_OWNER: clean(env.GITHUB_OWNER),
     GITHUB_REPO: clean(env.GITHUB_REPO),
     GITHUB_TOKEN: clean(env.GITHUB_TOKEN).replace(/\s+/g, ""),
-    GITHUB_LABELS: clean(env.GITHUB_LABELS)
+    GITHUB_LABELS: clean(env.GITHUB_LABELS),
+    GITHUB_APP_ID: clean(env.GITHUB_APP_ID),
+    GITHUB_APP_CLIENT_ID: clean(env.GITHUB_APP_CLIENT_ID),
+    GITHUB_APP_INSTALLATION_ID: clean(env.GITHUB_APP_INSTALLATION_ID),
+    GITHUB_APP_PRIVATE_KEY: cleanPrivateKey(env.GITHUB_APP_PRIVATE_KEY)
   };
 }
 
 function isGithubAuthError(error: unknown): boolean {
   return error instanceof Error && /\b(401|403)\b/.test(error.message);
+}
+
+function hasGitHubApiAuth(env: Env): boolean {
+  const normalized = normalizeEnv(env);
+  return hasGitHubAppAuth(normalized) || Boolean(normalized.GITHUB_TOKEN);
+}
+
+function hasGitHubAppAuth(env: Env): boolean {
+  const normalized = normalizeEnv(env);
+  return Boolean(normalized.GITHUB_APP_ID && normalized.GITHUB_APP_PRIVATE_KEY);
+}
+
+function getGitHubAuthMode(env: Env): "app" | "token" | "redirect" | "unconfigured" {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
+    return "unconfigured";
+  }
+
+  if (hasGitHubAppAuth(normalized)) {
+    return "app";
+  }
+
+  if (normalized.GITHUB_TOKEN) {
+    return "token";
+  }
+
+  return "redirect";
+}
+
+async function getGitHubAccessToken(env: Env): Promise<string> {
+  const normalized = normalizeEnv(env);
+
+  if (hasGitHubAppAuth(normalized)) {
+    return getInstallationAccessToken(normalized);
+  }
+
+  return normalized.GITHUB_TOKEN;
+}
+
+async function getInstallationAccessToken(env: NormalizedEnv): Promise<string> {
+  const cacheKey = `${env.GITHUB_APP_ID}:${env.GITHUB_APP_INSTALLATION_ID || `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`}`;
+  const cached = installationTokenCache.get(cacheKey);
+
+  if (cached && cached.expiresAt - INSTALLATION_TOKEN_REFRESH_BUFFER_MS > Date.now()) {
+    return cached.token;
+  }
+
+  const appJwt = createGitHubAppJwt(env);
+  const installationId = env.GITHUB_APP_INSTALLATION_ID || (await discoverInstallationId(env, appJwt));
+  const tokenResponse = await githubAppRequest<{ token: string; expires_at: string }>(
+    appJwt,
+    `/app/installations/${installationId}/access_tokens`,
+    {
+      method: "POST",
+      body: JSON.stringify({})
+    }
+  );
+
+  installationIdCache.set(`${env.GITHUB_OWNER}/${env.GITHUB_REPO}`, installationId);
+  installationTokenCache.set(cacheKey, {
+    token: tokenResponse.token,
+    expiresAt: Date.parse(tokenResponse.expires_at)
+  });
+
+  return tokenResponse.token;
+}
+
+async function discoverInstallationId(env: NormalizedEnv, appJwt: string): Promise<string> {
+  const cacheKey = `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+  const cached = installationIdCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const installation = await githubAppRequest<{ id: number }>(
+    appJwt,
+    `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/installation`
+  );
+
+  const installationId = String(installation.id);
+  installationIdCache.set(cacheKey, installationId);
+  return installationId;
+}
+
+async function githubAppRequest<T>(appJwt: string, path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/vnd.github+json");
+  headers.set("Authorization", `Bearer ${appJwt}`);
+  headers.set("User-Agent", GITHUB_USER_AGENT);
+  headers.set("X-GitHub-Api-Version", GITHUB_API_VERSION);
+
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    headers
+  });
+
+  if (!response.ok) {
+    const detail = await safeErrorDetail(response);
+    throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+function createGitHubAppJwt(env: NormalizedEnv): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = encodeJsonBase64Url({
+    alg: "RS256",
+    typ: "JWT"
+  });
+  const payload = encodeJsonBase64Url({
+    iat: now - 60,
+    exp: now + APP_JWT_LIFETIME_SECONDS,
+    iss: env.GITHUB_APP_CLIENT_ID || env.GITHUB_APP_ID
+  });
+  const signingInput = `${header}.${payload}`;
+  const signature = sign("RSA-SHA256", Buffer.from(signingInput), createPrivateKey(env.GITHUB_APP_PRIVATE_KEY));
+
+  return `${signingInput}.${toBase64Url(signature)}`;
+}
+
+function encodeJsonBase64Url(value: Record<string, number | string>): string {
+  return toBase64Url(Buffer.from(JSON.stringify(value)));
+}
+
+function toBase64Url(value: Buffer): string {
+  return value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function cleanPrivateKey(value?: string): string {
+  return clean(value).replace(/\\n/g, "\n");
 }
 
 async function safeErrorDetail(response: Response): Promise<string> {

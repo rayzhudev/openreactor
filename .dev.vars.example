@@ -1,4 +1,7 @@
 GITHUB_OWNER=your-github-owner
 GITHUB_REPO=your-repo-name
-GITHUB_TOKEN=github_pat_or_installation_token
 GITHUB_LABELS=feature-request,intake
+GITHUB_APP_ID=your-github-app-id
+GITHUB_APP_INSTALLATION_ID=
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_TOKEN=

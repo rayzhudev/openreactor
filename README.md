@@ -13,9 +13,9 @@ The current MVP is intentionally small:
 - GitHub issue creation
 - public queue view backed by GitHub issues
 
-If a GitHub API token is not available or not permitted for issue creation, the
-form falls back to a prefilled GitHub issue creation flow. That keeps the MVP
-live without blocking on backend auth.
+OpenReactor is now wired to prefer GitHub App authentication for direct issue
+creation. If GitHub App credentials are not present yet, the form falls back to
+a prefilled GitHub issue creation flow so the intake loop still works.
 
 Everything else in the broader product spec is deferred until this loop is live.
 
@@ -33,7 +33,7 @@ bun install
 cp .dev.vars.example .dev.vars
 ```
 
-3. Fill in your GitHub repo target and token in `.dev.vars`.
+3. Fill in your GitHub repo target and auth values in `.dev.vars`.
 
 4. Start the Worker:
 
@@ -52,4 +52,5 @@ bun run deploy
 See [ROADMAP.md](/home/ray/projects/openreactor/ROADMAP.md) and
 [MEMORY.md](/home/ray/projects/openreactor/MEMORY.md) for current product
 constraints and implementation decisions. Deployment details live in
-[DEPLOYMENT.md](/home/ray/projects/openreactor/DEPLOYMENT.md).
+[DEPLOYMENT.md](/home/ray/projects/openreactor/DEPLOYMENT.md). GitHub App
+settings are documented in [GITHUB_APP_SETUP.md](/home/ray/projects/openreactor/GITHUB_APP_SETUP.md).
