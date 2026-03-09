@@ -1,0 +1,15 @@
+{
+  "name": "openreactor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --functions functions",
+    "deploy": "wrangler pages deploy public --project-name openreactor",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "wrangler": "^4.64.0"
+  }
+}

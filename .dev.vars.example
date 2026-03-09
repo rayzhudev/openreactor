@@ -1,0 +1,4 @@
+GITHUB_OWNER=your-github-owner
+GITHUB_REPO=your-repo-name
+GITHUB_TOKEN=github_pat_or_installation_token
+GITHUB_LABELS=feature-request,intake

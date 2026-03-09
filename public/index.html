@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenReactor</title>
+    <meta
+      name="description"
+      content="OpenReactor turns product requests into structured work. Submit a feature request and watch the queue form in public."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">Self-Building Software, Cut To The Bone</p>
+        <h1>OpenReactor starts with a form, not a fantasy.</h1>
+        <p class="lede">
+          The first live loop is simple: collect sharp requests, turn them into structured
+          GitHub issues, and let the product start feeding itself real work.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#request-form">Submit a request</a>
+          <a class="button button-secondary" id="repo-link" href="#" hidden>View issue queue</a>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel form-panel">
+          <div class="panel-heading">
+            <p class="kicker">MVP Intake</p>
+            <h2>Describe one change worth building.</h2>
+          </div>
+
+          <form id="request-form" novalidate>
+            <label>
+              <span>Summary</span>
+              <input
+                id="summary"
+                name="summary"
+                maxlength="120"
+                minlength="8"
+                placeholder="Fast example playback for generated apps"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Problem</span>
+              <textarea
+                id="problem"
+                name="problem"
+                rows="5"
+                maxlength="1200"
+                minlength="20"
+                placeholder="What is broken, missing, or too slow today?"
+                required
+              ></textarea>
+            </label>
+
+            <label>
+              <span>Desired outcome</span>
+              <textarea
+                id="outcome"
+                name="outcome"
+                rows="5"
+                maxlength="1200"
+                minlength="20"
+                placeholder="What should be true after this change ships?"
+                required
+              ></textarea>
+            </label>
+
+            <label>
+              <span>Constraints</span>
+              <textarea
+                id="constraints"
+                name="constraints"
+                rows="3"
+                maxlength="800"
+                placeholder="Technical limits, non-goals, or delivery constraints"
+              ></textarea>
+            </label>
+
+            <label>
+              <span>Success criteria</span>
+              <textarea
+                id="successCriteria"
+                name="successCriteria"
+                rows="3"
+                maxlength="800"
+                placeholder="How should maintainers know this request is done?"
+              ></textarea>
+            </label>
+
+            <label>
+              <span>Additional notes</span>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                maxlength="1000"
+                placeholder="Links, examples, or edge cases"
+              ></textarea>
+            </label>
+
+            <div class="contact-grid">
+              <label>
+                <span>Name</span>
+                <input id="name" name="name" maxlength="80" placeholder="Optional" />
+              </label>
+
+              <label>
+                <span>Contact</span>
+                <input id="contact" name="contact" maxlength="160" placeholder="Email or GitHub handle" />
+              </label>
+            </div>
+
+            <label class="honeypot" aria-hidden="true">
+              <span>Website</span>
+              <input id="website" name="website" tabindex="-1" autocomplete="off" />
+            </label>
+
+            <div class="form-footer">
+              <p class="fine-print">
+                Requests become public GitHub issues. Do not include secrets or private data.
+              </p>
+              <button class="button button-primary" id="submit-button" type="submit">
+                Send to queue
+              </button>
+            </div>
+
+            <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="panel queue-panel">
+          <div class="panel-heading">
+            <p class="kicker">Public Queue</p>
+            <h2>Live requests</h2>
+          </div>
+          <p class="queue-intro">
+            This is the only dashboard the MVP needs: incoming work, in public, with no fake
+            complexity around it.
+          </p>
+          <div id="queue" class="queue-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
