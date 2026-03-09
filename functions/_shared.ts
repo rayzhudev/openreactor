@@ -74,12 +74,19 @@ export async function handleMeta(env: Env): Promise<Response> {
 }
 
 export async function handleHealth(env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
   return jsonResponse({
     ok: true,
     repoConfigured: isRepoConfigured(env),
     submissionConfigured: isSubmissionConfigured(env),
     apiAuthConfigured: hasGitHubApiAuth(env),
-    authMode: getGitHubAuthMode(env)
+    authMode: getGitHubAuthMode(env),
+    appInstallationHint: hasGitHubAppAuth(normalized)
+      ? {
+          appId: normalized.GITHUB_APP_ID,
+          installationIdConfigured: Boolean(normalized.GITHUB_APP_INSTALLATION_ID)
+        }
+      : null
   });
 }
 
