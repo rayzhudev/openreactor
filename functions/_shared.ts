@@ -408,6 +408,7 @@ function jsonResponse(data: Record<string, unknown>, status = 200): Response {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
       ...corsHeaders()
     }
   });
