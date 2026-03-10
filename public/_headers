@@ -1,0 +1,14 @@
+/
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/request-guide/
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/*.html
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/app.js
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+/styles.css
+  Cache-Control: no-cache, max-age=0, must-revalidate
