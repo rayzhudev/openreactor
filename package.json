@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev public --functions functions",
+    "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public --project-name openreactor",
     "check": "tsc --noEmit",
     "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",

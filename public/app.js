@@ -6,10 +6,17 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const queueTotalNode = document.querySelector("#queue-total");
+const queueActiveNode = document.querySelector("#queue-active");
+const queueCompleteNode = document.querySelector("#queue-complete");
+const queueSummaryNode = document.querySelector("#queue-summary");
+
+const SUBMIT_BUTTON_LABEL = "Launch issue";
 
 boot();
 
 async function boot() {
+  resetQueueSummary();
   form.addEventListener("submit", onSubmit);
   await Promise.all([loadRepoMeta(), loadQueue()]);
 }
@@ -64,7 +71,7 @@ async function onSubmit(event) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
     submitButton.disabled = false;
-    submitButton.innerHTML = "<span aria-hidden=\"true\">+</span>";
+    submitButton.textContent = SUBMIT_BUTTON_LABEL;
   }
 }
 
@@ -185,6 +192,7 @@ function renderRepoStarLink(repoUrl) {
 
 function renderQueue(items, repoUrl) {
   queueList.innerHTML = "";
+  updateQueueSummary(items);
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -212,20 +220,33 @@ function renderQueue(items, repoUrl) {
     link.target = "_blank";
     link.rel = "noreferrer";
 
-    const title = document.createElement("span");
-    title.className = "queue-item-title";
-    title.textContent = item.title;
+    const top = document.createElement("div");
+    top.className = "queue-item-top";
+
+    const issue = document.createElement("span");
+    issue.className = "queue-item-issue";
+    issue.textContent = `Issue #${item.number}`;
 
     const status = document.createElement("span");
     status.className = "queue-item-status";
     status.dataset.status = item.status;
     status.textContent = formatStatus(item.status);
 
+    top.append(issue, status);
+
+    const title = document.createElement("span");
+    title.className = "queue-item-title";
+    title.textContent = item.title;
+
     const meta = document.createElement("span");
     meta.className = "queue-item-meta";
-    meta.textContent = `#${item.number} · ${formatDate(item.createdAt)}`;
+    meta.textContent = formatDate(item.createdAt);
 
-    link.append(title, status, meta);
+    const cta = document.createElement("span");
+    cta.className = "queue-item-cta";
+    cta.textContent = "Open on GitHub";
+
+    link.append(top, title, meta, cta);
     row.append(link);
     fragment.append(row);
   }
@@ -238,6 +259,10 @@ function renderQueueError(message) {
   queueList.innerHTML = "";
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
+  setMetric(queueTotalNode, "--");
+  setMetric(queueActiveNode, "--");
+  setMetric(queueCompleteNode, "--");
+  queueSummaryNode.textContent = "Queue unavailable right now.";
   setQueueStatus(`${message} Check GitHub directly if the queue API is unavailable.`, "error");
 }
 
@@ -246,15 +271,47 @@ function setQueueStatus(message, tone) {
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
 }
 
+function resetQueueSummary() {
+  setMetric(queueTotalNode, "--");
+  setMetric(queueActiveNode, "--");
+  setMetric(queueCompleteNode, "--");
+  queueSummaryNode.textContent = "Connecting to GitHub...";
+}
+
+function updateQueueSummary(items) {
+  const activeCount = items.filter((item) => item.status === "in-progress").length;
+  const completeCount = items.filter((item) => item.status === "complete").length;
+
+  setMetric(queueTotalNode, items.length);
+  setMetric(queueActiveNode, activeCount);
+  setMetric(queueCompleteNode, completeCount);
+
+  if (!items.length) {
+    queueSummaryNode.textContent = "No public requests yet.";
+    return;
+  }
+
+  queueSummaryNode.textContent = summarizeLatestItem(items[0]);
+}
+
+function setMetric(node, value) {
+  node.textContent = `${value}`;
+}
+
+function summarizeLatestItem(item) {
+  const trimmedTitle = item.title.length > 48 ? `${item.title.slice(0, 45).trimEnd()}...` : item.title;
+  return `#${item.number} ${formatStatus(item.status)} - ${trimmedTitle}`;
+}
+
 function formatStatus(status) {
-  return status.replace(/-/g, " ");
+  return status.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function formatDate(value) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "unknown date";
+    return "Unknown date";
   }
 
   return new Intl.DateTimeFormat(undefined, {
