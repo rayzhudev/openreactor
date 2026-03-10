@@ -4,18 +4,34 @@ const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
-const queueList = document.querySelector("#queue-list");
+const queueBoard = document.querySelector("#queue-board");
+const queueTableWrap = document.querySelector("#queue-table-wrap");
+const queueTableBody = document.querySelector("#queue-table-body");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const queueViewButtons = Array.from(document.querySelectorAll(".queue-view-button"));
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const BOARD_COLUMNS = [
+  { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
+  { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." },
+  { key: "complete", label: "Complete", description: "Closed because the work shipped." },
+  { key: "rejected", label: "Rejected", description: "Publicly declined for product reasons." }
+];
+
+let queueItems = [];
+let activeQueueView = "board";
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  for (const button of queueViewButtons) {
+    button.addEventListener("click", onQueueViewChange);
+  }
   updateRequestCount(requestField.value);
+  renderQueueView();
   await Promise.all([loadRepoMeta(), loadQueue()]);
 }
 
@@ -170,7 +186,8 @@ function setStatus(message, tone) {
 
 async function loadQueue() {
   setQueueStatus("Loading queue...");
-  queueList.innerHTML = "";
+  queueItems = [];
+  renderQueueView();
 
   try {
     const response = await fetch("/api/requests");
@@ -213,7 +230,7 @@ function renderRepoStarLink(repoUrl) {
 }
 
 function renderQueue(items, repoUrl) {
-  queueList.innerHTML = "";
+  queueItems = items;
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -225,61 +242,18 @@ function renderQueue(items, repoUrl) {
   }
 
   if (!items.length) {
+    renderQueueView();
     setQueueStatus("No requests yet.");
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-
-  for (const item of items) {
-    const row = document.createElement("li");
-    row.className = "queue-item";
-
-    const link = document.createElement("a");
-    link.className = "queue-item-link";
-    link.href = item.url;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-
-    const top = document.createElement("div");
-    top.className = "queue-item-top";
-
-    const issue = document.createElement("span");
-    issue.className = "queue-item-issue";
-    issue.textContent = `Issue #${item.number}`;
-
-    const status = document.createElement("span");
-    status.className = "queue-item-status";
-    status.dataset.status = item.status;
-    status.textContent = formatStatus(item.status);
-
-    top.append(issue, status);
-
-    const title = document.createElement("span");
-    title.className = "queue-item-title";
-    title.textContent = item.title;
-
-    const meta = document.createElement("time");
-    meta.className = "queue-item-meta";
-    meta.dateTime = item.createdAt;
-    meta.title = item.createdAt;
-    meta.textContent = formatSubmissionTimestamp(item.createdAt);
-
-    const cta = document.createElement("span");
-    cta.className = "queue-item-cta";
-    cta.textContent = "Open on GitHub";
-
-    link.append(top, title, meta, cta);
-    row.append(link);
-    fragment.append(row);
-  }
-
-  queueList.append(fragment);
+  renderQueueView();
   setQueueStatus(`${items.length} request${items.length === 1 ? "" : "s"}.`);
 }
 
 function renderQueueError(message) {
-  queueList.innerHTML = "";
+  queueItems = [];
+  renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
@@ -288,6 +262,178 @@ function renderQueueError(message) {
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+}
+
+function onQueueViewChange(event) {
+  const nextView = event.currentTarget.dataset.view;
+
+  if (!nextView || nextView === activeQueueView) {
+    return;
+  }
+
+  activeQueueView = nextView;
+  renderQueueView();
+}
+
+function renderQueueView() {
+  queueBoard.hidden = activeQueueView !== "board";
+  queueTableWrap.hidden = activeQueueView !== "list";
+
+  for (const button of queueViewButtons) {
+    const isActive = button.dataset.view === activeQueueView;
+    button.dataset.active = String(isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+
+  renderQueueBoard(queueItems);
+  renderQueueTable(queueItems);
+}
+
+function renderQueueBoard(items) {
+  queueBoard.innerHTML = "";
+
+  const groupedItems = new Map(BOARD_COLUMNS.map((column) => [column.key, []]));
+
+  for (const item of items) {
+    const group = groupedItems.get(item.status) || groupedItems.get("queued");
+    group.push(item);
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const column of BOARD_COLUMNS) {
+    const lane = document.createElement("section");
+    lane.className = "queue-lane";
+    lane.dataset.status = column.key;
+
+    const header = document.createElement("div");
+    header.className = "queue-lane-header";
+
+    const titleBlock = document.createElement("div");
+    titleBlock.className = "queue-lane-title-block";
+
+    const heading = document.createElement("h3");
+    heading.className = "queue-lane-title";
+    heading.textContent = column.label;
+
+    const description = document.createElement("p");
+    description.className = "queue-lane-description";
+    description.textContent = column.description;
+
+    titleBlock.append(heading, description);
+
+    const count = document.createElement("span");
+    count.className = "queue-lane-count";
+    count.textContent = String(groupedItems.get(column.key)?.length || 0);
+
+    header.append(titleBlock, count);
+
+    const list = document.createElement("ul");
+    list.className = "queue-lane-list";
+
+    const columnItems = groupedItems.get(column.key) || [];
+
+    if (!columnItems.length) {
+      const empty = document.createElement("li");
+      empty.className = "queue-lane-empty";
+      empty.textContent = "No requests here yet.";
+      list.append(empty);
+    } else {
+      for (const item of columnItems) {
+        const row = document.createElement("li");
+        row.className = "queue-card";
+        row.append(createQueueCardLink(item));
+        list.append(row);
+      }
+    }
+
+    lane.append(header, list);
+    fragment.append(lane);
+  }
+
+  queueBoard.append(fragment);
+}
+
+function renderQueueTable(items) {
+  queueTableBody.innerHTML = "";
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+
+    const issueCell = document.createElement("td");
+    issueCell.className = "queue-table-issue";
+    issueCell.textContent = `#${item.number}`;
+
+    const titleCell = document.createElement("td");
+    const titleLink = document.createElement("a");
+    titleLink.className = "queue-table-link";
+    titleLink.href = item.url;
+    titleLink.target = "_blank";
+    titleLink.rel = "noreferrer";
+    titleLink.textContent = item.title;
+    titleCell.append(titleLink);
+
+    const statusCell = document.createElement("td");
+    const status = document.createElement("span");
+    status.className = "queue-item-status";
+    status.dataset.status = item.status;
+    status.textContent = formatStatus(item.status);
+    statusCell.append(status);
+
+    const submittedCell = document.createElement("td");
+    const submittedTime = document.createElement("time");
+    submittedTime.className = "queue-table-time";
+    submittedTime.dateTime = item.createdAt;
+    submittedTime.title = item.createdAt;
+    submittedTime.textContent = formatSubmissionTimestamp(item.createdAt);
+    submittedCell.append(submittedTime);
+
+    row.append(issueCell, titleCell, statusCell, submittedCell);
+    fragment.append(row);
+  }
+
+  queueTableBody.append(fragment);
+}
+
+function createQueueCardLink(item) {
+  const link = document.createElement("a");
+  link.className = "queue-card-link";
+  link.href = item.url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+
+  const top = document.createElement("div");
+  top.className = "queue-item-top";
+
+  const issue = document.createElement("span");
+  issue.className = "queue-item-issue";
+  issue.textContent = `Issue #${item.number}`;
+
+  const status = document.createElement("span");
+  status.className = "queue-item-status";
+  status.dataset.status = item.status;
+  status.textContent = formatStatus(item.status);
+
+  top.append(issue, status);
+
+  const title = document.createElement("span");
+  title.className = "queue-item-title";
+  title.textContent = item.title;
+
+  const meta = document.createElement("time");
+  meta.className = "queue-item-meta";
+  meta.dateTime = item.createdAt;
+  meta.title = item.createdAt;
+  meta.textContent = formatSubmissionTimestamp(item.createdAt);
+
+  const cta = document.createElement("span");
+  cta.className = "queue-item-cta";
+  cta.textContent = "Open on GitHub";
+
+  link.append(top, title, meta, cta);
+  return link;
 }
 
 function formatStatus(status) {
