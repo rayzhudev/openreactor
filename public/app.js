@@ -332,11 +332,16 @@ function renderQueue(items, repoUrl) {
     meta.title = item.createdAt;
     meta.textContent = formatSubmissionTimestamp(item.createdAt);
 
+    const detail = document.createElement("p");
+    detail.className = "queue-item-detail";
+    detail.textContent = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
+    detail.hidden = !detail.textContent;
+
     const cta = document.createElement("span");
     cta.className = "queue-item-cta";
     cta.textContent = "Open on GitHub";
 
-    link.append(top, title, meta, cta);
+    link.append(top, title, meta, detail, cta);
     row.append(link);
     fragment.append(row);
   }
@@ -381,6 +386,32 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function formatQueueDetail(detail, updatedAt) {
+  if (!detail) {
+    return "";
+  }
+
+  const updatedLabel = updatedAt ? formatStatusTimestamp(updatedAt) : "Updated recently";
+  return `${detail} ${updatedLabel}`;
+}
+
+function formatStatusTimestamp(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Updated recently.";
+  }
+
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+
+  return `Updated ${formatted}.`;
 }
 
 async function readJsonResponse(response, context) {
