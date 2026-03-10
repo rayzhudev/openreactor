@@ -7,8 +7,19 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const queueNewerButton = document.querySelector("#queue-newer");
+const queueOlderButton = document.querySelector("#queue-older");
+const queuePageLabelNode = document.querySelector("#queue-page-label");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
+
+const queueState = {
+  page: DEFAULT_QUEUE_PAGE,
+  isLoading: false,
+  hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
+  hasNextPage: false
+};
 
 boot();
 
@@ -16,7 +27,14 @@ async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
   updateRequestCount(requestField.value);
-  await Promise.all([loadRepoMeta(), loadQueue()]);
+  queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
+  queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
+  await Promise.all([loadRepoMeta(), loadQueue(queueState.page)]);
 }
 
 function onRequestInput(event) {
@@ -70,7 +88,7 @@ async function onSubmit(event) {
     updateRequestCount("");
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
-    await loadQueue();
+    await loadQueue(1);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
@@ -168,21 +186,31 @@ function setStatus(message, tone) {
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
 }
 
-async function loadQueue() {
+async function loadQueue(page = 1) {
+  queueState.isLoading = true;
+  queueState.page = page;
   setQueueStatus("Loading queue...");
   queueList.innerHTML = "";
+  syncQueueControls({
+    page,
+    hasPreviousPage: page > 1,
+    hasNextPage: false
+  });
 
   try {
-    const response = await fetch("/api/requests");
+    const response = await fetch(`/api/requests?page=${page}`);
     const data = await readJsonResponse(response, "queue");
 
     if (!response.ok) {
       throw new Error(data.error || "Unable to load the public queue.");
     }
 
-    renderQueue(data.items || [], data.repoUrl || "");
+    renderQueue(data);
   } catch (error) {
     renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
+  } finally {
+    queueState.isLoading = false;
+    syncQueueControls(queueState);
   }
 }
 
@@ -212,8 +240,19 @@ function renderRepoStarLink(repoUrl) {
   repoStarLink.removeAttribute("href");
 }
 
-function renderQueue(items, repoUrl) {
+function renderQueue(data) {
+  const items = data.items || [];
+  const page = Number.isInteger(data.page) ? data.page : 1;
+  const hasPreviousPage = Boolean(data.hasPreviousPage);
+  const hasNextPage = Boolean(data.hasNextPage);
+  const repoUrl = data.repoUrl || "";
+
   queueList.innerHTML = "";
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  updateQueueLocation(page);
+  syncQueueControls({ page, hasPreviousPage, hasNextPage });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -225,7 +264,7 @@ function renderQueue(items, repoUrl) {
   }
 
   if (!items.length) {
-    setQueueStatus("No requests yet.");
+    setQueueStatus(page === 1 ? "No requests yet." : "No older requests on this page.");
     return;
   }
 
@@ -275,13 +314,18 @@ function renderQueue(items, repoUrl) {
   }
 
   queueList.append(fragment);
-  setQueueStatus(`${items.length} request${items.length === 1 ? "" : "s"}.`);
+  setQueueStatus(`Page ${page} with ${items.length} request${items.length === 1 ? "" : "s"}.`);
 }
 
 function renderQueueError(message) {
   queueList.innerHTML = "";
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
 }
 
@@ -335,4 +379,44 @@ async function readJsonResponse(response, context) {
   }
 
   throw new Error(`The ${context} API returned an unexpected response.`);
+}
+
+function changeQueuePage(page) {
+  if (queueState.isLoading || page < 1 || page === queueState.page) {
+    return;
+  }
+
+  void loadQueue(page);
+}
+
+function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  queuePageLabelNode.textContent = `Page ${page}`;
+  queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
+  queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+}
+
+function updateQueueLocation(page) {
+  const url = new URL(window.location.href);
+
+  if (page <= 1) {
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("page", `${page}`);
+  }
+
+  window.history.replaceState({}, "", url);
+}
+
+function getQueuePageFromLocation() {
+  const value = new URL(window.location.href).searchParams.get("page");
+  const page = Number.parseInt(value ?? "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
 }

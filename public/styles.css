@@ -653,6 +653,57 @@ input,
   color: var(--accent-soft);
 }
 
+.queue-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.queue-pagination-button {
+  min-width: 7rem;
+  min-height: 2.9rem;
+  padding: 0 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(247, 239, 227, 0.06);
+  color: var(--ink);
+  font-family: var(--ui-font);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    opacity 180ms ease;
+}
+
+.queue-pagination-button:hover,
+.queue-pagination-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 210, 121, 0.5);
+  background: rgba(247, 239, 227, 0.1);
+}
+
+.queue-pagination-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.queue-page-label {
+  font-family: var(--ui-font);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 .guide-page {
   background:
     radial-gradient(circle at 18% 16%, rgba(255, 138, 91, 0.18), transparent 28%),
@@ -875,6 +926,20 @@ input,
   .submit-button,
   .top-nav-link {
     width: 100%;
+  }
+
+  .queue-pagination {
+    flex-wrap: wrap;
+  }
+
+  .queue-page-label {
+    width: 100%;
+    text-align: center;
+    order: -1;
+  }
+
+  .queue-pagination-button {
+    flex: 1 1 0;
   }
 
   .guide-shell {
