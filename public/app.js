@@ -6,6 +6,7 @@ const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
+const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
 const queueNewerButton = document.querySelector("#queue-newer");
 const queueOlderButton = document.querySelector("#queue-older");
@@ -13,7 +14,11 @@ const queuePageLabelNode = document.querySelector("#queue-page-label");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
+const QUEUE_POLL_INTERVAL_MS = 30_000;
 
+let queueEtag = "";
+let lastQueueRefreshAt = 0;
+let queuePollTimer = 0;
 const queueState = {
   page: DEFAULT_QUEUE_PAGE,
   isLoading: false,
@@ -26,6 +31,7 @@ boot();
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  document.addEventListener("visibilitychange", onVisibilityChange);
   updateRequestCount(requestField.value);
   queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
   queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
@@ -35,6 +41,7 @@ async function boot() {
     hasNextPage: queueState.hasNextPage
   });
   await Promise.all([loadRepoMeta(), loadQueue(queueState.page)]);
+  startQueuePolling();
 }
 
 function onRequestInput(event) {
@@ -186,11 +193,15 @@ function setStatus(message, tone) {
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
 }
 
-async function loadQueue(page = 1) {
+async function loadQueue(page = 1, options = {}) {
+  const { silent = false } = options;
   queueState.isLoading = true;
   queueState.page = page;
-  setQueueStatus("Loading queue...");
-  queueList.innerHTML = "";
+  if (!silent) {
+    setQueueStatus("Loading queue...");
+    setQueueRefreshNote("");
+    queueList.innerHTML = "";
+  }
   syncQueueControls({
     page,
     hasPreviousPage: page > 1,
@@ -198,15 +209,27 @@ async function loadQueue(page = 1) {
   });
 
   try {
-    const response = await fetch(`/api/requests?page=${page}`);
+    const headers = queueEtag ? { "If-None-Match": queueEtag } : {};
+    const response = await fetch(`/api/requests?page=${page}`, {
+      headers,
+      cache: "no-store"
+    });
+
+    if (response.status === 304) {
+      markQueueRefresh();
+      refreshQueueStatusCopy(queueList.childElementCount, page);
+      return;
+    }
     const data = await readJsonResponse(response, "queue");
 
     if (!response.ok) {
       throw new Error(data.error || "Unable to load the public queue.");
     }
 
+    queueEtag = response.headers.get("etag") || "";
     renderQueue(data);
   } catch (error) {
+    queueEtag = "";
     renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
   } finally {
     queueState.isLoading = false;
@@ -246,7 +269,7 @@ function renderQueue(data) {
   const hasPreviousPage = Boolean(data.hasPreviousPage);
   const hasNextPage = Boolean(data.hasNextPage);
   const repoUrl = data.repoUrl || "";
-
+  markQueueRefresh();
   queueList.innerHTML = "";
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
@@ -265,6 +288,11 @@ function renderQueue(data) {
 
   if (!items.length) {
     setQueueStatus(page === 1 ? "No requests yet." : "No older requests on this page.");
+    setQueueRefreshNote(
+      page === 1
+        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
+        : `Page ${page} is empty.`
+    );
     return;
   }
 
@@ -314,7 +342,7 @@ function renderQueue(data) {
   }
 
   queueList.append(fragment);
-  setQueueStatus(`Page ${page} with ${items.length} request${items.length === 1 ? "" : "s"}.`);
+  refreshQueueStatusCopy(items.length, page);
 }
 
 function renderQueueError(message) {
@@ -327,11 +355,73 @@ function renderQueueError(message) {
     hasNextPage: queueState.hasNextPage
   });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
+  setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
 
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+}
+
+function setQueueRefreshNote(message) {
+  queueRefreshNoteNode.textContent = message;
+}
+
+function startQueuePolling() {
+  stopQueuePolling();
+  queuePollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+
+    loadQueue(queueState.page, { silent: true });
+  }, QUEUE_POLL_INTERVAL_MS);
+}
+
+function stopQueuePolling() {
+  if (!queuePollTimer) {
+    return;
+  }
+
+  window.clearInterval(queuePollTimer);
+  queuePollTimer = 0;
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+
+  if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
+    loadQueue(queueState.page, { silent: true });
+  }
+}
+
+function refreshQueueStatusCopy(itemCount = queueList.childElementCount, page = queueState.page) {
+  const countLabel = `${itemCount} request${itemCount === 1 ? "" : "s"}.`;
+  const freshnessLabel = lastQueueRefreshAt
+    ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
+    : "Waiting for the first refresh.";
+  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  setQueueRefreshNote(freshnessLabel);
+}
+
+function markQueueRefresh() {
+  lastQueueRefreshAt = Date.now();
+}
+
+function formatPollInterval() {
+  return `${Math.round(QUEUE_POLL_INTERVAL_MS / 1000)}s`;
+}
+
+function formatRelativeRefreshTime(timestamp) {
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+
+  if (seconds <= 2) {
+    return "just now";
+  }
+
+  return `${seconds}s ago`;
 }
 
 function formatStatus(status) {

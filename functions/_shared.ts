@@ -124,14 +124,41 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
         status: getIssueStatus(issue)
       }));
 
-    return jsonResponse({
+    const repoUrl = getRepoUrl(normalized);
+    const hasPreviousPage = page > 1;
+    const hasNextPage = issues.length > start + MAX_QUEUE_ITEMS;
+    const etag = buildQueueEtag({
       items,
-      repoUrl: getRepoUrl(normalized),
       page,
-      pageSize: MAX_QUEUE_ITEMS,
-      hasPreviousPage: page > 1,
-      hasNextPage: issues.length > start + MAX_QUEUE_ITEMS
+      hasPreviousPage,
+      hasNextPage
     });
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          "Cache-Control": "no-store",
+          ETag: etag,
+          ...corsHeaders()
+        }
+      });
+    }
+
+    return jsonResponse(
+      {
+        items,
+        repoUrl,
+        page,
+        pageSize: MAX_QUEUE_ITEMS,
+        hasPreviousPage,
+        hasNextPage
+      },
+      200,
+      {
+        ETag: etag
+      }
+    );
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
   }
@@ -509,12 +536,17 @@ function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: 
   return url.toString();
 }
 
-function jsonResponse(data: Record<string, unknown>, status = 200): Response {
+function jsonResponse(
+  data: Record<string, unknown>,
+  status = 200,
+  extraHeaders: Record<string, string> = {}
+): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      ...extraHeaders,
       ...corsHeaders()
     }
   });
@@ -572,6 +604,22 @@ function isLowSignalText(value: string): boolean {
   }
 
   return false;
+}
+
+function buildQueueEtag({
+  items,
+  page,
+  hasPreviousPage,
+  hasNextPage
+}: {
+  items: Array<{ number: number; createdAt: string; status: string }>;
+  page: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}): string {
+  const signature = items.map((item) => `${item.number}:${item.status}:${item.createdAt}`).join("|");
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
+  return `W/"${pageState}:${signature || "empty"}"`;
 }
 
 function normalizeEnv(env: Env): NormalizedEnv {
