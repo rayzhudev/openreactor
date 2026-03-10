@@ -63,6 +63,7 @@ Helper tooling for issue agents:
 
 ```bash
 bun run reactor:tool --help
+bun run reactor:tool coauthor-trailer --username octocat
 ```
 
 Production intake smoke test:

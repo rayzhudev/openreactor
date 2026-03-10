@@ -24,3 +24,6 @@
 
 - Decision: treat a merged PR as valid completion evidence for an accepted issue branch, not just an open PR.
   Reason: accepted work is often squash-merged before later retries or reconciliation runs inspect branch state.
+
+- Decision: allow submitters to optionally provide a GitHub username and carry it through the issue body for commit attribution.
+  Reason: accepted changes should be able to credit the requester without adding a separate identity system outside GitHub.

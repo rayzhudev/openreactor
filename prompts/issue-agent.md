@@ -119,6 +119,12 @@ If more work is needed after this iteration:
 - update `plan.json`, `tasks.md`, and `progress.md`
 - return `retry`
 
+## Commit Attribution
+
+- If the issue body includes a `## GitHub Username` value and you create a commit for accepted work, add that submitter as a co-author on the commit.
+- Use `bun run reactor:tool coauthor-trailer --username <login>` to generate the exact `Co-authored-by:` trailer, then append that trailer to the commit message.
+- If the username is missing or invalid, do not guess at commit attribution.
+
 ## Coding Rules
 
 - Stay on the issue branch already prepared for you.

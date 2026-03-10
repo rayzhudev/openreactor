@@ -36,8 +36,9 @@ async function onSubmit(event) {
 
   const formData = new FormData(form);
   const request = `${formData.get("request") ?? ""}`.trim();
+  const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
-  const validationError = validateRequest(request);
+  const validationError = validateRequest(request, githubUsername);
 
   if (validationError) {
     setStatus(validationError, "error");
@@ -46,7 +47,7 @@ async function onSubmit(event) {
     return;
   }
 
-  const payload = buildPayload(request, website);
+  const payload = buildPayload(request, website, githubUsername);
 
   try {
     const response = await fetch("/api/requests", {
@@ -82,11 +83,12 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website) {
+function buildPayload(request, website, githubUsername) {
   const summary = summarizeRequest(request);
 
   return {
     website,
+    githubUsername: normalizeGitHubUsername(githubUsername),
     summary,
     problem: request,
     outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
@@ -111,12 +113,25 @@ function summarizeRequest(request) {
   return `${normalized.slice(0, 117).trimEnd()}...`;
 }
 
-function validateRequest(request) {
+function validateRequest(request, githubUsername) {
   if (isLowSignalText(request)) {
     return "Describe the request in plain language instead of repeated or placeholder text.";
   }
 
+  const normalizedGitHubUsername = normalizeGitHubUsername(githubUsername);
+  if (normalizedGitHubUsername && !isValidGitHubUsername(normalizedGitHubUsername)) {
+    return "GitHub username must be 1 to 39 characters using letters, numbers, or single hyphens.";
+  }
+
   return "";
+}
+
+function normalizeGitHubUsername(value) {
+  return value.replace(/^@+/, "").trim();
+}
+
+function isValidGitHubUsername(value) {
+  return /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(value);
 }
 
 function isLowSignalText(value) {
