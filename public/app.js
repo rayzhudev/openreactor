@@ -122,7 +122,7 @@ function renderQueue(items, repoUrl) {
   }
 
   if (!items.length) {
-    setQueueStatus("No public requests yet. The first accepted submission will appear here.");
+    setQueueStatus("No public requests yet. New requests will appear here with their latest status.");
     return;
   }
 
@@ -142,11 +142,16 @@ function renderQueue(items, repoUrl) {
     title.className = "queue-item-title";
     title.textContent = item.title;
 
+    const status = document.createElement("span");
+    status.className = "queue-item-status";
+    status.dataset.status = item.status;
+    status.textContent = formatStatus(item.status);
+
     const meta = document.createElement("span");
     meta.className = "queue-item-meta";
-    meta.textContent = `#${item.number} · ${formatStatus(item.status)} · ${formatDate(item.createdAt)}`;
+    meta.textContent = `#${item.number} · ${formatDate(item.createdAt)}`;
 
-    link.append(title, meta);
+    link.append(title, status, meta);
     row.append(link);
     fragment.append(row);
   }
