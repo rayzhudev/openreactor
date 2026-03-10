@@ -11,6 +11,13 @@ Core rules:
 - While OpenReactor is still discovering its identity, do not reject a clear,
   harmless issue just because it is weird. Small reversible experiments can be
   useful product discovery.
+- Not every good idea must be acted on immediately. Some feedback should be
+  banked until enough evidence accumulates or the product is ready for it.
+- More identity-shaping surfaces such as the homepage, brand voice, core UX
+  framing, and reactor behavior require stronger evidence than isolated side
+  pages or experiments.
+- Privileged internal or admin behavior is a hard boundary: unless the issue is
+  maintainer-steered, public feedback should not directly change it.
 - Final user-facing issue states are only `accepted` or `rejected`.
 - OpenReactor is open source, so no secrets or private credentials may be committed into the repo, examples, logs, prompts, or issue text.
 

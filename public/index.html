@@ -6,7 +6,7 @@
     <title>OpenReactor</title>
     <meta
       name="description"
-      content="OpenReactor turns clear product requests into public work."
+      content="OpenReactor is a self-evolving product engine: request intake, public issues, agent judgment, PRs, and automatic deployment."
     />
     <script>
       try {
@@ -70,14 +70,15 @@
       <section class="hero-grid" aria-labelledby="page-title">
         <section class="hero-copy panel">
           <div class="product-explainer-copy">
-            <p class="eyebrow">Editorial intake loop</p>
+            <p class="eyebrow">Agentic product harness</p>
             <h1 class="hero-title" id="page-title">
               Pressure builds the brief.
             </h1>
             <p class="product-explainer-summary">
-              OpenReactor turns sharp product pressure into public GitHub issues,
-              agent judgment, and visible shipping motion. This is a taste-driven
-              front door for product work, not a polite suggestion box.
+              OpenReactor is an agentic harness for software that can evolve on
+              its own. Requests enter the system, agents decide what matters,
+              accepted work ships through public PRs, and the product learns as
+              it goes.
             </p>
           </div>
 
@@ -124,30 +125,38 @@
             <h2 class="sr-only" id="product-explainer-title">How OpenReactor works</h2>
             <div class="product-explainer-rail" aria-label="How OpenReactor works">
               <article class="product-explainer-step">
-                <p class="product-explainer-step-number">1</p>
-                <h3>Pressure enters the queue</h3>
-                <p>Your request becomes a structured public issue instead of disappearing into a form inbox.</p>
+                <p class="product-explainer-step-number">01</p>
+                <h3>Intake becomes public state</h3>
+                <p>Product pressure becomes a structured public issue instead of vanishing into a private inbox.</p>
               </article>
 
               <article class="product-explainer-step">
-                <p class="product-explainer-step-number">2</p>
-                <h3>Agents judge the move</h3>
-                <p>Scope, safety, and product coherence are evaluated before anything ships.</p>
+                <p class="product-explainer-step-number">02</p>
+                <h3>The engine decides</h3>
+                <p>The system can reject, bank, decompose, or implement a request depending on what is best for the product.</p>
               </article>
 
               <article class="product-explainer-step">
-                <p class="product-explainer-step-number">3</p>
-                <h3>The branch stays public</h3>
-                <p>Accepted changes turn into visible branches and PRs. Rejections stay visible too.</p>
+                <p class="product-explainer-step-number">03</p>
+                <h3>Shipping stays visible</h3>
+                <p>Accepted work becomes a branch, PR, merge, deployment, and future memory for the next cycle.</p>
               </article>
             </div>
 
             <div class="product-explainer-footer">
               <p class="product-explainer-note">
-                Expect judgment, not literal execution. Strong requests explain
-                the friction and the desired shift, then leave room for the
-                best implementation.
+                This is not just code generation. OpenReactor is about automating
+                the full product lifecycle, with more scrutiny on the changes
+                that shape the product's identity.
               </p>
+              <div class="engine-explainer" aria-label="OpenReactor engine explainer">
+                <p class="engine-explainer-kicker">Engine</p>
+                <p class="engine-explainer-copy">
+                  Intake, judgment, implementation, PR repair, merge, deploy,
+                  memory. The loop is the mechanism that lets software evolve by
+                  itself.
+                </p>
+              </div>
               <a class="product-explainer-link" href="/request-guide/">
                 Read the full request guide
               </a>
@@ -183,11 +192,36 @@
 
             <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
 
+            <div class="scope-field">
+              <div class="scope-field-header">
+                <span class="request-meta-heading">Scope</span>
+                <span class="scope-value-label" id="scope-value-label">Moderate change</span>
+              </div>
+              <input
+                id="effort-level"
+                name="effortLevel"
+                class="scope-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="50"
+                step="1"
+                aria-label="Desired scope of change"
+                aria-valuetext="Moderate change"
+              />
+              <div class="scope-ticks" aria-hidden="true">
+                <span>Minimal</span>
+                <span>Moderate</span>
+                <span>Significant</span>
+              </div>
+            </div>
+
             <details class="request-guide" id="request-guide">
               <summary class="request-guide-toggle">
                 <span class="request-guide-heading">
                   <span class="request-guide-kicker">Quick framing</span>
                   <span class="request-guide-title">Make the issue easy to judge.</span>
+                  <span class="request-guide-preview" aria-hidden="true">Name · Friction · Outcome</span>
                 </span>
                 <span class="request-guide-icon" aria-hidden="true"></span>
               </summary>
@@ -321,16 +355,16 @@
             <span id="queue-archive-count" class="queue-archive-count">0 requests</span>
           </summary>
           <ul id="queue-archive-list" class="queue-archive-list"></ul>
+          <nav id="queue-archive-pagination" class="queue-pagination queue-archive-pagination" aria-label="Archive pages">
+            <button id="queue-newer" class="queue-pagination-button" type="button">
+              Newer
+            </button>
+            <p id="queue-page-label" class="queue-page-label" aria-live="polite">Archive page 1</p>
+            <button id="queue-older" class="queue-pagination-button" type="button">
+              Older
+            </button>
+          </nav>
         </details>
-        <nav class="queue-pagination" aria-label="Queue pages">
-          <button id="queue-newer" class="queue-pagination-button" type="button">
-            Newer
-          </button>
-          <p id="queue-page-label" class="queue-page-label" aria-live="polite">Page 1</p>
-          <button id="queue-older" class="queue-pagination-button" type="button">
-            Older
-          </button>
-        </nav>
       </section>
 
       <section class="reactorle panel" aria-labelledby="reactorle-title">
