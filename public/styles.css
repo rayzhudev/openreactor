@@ -1,31 +1,31 @@
 :root {
   color-scheme: light dark;
-  --paper: #e7dfc9;
-  --paper-strong: rgba(248, 245, 233, 0.96);
-  --paper-soft: rgba(248, 245, 233, 0.78);
-  --surface: #f7f2e7;
+  --paper: #ede2d0;
+  --paper-strong: rgba(251, 246, 238, 0.96);
+  --paper-soft: rgba(251, 246, 238, 0.8);
+  --surface: #faf4eb;
   --surface-soft: rgba(255, 255, 255, 0.8);
-  --ink: #1b241b;
-  --ink-soft: rgba(27, 36, 27, 0.82);
-  --ink-faint: rgba(27, 36, 27, 0.62);
-  --line: rgba(27, 36, 27, 0.16);
-  --line-strong: rgba(27, 36, 27, 0.28);
-  --accent: #8f6741;
-  --accent-dark: #5f4d2d;
-  --accent-soft: #d4c482;
-  --accent-bright: #8da66b;
-  --queue-queued: #7f8f96;
-  --queue-progress: #8f6741;
-  --queue-complete: #446b4e;
-  --queue-rejected: #a33b31;
-  --success: #446b4e;
-  --error: #a33b31;
-  --shadow: 0 24px 60px rgba(39, 33, 19, 0.14);
-  --shadow-soft: 0 18px 40px rgba(39, 33, 19, 0.1);
+  --ink: #1e1712;
+  --ink-soft: rgba(30, 23, 18, 0.78);
+  --ink-faint: rgba(30, 23, 18, 0.58);
+  --line: rgba(30, 23, 18, 0.13);
+  --line-strong: rgba(30, 23, 18, 0.22);
+  --accent: #c6643f;
+  --accent-dark: #7b3125;
+  --accent-soft: #efba6b;
+  --accent-bright: #56705f;
+  --queue-queued: #506d89;
+  --queue-progress: #9d5b20;
+  --queue-complete: #2f6d56;
+  --queue-rejected: #9d4331;
+  --success: #2f6d56;
+  --error: #9d4331;
+  --shadow: 0 28px 72px rgba(70, 38, 19, 0.12);
+  --shadow-soft: 0 20px 48px rgba(70, 38, 19, 0.09);
   --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
-  --page-glow-1: rgba(143, 103, 65, 0.12);
-  --page-glow-2: rgba(141, 166, 107, 0.11);
-  --grid-line: rgba(27, 36, 27, 0.03);
+  --page-glow-1: rgba(198, 100, 63, 0.12);
+  --page-glow-2: rgba(86, 112, 95, 0.1);
+  --grid-line: rgba(30, 23, 18, 0.03);
   --panel-bg: linear-gradient(180deg, var(--paper-strong), rgba(255, 255, 255, 0.68));
   --control-bg: rgba(255, 255, 255, 0.56);
   --control-bg-strong: rgba(255, 255, 255, 0.72);
@@ -43,8 +43,8 @@
   --queue-count-bg: rgba(23, 33, 37, 0.08);
   --table-hover-bg: rgba(255, 255, 255, 0.48);
   --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0));
-  --display-font: "Avenir Next Condensed", "Franklin Gothic Medium", "Arial Narrow", sans-serif;
-  --body-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  --display-font: "Baskerville", "Iowan Old Style", "Palatino Linotype", serif;
+  --body-font: "Georgia", "Iowan Old Style", serif;
   --ui-font: "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
 }
 
@@ -249,8 +249,8 @@ button {
 
 .brand-mark {
   font-family: var(--display-font);
-  font-size: 1.35rem;
-  letter-spacing: 0.08em;
+  font-size: 1.5rem;
+  letter-spacing: -0.04em;
   text-transform: uppercase;
 }
 
@@ -367,12 +367,13 @@ button {
   align-items: center;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 249, 242, 0.16);
   border-radius: 22px;
   background:
-    radial-gradient(circle at top left, rgba(141, 166, 107, 0.18), transparent 30%),
-    var(--card-bg);
-  box-shadow: var(--shadow-soft);
+    radial-gradient(circle at top left, rgba(239, 186, 107, 0.2), transparent 32%),
+    linear-gradient(135deg, rgba(123, 49, 37, 0.92), rgba(198, 100, 63, 0.86));
+  box-shadow: 0 18px 34px rgba(70, 38, 19, 0.14);
+  color: #fff7ef;
 }
 
 .frog-card-guide {
@@ -458,7 +459,7 @@ button {
 }
 
 .frog-card-kicker {
-  color: var(--accent-dark);
+  color: rgba(255, 247, 239, 0.76);
   font-family: var(--ui-font);
   font-size: 0.72rem;
   font-weight: 700;
@@ -476,7 +477,7 @@ button {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   gap: 1rem;
   animation: rise 650ms ease-out both;
 }
@@ -512,8 +513,9 @@ button {
 }
 
 .hero-title {
-  max-width: 10ch;
-  font-size: clamp(2.7rem, 6vw, 5rem);
+  max-width: 8ch;
+  font-size: clamp(3.8rem, 8vw, 6.6rem);
+  line-height: 0.88;
 }
 
 .intake-panel h2 {
@@ -569,8 +571,10 @@ button {
   gap: 1rem;
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 24px;
-  background: linear-gradient(180deg, var(--control-bg-strong), var(--control-bg));
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(239, 186, 107, 0.14), transparent 28%),
+    linear-gradient(180deg, var(--control-bg-strong), var(--control-bg));
 }
 
 .product-explainer-rail {
@@ -586,7 +590,7 @@ button {
 .guide-template {
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--card-bg);
 }
 
@@ -622,8 +626,8 @@ button {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.05rem;
-  border-left: 3px solid rgba(184, 92, 56, 0.2);
-  background: linear-gradient(90deg, var(--accent-surface), rgba(184, 92, 56, 0));
+  border-left: 3px solid rgba(198, 100, 63, 0.22);
+  background: linear-gradient(90deg, var(--accent-surface), rgba(198, 100, 63, 0));
 }
 
 .product-explainer-link {
@@ -840,6 +844,20 @@ button {
   animation: rise 760ms ease-out 80ms both;
 }
 
+.hero-copy,
+.queue,
+.reactorle,
+.leaderboard {
+  border-radius: 34px;
+}
+
+.hero-copy {
+  background:
+    radial-gradient(circle at top left, rgba(239, 186, 107, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(86, 112, 95, 0.12), transparent 26%),
+    var(--panel-bg);
+}
+
 .queue-actions {
   align-items: center;
 }
@@ -969,11 +987,11 @@ button {
   gap: 0.85rem;
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(247, 239, 227, 0.08);
-  border-radius: 28px;
+  border: 1px solid var(--line);
+  border-radius: 32px;
   background:
-    linear-gradient(180deg, rgba(247, 239, 227, 0.04), rgba(247, 239, 227, 0.02)),
-    linear-gradient(90deg, rgba(247, 239, 227, 0.08) 0 1px, transparent 1px);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16)),
+    linear-gradient(90deg, rgba(30, 23, 18, 0.06) 0 1px, transparent 1px);
   background-repeat: no-repeat, repeat;
   background-size: auto, calc(100% / 24) 100%;
   overflow: hidden;
