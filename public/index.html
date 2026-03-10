@@ -15,17 +15,11 @@
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-copy">
           <div class="intake-panel panel">
-            <p class="eyebrow">Open source product loop</p>
             <div class="masthead">
-              <div>
-                <h1 class="wordmark" id="page-title">
-                  <span>Open</span>
-                  <span class="wordmark-accent">Reactor</span>
-                </h1>
-                <p class="page-copy">
-                  A public intake page for product pressure. Submit a request, then watch GitHub become the queue, the work log, and the receipt.
-                </p>
-              </div>
+              <h1 class="wordmark" id="page-title">
+                <span>Open</span>
+                <span class="wordmark-accent">Reactor</span>
+              </h1>
               <a
                 id="repo-star-link"
                 class="repo-star-link"
@@ -54,29 +48,16 @@
               </a>
             </div>
 
-            <div class="hero-pill-row" aria-label="Product traits">
-              <span class="hero-pill">Public requests</span>
-              <span class="hero-pill">Autonomous review</span>
-              <span class="hero-pill">GitHub-native audit trail</span>
-            </div>
-
             <form id="request-form" class="request-form" novalidate>
-              <div class="panel-heading">
-                <p class="panel-kicker">Submit pressure</p>
-                <p class="panel-copy">
-                  Pitch the next change. Accepted requests become visible product work instead of disappearing into a form backend.
-                </p>
-              </div>
-
               <label class="request-label" for="request">
-                <span class="request-heading">What should OpenReactor build next?</span>
+                <span class="sr-only">Request</span>
                 <textarea
                   id="request"
                   name="request"
                   rows="6"
                   maxlength="2000"
                   minlength="20"
-                  placeholder="Describe the next feature, fix, or product move you want to see."
+                  placeholder="What should OpenReactor build next?"
                   required
                 ></textarea>
               </label>
@@ -87,77 +68,32 @@
               </label>
 
               <div class="form-footer">
-                <p class="form-note">Keep it concrete. The issue agent will decide the best product move, not blindly follow the wording.</p>
-                <button class="submit-button" id="submit-button" type="submit">Launch issue</button>
+                <button class="submit-button" id="submit-button" type="submit">Submit</button>
               </div>
 
               <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
             </form>
           </div>
         </div>
-
-        <aside class="signal-panel panel" aria-labelledby="signal-title">
-          <p class="panel-kicker">Live signal</p>
-          <h2 id="signal-title">The queue is public, reviewable, and wired straight into GitHub.</h2>
-          <p class="signal-copy">
-            Requests land as issues. Agents claim them, open pull requests, and leave an inspectable trail instead of hiding progress behind private tooling.
-          </p>
-
-          <div class="signal-metrics" aria-label="Queue metrics">
-            <article class="metric">
-              <span class="metric-label">Visible requests</span>
-              <strong class="metric-value" id="queue-total">--</strong>
-            </article>
-            <article class="metric">
-              <span class="metric-label">In progress</span>
-              <strong class="metric-value" id="queue-active">--</strong>
-            </article>
-            <article class="metric">
-              <span class="metric-label">Completed</span>
-              <strong class="metric-value" id="queue-complete">--</strong>
-            </article>
-          </div>
-
-          <div class="signal-strip">
-            <div>
-              <p class="signal-strip-label">Latest queue pulse</p>
-              <p id="queue-summary" class="signal-strip-value">Connecting to GitHub...</p>
-            </div>
-
-            <a
-              id="queue-repo-link"
-              class="queue-link"
-              href="#"
-              target="_blank"
-              rel="noreferrer"
-              hidden
-            >
-              View on GitHub
-            </a>
-          </div>
-
-          <ul class="legend" aria-label="Queue status legend">
-            <li class="legend-item" data-status="queued">Queued</li>
-            <li class="legend-item" data-status="in-progress">In progress</li>
-            <li class="legend-item" data-status="complete">Complete</li>
-            <li class="legend-item" data-status="rejected">Rejected</li>
-          </ul>
-        </aside>
       </section>
 
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
-          <div>
-            <p class="queue-kicker">Public queue</p>
-            <h2 id="queue-title">Recent requests and outcomes</h2>
-          </div>
-          <p class="queue-intro">
-            Every request links back to the source issue, so the intake site doubles as a visible product ledger.
-          </p>
+          <h2 id="queue-title">Queue</h2>
+          <a
+            id="queue-repo-link"
+            class="queue-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            hidden
+          >
+            View on GitHub
+          </a>
         </div>
 
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
-          Loading recent requests...
+          Loading queue...
         </p>
         <ul id="queue-list" class="queue-list"></ul>
       </section>
