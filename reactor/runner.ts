@@ -403,7 +403,7 @@ function buildAgentPrompt(
     "- Use `bun run reactor:tool ensure-pr ...` when finishing an accepted run so PR creation is idempotent.",
     `- Keep the claim label ${config.runningLabel} in place if more iterations are needed.`,
     `- If you finish with accepted or rejected, remove ${config.runningLabel} yourself and apply the final label.`,
-    "- If you return accepted, the reactor will verify that a remote branch exists, an open PR exists, at least one reported check passed, and no reported checks failed.",
+    "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, and no reported checks failed.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
     "",
     "Return only JSON matching the provided output schema.",
