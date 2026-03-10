@@ -48,18 +48,6 @@
               </a>
             </div>
 
-            <section class="guide-callout" aria-labelledby="guide-callout-title">
-              <div>
-                <p class="panel-kicker">Before you submit</p>
-                <h2 id="guide-callout-title">Read the request guide.</h2>
-                <p class="guide-callout-copy">
-                  It explains how OpenReactor reviews requests, what makes a request high-signal, and why one well-scoped issue beats a bundle of ideas.
-                </p>
-              </div>
-              <a class="guide-callout-link" href="/request-guide/">
-                Open guide
-              </a>
-            </section>
             <form id="request-form" class="request-form" novalidate>
               <label class="request-label" for="request">
                 <span class="sr-only">Request</span>
@@ -93,13 +81,56 @@
                 </p>
               </div>
 
+              <details class="request-guide" id="request-guide">
+                <summary class="request-guide-toggle">
+                  <span class="request-guide-heading">
+                    <span class="request-guide-kicker">Request guide</span>
+                    <span class="request-guide-title">Turn rough pressure into a clear issue.</span>
+                  </span>
+                  <span class="request-guide-icon" aria-hidden="true"></span>
+                </summary>
+
+                <div class="request-guide-content">
+                  <p class="request-guide-copy">
+                    Use the box above for one concrete request. The form will turn it into a GitHub issue, so the strongest submissions explain the ask, the problem, and the outcome in plain language.
+                  </p>
+
+                  <div class="request-guide-grid">
+                    <article class="request-guide-card">
+                      <p class="request-guide-card-step">1</p>
+                      <h3>Name the move</h3>
+                      <p>Call out the feature, fix, or product change you want instead of describing a vague feeling.</p>
+                    </article>
+
+                    <article class="request-guide-card">
+                      <p class="request-guide-card-step">2</p>
+                      <h3>Explain the friction</h3>
+                      <p>Say what feels broken, confusing, ugly, or slow so the agent can judge the real product problem.</p>
+                    </article>
+
+                    <article class="request-guide-card">
+                      <p class="request-guide-card-step">3</p>
+                      <h3>Point to the outcome</h3>
+                      <p>Describe what better looks like, including placement or constraints when they matter.</p>
+                    </article>
+                  </div>
+
+                  <div class="request-guide-example">
+                    <p class="request-guide-example-label">Example</p>
+                    <p class="request-guide-example-copy">
+                      Replace the plain request guide with a polished accordion below the entry box so the page stays clean by default but still teaches people how to write a strong request.
+                    </p>
+                  </div>
+                </div>
+              </details>
+
               <label class="honeypot" aria-hidden="true">
                 <span>Website</span>
                 <input id="website" name="website" tabindex="-1" autocomplete="off" />
               </label>
 
               <div class="form-footer">
-                <p class="form-note">Keep it concrete. The issue agent will decide the best product move, not blindly follow the wording. Read the <a href="/request-guide/">request guide</a> if you need the framing rules.</p>
+                <p class="form-note">Keep it concrete. The issue agent will decide the best product move, not blindly follow the wording. Open the inline guide when the request needs more framing.</p>
                 <button class="submit-button" id="submit-button" type="submit">Submit</button>
               </div>
 

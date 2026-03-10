@@ -186,35 +186,6 @@ textarea,
   color: rgba(255, 210, 121, 0.82);
 }
 
-.guide-callout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid var(--line);
-  border-radius: 26px;
-  background: linear-gradient(180deg, rgba(247, 239, 227, 0.07), rgba(247, 239, 227, 0.03));
-}
-
-.guide-callout h2 {
-  margin-top: 0.32rem;
-  font-family: var(--display-font);
-  font-size: clamp(1.45rem, 2.3vw, 1.9rem);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-}
-
-.guide-callout-copy {
-  max-width: 34rem;
-  margin-top: 0.5rem;
-  color: var(--ink-soft);
-  font-family: var(--ui-font);
-  line-height: 1.55;
-}
-
-.guide-callout-link,
 .top-nav-link {
   display: inline-flex;
   align-items: center;
@@ -238,8 +209,6 @@ textarea,
     box-shadow 180ms ease;
 }
 
-.guide-callout-link:hover,
-.guide-callout-link:focus-visible,
 .top-nav-link:hover,
 .top-nav-link:focus-visible {
   transform: translateY(-1px);
@@ -247,6 +216,7 @@ textarea,
   background: rgba(247, 239, 227, 0.12);
   box-shadow: 0 16px 24px rgba(0, 0, 0, 0.18);
 }
+
 .request-form {
   display: grid;
   gap: 1rem;
@@ -403,6 +373,163 @@ textarea:focus {
   box-shadow: 0 0 24px rgba(99, 221, 171, 0.2);
 }
 
+.request-guide {
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 210, 121, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(247, 239, 227, 0.06), rgba(247, 239, 227, 0.02));
+  overflow: hidden;
+}
+
+.request-guide[open] {
+  border-color: rgba(255, 210, 121, 0.26);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
+}
+
+.request-guide-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.05rem 1.2rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.request-guide-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.request-guide-toggle:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 210, 121, 0.32);
+}
+
+.request-guide-heading {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.request-guide-kicker,
+.request-guide-example-label,
+.request-guide-card-step {
+  font-family: var(--ui-font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.request-guide-kicker,
+.request-guide-example-label {
+  color: rgba(255, 210, 121, 0.82);
+}
+
+.request-guide-title {
+  font-family: var(--display-font);
+  font-size: clamp(1.16rem, 2vw, 1.45rem);
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.request-guide-icon {
+  position: relative;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: none;
+  border: 1px solid rgba(247, 239, 227, 0.12);
+  border-radius: 50%;
+  background: rgba(247, 239, 227, 0.06);
+}
+
+.request-guide-icon::before,
+.request-guide-icon::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.85rem;
+  height: 1.5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  transform: translate(-50%, -50%);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.request-guide-icon::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.request-guide[open] .request-guide-icon::after {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(90deg) scaleX(0.2);
+}
+
+.request-guide-content {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.2rem 1.2rem;
+  border-top: 1px solid rgba(247, 239, 227, 0.08);
+}
+
+.request-guide-copy,
+.request-guide-card p {
+  font-family: var(--ui-font);
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.request-guide-copy {
+  padding-top: 1rem;
+}
+
+.request-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.request-guide-card {
+  padding: 1rem;
+  border: 1px solid rgba(247, 239, 227, 0.08);
+  border-radius: 22px;
+  background: rgba(3, 9, 16, 0.34);
+}
+
+.request-guide-card-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  min-height: 1.9rem;
+  margin-bottom: 0.8rem;
+  border-radius: 50%;
+  background: rgba(255, 138, 91, 0.16);
+  color: var(--accent-soft);
+}
+
+.request-guide-card h3 {
+  margin: 0 0 0.45rem;
+  font-family: var(--display-font);
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.request-guide-example {
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(255, 210, 121, 0.16);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 138, 91, 0.12), rgba(255, 138, 91, 0.03));
+}
+
+.request-guide-example-copy {
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
 .form-footer {
   display: flex;
   align-items: center;
@@ -416,10 +543,6 @@ textarea:focus {
   font-family: var(--ui-font);
   font-size: 0.9rem;
   line-height: 1.55;
-}
-
-.form-note a {
-  color: var(--accent-soft);
 }
 
 .submit-button {
@@ -782,6 +905,10 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .request-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
   .queue h2,
   .guide-card h2,
   .guide-title {
@@ -804,7 +931,6 @@ textarea:focus {
   }
 
   .masthead,
-  .guide-callout,
   .request-signal-head,
   .form-footer,
   .top-nav,
@@ -816,7 +942,6 @@ textarea:focus {
   .repo-star-link,
   .queue-link,
   .submit-button,
-  .guide-callout-link,
   .top-nav-link {
     width: 100%;
   }
@@ -824,6 +949,12 @@ textarea:focus {
   .guide-shell {
     width: min(100% - 1rem, 1180px);
     padding: 1rem 0 3rem;
+  }
+
+  .request-guide-toggle,
+  .request-guide-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
 
