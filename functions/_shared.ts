@@ -4,6 +4,8 @@ const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
+const GITHUB_ISSUES_PER_PAGE = 100;
+const MAX_GITHUB_REQUEST_PAGES = 10;
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
@@ -99,19 +101,22 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
   const normalized = normalizeEnv(env);
 
   if (!isRepoConfigured(normalized)) {
-    return jsonResponse({ items: [], repoUrl: null });
+    return jsonResponse({
+      items: [],
+      repoUrl: null,
+      page: 1,
+      pageSize: MAX_QUEUE_ITEMS,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
   }
 
   try {
-    const issues = await githubRequestWithFallback<GitHubIssue[]>(
-      normalized,
-      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=all&sort=created&direction=desc&per_page=100`
-    );
-
-    const items = issues
-      .filter((issue) => !issue.pull_request)
-      .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
-      .slice(0, MAX_QUEUE_ITEMS)
+    const page = getQueuePage(request);
+    const issues = await listRequestIssues(normalized, page);
+    const start = (page - 1) * MAX_QUEUE_ITEMS;
+    const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
+    const items = visibleIssues
       .map((issue) => ({
         number: issue.number,
         title: issue.title.replace(/^\[Request\]\s*/, ""),
@@ -124,7 +129,14 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
       }));
 
     const repoUrl = getRepoUrl(normalized);
-    const etag = buildQueueEtag(items);
+    const hasPreviousPage = page > 1;
+    const hasNextPage = issues.length > start + MAX_QUEUE_ITEMS;
+    const etag = buildQueueEtag({
+      items,
+      page,
+      hasPreviousPage,
+      hasNextPage
+    });
 
     if (request.headers.get("if-none-match") === etag) {
       return new Response(null, {
@@ -140,7 +152,11 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
     return jsonResponse(
       {
         items,
-        repoUrl
+        repoUrl,
+        page,
+        pageSize: MAX_QUEUE_ITEMS,
+        hasPreviousPage,
+        hasNextPage
       },
       200,
       {
@@ -471,6 +487,42 @@ function getIssueSectionValue(body: string | undefined, heading: string): string
   return clean(match?.[1]);
 }
 
+async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]> {
+  const targetCount = page * MAX_QUEUE_ITEMS + 1;
+  const requestIssues: GitHubIssue[] = [];
+  const normalized = normalizeEnv(env);
+
+  for (let currentPage = 1; currentPage <= MAX_GITHUB_REQUEST_PAGES; currentPage += 1) {
+    const issues = await githubRequestWithFallback<GitHubIssue[]>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=all&sort=created&direction=desc&per_page=${GITHUB_ISSUES_PER_PAGE}&page=${currentPage}`
+    );
+
+    requestIssues.push(
+      ...issues
+        .filter((issue) => !issue.pull_request)
+        .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
+    );
+
+    if (requestIssues.length >= targetCount || issues.length < GITHUB_ISSUES_PER_PAGE) {
+      break;
+    }
+  }
+
+  return requestIssues;
+}
+
+function getQueuePage(request: Request): number {
+  const value = new URL(request.url).searchParams.get("page");
+  const page = Number.parseInt(value ?? "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
+}
+
 function getRepoUrl(env: Env): string | null {
   const normalized = normalizeEnv(env);
 
@@ -580,11 +632,20 @@ function isLowSignalText(value: string): boolean {
   return false;
 }
 
-function buildQueueEtag(
-  items: Array<{ number: number; createdAt: string; status: string }>
-): string {
+function buildQueueEtag({
+  items,
+  page,
+  hasPreviousPage,
+  hasNextPage
+}: {
+  items: Array<{ number: number; createdAt: string; status: string }>;
+  page: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}): string {
   const signature = items.map((item) => `${item.number}:${item.status}:${item.createdAt}`).join("|");
-  return `W/"${signature || "empty"}"`;
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
+  return `W/"${pageState}:${signature || "empty"}"`;
 }
 
 function normalizeEnv(env: Env): NormalizedEnv {

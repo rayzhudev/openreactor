@@ -4,21 +4,42 @@ const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
-const queueList = document.querySelector("#queue-list");
+const queueBoard = document.querySelector("#queue-board");
+const queueTableWrap = document.querySelector("#queue-table-wrap");
+const queueTableBody = document.querySelector("#queue-table-body");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const queueViewButtons = Array.from(document.querySelectorAll(".queue-view-button"));
+const queueNewerButton = document.querySelector("#queue-newer");
+const queueOlderButton = document.querySelector("#queue-older");
+const queuePageLabelNode = document.querySelector("#queue-page-label");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
 const QUEUE_POLL_INTERVAL_MS = 30_000;
+const BOARD_COLUMNS = [
+  { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
+  { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." },
+  { key: "complete", label: "Complete", description: "Closed because the work shipped." },
+  { key: "rejected", label: "Rejected", description: "Publicly declined for product reasons." }
+];
 
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
+let queueItems = [];
+let activeQueueView = "board";
+const queueState = {
+  page: DEFAULT_QUEUE_PAGE,
+  isLoading: false,
+  hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
+  hasNextPage: false
+};
 let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
@@ -30,8 +51,22 @@ async function boot() {
   requestField.addEventListener("input", onRequestInput);
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
+
+  for (const button of queueViewButtons) {
+    button.addEventListener("click", onQueueViewChange);
+  }
+
+  queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
+  queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
+
   updateRequestCount(requestField.value);
-  await Promise.all([loadRepoMeta(), loadQueue()]);
+  renderQueueView();
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
+  await Promise.all([loadRepoMeta(), loadQueue(queueState.page)]);
   startQueuePolling();
 }
 
@@ -58,18 +93,6 @@ async function primeDeployFingerprint() {
 
   if (fingerprint) {
     deployFingerprint = fingerprint;
-  }
-}
-
-function onVisibilityChange() {
-  if (document.visibilityState !== "visible") {
-    return;
-  }
-
-  void checkForDeployUpdate();
-
-  if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
-    void loadQueue({ silent: true });
   }
 }
 
@@ -205,7 +228,7 @@ async function onSubmit(event) {
     updateRequestCount("");
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
-    await loadQueue();
+    await loadQueue(1);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
@@ -303,25 +326,34 @@ function setStatus(message, tone) {
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
 }
 
-async function loadQueue(options = {}) {
+async function loadQueue(page = 1, options = {}) {
   const { silent = false } = options;
+  queueState.isLoading = true;
+  queueState.page = page;
 
   if (!silent) {
     setQueueStatus("Loading queue...");
     setQueueRefreshNote("");
-    queueList.innerHTML = "";
+    queueItems = [];
+    renderQueueView();
   }
+
+  syncQueueControls({
+    page,
+    hasPreviousPage: page > 1,
+    hasNextPage: false
+  });
 
   try {
     const headers = queueEtag ? { "If-None-Match": queueEtag } : {};
-    const response = await fetch("/api/requests", {
+    const response = await fetch(`/api/requests?page=${page}`, {
       headers,
       cache: "no-store"
     });
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy();
+      refreshQueueStatusCopy(queueItems.length, page);
       return;
     }
 
@@ -332,10 +364,13 @@ async function loadQueue(options = {}) {
     }
 
     queueEtag = response.headers.get("etag") || "";
-    renderQueue(data.items || [], data.repoUrl || "");
+    renderQueue(data);
   } catch (error) {
     queueEtag = "";
     renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
+  } finally {
+    queueState.isLoading = false;
+    syncQueueControls(queueState);
   }
 }
 
@@ -365,9 +400,20 @@ function renderRepoStarLink(repoUrl) {
   repoStarLink.removeAttribute("href");
 }
 
-function renderQueue(items, repoUrl) {
+function renderQueue(data) {
+  const items = data.items || [];
+  const page = Number.isInteger(data.page) ? data.page : 1;
+  const hasPreviousPage = Boolean(data.hasPreviousPage);
+  const hasNextPage = Boolean(data.hasNextPage);
+  const repoUrl = data.repoUrl || "";
+
   markQueueRefresh();
-  queueList.innerHTML = "";
+  queueItems = items;
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  updateQueueLocation(page);
+  syncQueueControls({ page, hasPreviousPage, hasNextPage });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -378,90 +424,31 @@ function renderQueue(items, repoUrl) {
     queueRepoLink.removeAttribute("href");
   }
 
+  renderQueueView();
+
   if (!items.length) {
-    setQueueStatus(`No requests yet. Auto-refreshes every ${formatPollInterval()}.`);
-    setQueueRefreshNote(`Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`);
+    setQueueStatus(page === 1 ? "No requests yet." : `Page ${page} has no requests.`);
+    setQueueRefreshNote(
+      page === 1
+        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
+        : `Page ${page} is empty.`
+    );
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-
-  for (const item of items) {
-    const row = document.createElement("li");
-    row.className = "queue-item";
-
-    const link = document.createElement("a");
-    link.className = "queue-item-link";
-    link.href = item.commentUrl || item.url;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-
-    const top = document.createElement("div");
-    top.className = "queue-item-top";
-
-    const issue = document.createElement("span");
-    issue.className = "queue-item-issue";
-    issue.textContent = `Issue #${item.number}`;
-
-    const status = document.createElement("span");
-    status.className = "queue-item-status";
-    status.dataset.status = item.status;
-    status.textContent = formatStatus(item.status);
-
-    top.append(issue, status);
-
-    const title = document.createElement("span");
-    title.className = "queue-item-title";
-    title.textContent = item.title;
-
-    const meta = document.createElement("div");
-    meta.className = "queue-item-meta";
-
-    if (item.githubUsername) {
-      const username = document.createElement("span");
-      username.className = "queue-item-username";
-      username.textContent = formatGitHubUsername(item.githubUsername);
-      meta.append(username);
-    }
-
-    const submittedAt = document.createElement("time");
-    submittedAt.className = "queue-item-submitted-at";
-    submittedAt.dateTime = item.createdAt;
-    submittedAt.title = item.createdAt;
-    submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
-    meta.append(submittedAt);
-
-    const discussion = document.createElement("div");
-    discussion.className = "queue-item-discussion";
-
-    const commentCount = document.createElement("span");
-    commentCount.className = "queue-item-comment-count";
-    commentCount.textContent = formatCommentCount(item.commentCount);
-
-    const commentHint = document.createElement("span");
-    commentHint.className = "queue-item-comment-hint";
-    commentHint.textContent =
-      item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
-
-    discussion.append(commentCount, commentHint);
-
-    const cta = document.createElement("span");
-    cta.className = "queue-item-cta";
-    cta.textContent = "Open issue and comment on GitHub";
-
-    link.append(top, title, meta, discussion, cta);
-    row.append(link);
-    fragment.append(row);
-  }
-
-  queueList.append(fragment);
-  refreshQueueStatusCopy(items.length);
+  refreshQueueStatusCopy(items.length, page);
 }
 
 function renderQueueError(message) {
-  queueList.innerHTML = "";
+  queueItems = [];
+  renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
@@ -482,7 +469,7 @@ function startQueuePolling() {
       return;
     }
 
-    loadQueue({ silent: true });
+    void loadQueue(queueState.page, { silent: true });
   }, QUEUE_POLL_INTERVAL_MS);
 }
 
@@ -495,12 +482,24 @@ function stopQueuePolling() {
   queuePollTimer = 0;
 }
 
-function refreshQueueStatusCopy(itemCount = queueList.childElementCount) {
+function onVisibilityChange() {
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+
+  void checkForDeployUpdate();
+
+  if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
+    void loadQueue(queueState.page, { silent: true });
+  }
+}
+
+function refreshQueueStatusCopy(itemCount = queueItems.length, page = queueState.page) {
   const countLabel = `${itemCount} request${itemCount === 1 ? "" : "s"}.`;
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
-  setQueueStatus(`${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
   setQueueRefreshNote(freshnessLabel);
 }
 
@@ -520,6 +519,203 @@ function formatRelativeRefreshTime(timestamp) {
   }
 
   return `${seconds}s ago`;
+}
+
+function onQueueViewChange(event) {
+  const nextView = event.currentTarget.dataset.view;
+
+  if (!nextView || nextView === activeQueueView) {
+    return;
+  }
+
+  activeQueueView = nextView;
+  renderQueueView();
+}
+
+function renderQueueView() {
+  queueBoard.hidden = activeQueueView !== "board";
+  queueTableWrap.hidden = activeQueueView !== "list";
+
+  for (const button of queueViewButtons) {
+    const isActive = button.dataset.view === activeQueueView;
+    button.dataset.active = String(isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+
+  renderQueueBoard(queueItems);
+  renderQueueTable(queueItems);
+}
+
+function renderQueueBoard(items) {
+  queueBoard.innerHTML = "";
+
+  const groupedItems = new Map(BOARD_COLUMNS.map((column) => [column.key, []]));
+
+  for (const item of items) {
+    const group = groupedItems.get(item.status) || groupedItems.get("queued");
+    group.push(item);
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const column of BOARD_COLUMNS) {
+    const lane = document.createElement("section");
+    lane.className = "queue-lane";
+    lane.dataset.status = column.key;
+
+    const header = document.createElement("div");
+    header.className = "queue-lane-header";
+
+    const titleBlock = document.createElement("div");
+    titleBlock.className = "queue-lane-title-block";
+
+    const heading = document.createElement("h3");
+    heading.className = "queue-lane-title";
+    heading.textContent = column.label;
+
+    const description = document.createElement("p");
+    description.className = "queue-lane-description";
+    description.textContent = column.description;
+
+    titleBlock.append(heading, description);
+
+    const count = document.createElement("span");
+    count.className = "queue-lane-count";
+    count.textContent = String(groupedItems.get(column.key)?.length || 0);
+
+    header.append(titleBlock, count);
+
+    const list = document.createElement("ul");
+    list.className = "queue-lane-list";
+
+    const columnItems = groupedItems.get(column.key) || [];
+
+    if (!columnItems.length) {
+      const empty = document.createElement("li");
+      empty.className = "queue-lane-empty";
+      empty.textContent = "No requests here yet.";
+      list.append(empty);
+    } else {
+      for (const item of columnItems) {
+        const row = document.createElement("li");
+        row.className = "queue-card";
+        row.append(createQueueCardLink(item));
+        list.append(row);
+      }
+    }
+
+    lane.append(header, list);
+    fragment.append(lane);
+  }
+
+  queueBoard.append(fragment);
+}
+
+function renderQueueTable(items) {
+  queueTableBody.innerHTML = "";
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+
+    const issueCell = document.createElement("td");
+    issueCell.className = "queue-table-issue";
+    issueCell.textContent = `#${item.number}`;
+
+    const titleCell = document.createElement("td");
+    const titleLink = document.createElement("a");
+    titleLink.className = "queue-table-link";
+    titleLink.href = item.commentUrl || item.url;
+    titleLink.target = "_blank";
+    titleLink.rel = "noreferrer";
+    titleLink.textContent = item.title;
+    titleCell.append(titleLink);
+
+    const statusCell = document.createElement("td");
+    const status = document.createElement("span");
+    status.className = "queue-item-status";
+    status.dataset.status = item.status;
+    status.textContent = formatStatus(item.status);
+    statusCell.append(status);
+
+    const submittedCell = document.createElement("td");
+    const submittedTime = document.createElement("time");
+    submittedTime.className = "queue-table-time";
+    submittedTime.dateTime = item.createdAt;
+    submittedTime.title = item.createdAt;
+    submittedTime.textContent = formatSubmissionTimestamp(item.createdAt);
+    submittedCell.append(submittedTime);
+
+    row.append(issueCell, titleCell, statusCell, submittedCell);
+    fragment.append(row);
+  }
+
+  queueTableBody.append(fragment);
+}
+
+function createQueueCardLink(item) {
+  const link = document.createElement("a");
+  link.className = "queue-card-link";
+  link.href = item.commentUrl || item.url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+
+  const top = document.createElement("div");
+  top.className = "queue-item-top";
+
+  const issue = document.createElement("span");
+  issue.className = "queue-item-issue";
+  issue.textContent = `Issue #${item.number}`;
+
+  const status = document.createElement("span");
+  status.className = "queue-item-status";
+  status.dataset.status = item.status;
+  status.textContent = formatStatus(item.status);
+
+  top.append(issue, status);
+
+  const title = document.createElement("span");
+  title.className = "queue-item-title";
+  title.textContent = item.title;
+
+  const meta = document.createElement("div");
+  meta.className = "queue-item-meta";
+
+  if (item.githubUsername) {
+    const username = document.createElement("span");
+    username.className = "queue-item-username";
+    username.textContent = formatGitHubUsername(item.githubUsername);
+    meta.append(username);
+  }
+
+  const submittedAt = document.createElement("time");
+  submittedAt.className = "queue-item-submitted-at";
+  submittedAt.dateTime = item.createdAt;
+  submittedAt.title = item.createdAt;
+  submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
+  meta.append(submittedAt);
+
+  const discussion = document.createElement("div");
+  discussion.className = "queue-item-discussion";
+
+  const commentCount = document.createElement("span");
+  commentCount.className = "queue-item-comment-count";
+  commentCount.textContent = formatCommentCount(item.commentCount);
+
+  const commentHint = document.createElement("span");
+  commentHint.className = "queue-item-comment-hint";
+  commentHint.textContent =
+    item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
+
+  discussion.append(commentCount, commentHint);
+
+  const cta = document.createElement("span");
+  cta.className = "queue-item-cta";
+  cta.textContent = "Open issue and comment on GitHub";
+
+  link.append(top, title, meta, discussion, cta);
+  return link;
 }
 
 function formatStatus(status) {
@@ -576,4 +772,44 @@ async function readJsonResponse(response, context) {
   }
 
   throw new Error(`The ${context} API returned an unexpected response.`);
+}
+
+function changeQueuePage(page) {
+  if (queueState.isLoading || page < 1 || page === queueState.page) {
+    return;
+  }
+
+  void loadQueue(page);
+}
+
+function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  queuePageLabelNode.textContent = `Page ${page}`;
+  queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
+  queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+}
+
+function updateQueueLocation(page) {
+  const url = new URL(window.location.href);
+
+  if (page <= 1) {
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("page", `${page}`);
+  }
+
+  window.history.replaceState({}, "", url);
+}
+
+function getQueuePageFromLocation() {
+  const value = new URL(window.location.href).searchParams.get("page");
+  const page = Number.parseInt(value ?? "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
 }
