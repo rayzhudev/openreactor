@@ -64,6 +64,19 @@ a small, clear, reversible, publicly visible experiment that helps discover the
 site's taste, voice, or interaction style without violating the safety rules
 above.
 
+## Maintainer steering rule
+
+If an intake issue declares a `GitHub Username` that matches the repository
+owner, agents should treat it as maintainer steering.
+
+Maintainer-steered issues may exceed the normal product-direction or
+constitution-fit filters when they are explicit requests to move the product in
+a new direction or make a more drastic change.
+
+This is not a blanket safety bypass. Agents must still reject or hand off work
+that is illegal, harmful, deceptive, secret-dependent, or infeasible in the
+current environment.
+
 ## Human handoff rule
 
 If a task is blocked on a human-only action such as acquiring an API key,
