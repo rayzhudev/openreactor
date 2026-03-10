@@ -178,6 +178,38 @@
         </p>
         <ul id="queue-list" class="queue-list"></ul>
       </section>
+
+      <section class="reactorle panel" aria-labelledby="reactorle-title">
+        <div class="reactorle-header">
+          <div>
+            <p class="panel-kicker">Daily mini puzzle</p>
+            <h2 id="reactorle-title">Reactorle</h2>
+          </div>
+          <p class="reactorle-badge">6 guesses</p>
+        </div>
+
+        <p class="reactorle-copy">
+          A Wordle-style five-letter puzzle for the homepage. Type anywhere outside the form or use the on-screen keys.
+        </p>
+
+        <div
+          id="reactorle-status"
+          class="reactorle-status"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <div
+          id="reactorle-board"
+          class="reactorle-board"
+          role="grid"
+          aria-label="Daily five-letter puzzle board"
+        ></div>
+        <div
+          id="reactorle-keyboard"
+          class="reactorle-keyboard"
+          aria-label="Puzzle keyboard"
+        ></div>
+      </section>
     </main>
 
     <script type="module" src="/app.js"></script>

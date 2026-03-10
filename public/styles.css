@@ -750,6 +750,178 @@ input,
   color: var(--accent-soft);
 }
 
+.reactorle {
+  margin-top: 1.6rem;
+  padding: 1.75rem;
+  animation: rise 900ms ease-out 180ms both;
+}
+
+.reactorle-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.reactorle h2 {
+  font-family: var(--display-font);
+  font-size: clamp(1.95rem, 3vw, 3rem);
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.reactorle-badge,
+.reactorle-status,
+.reactorle-copy,
+.reactorle-key {
+  font-family: var(--ui-font);
+}
+
+.reactorle-badge {
+  padding: 0.34rem 0.7rem;
+  border: 1px solid rgba(255, 210, 121, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 210, 121, 0.08);
+  color: var(--accent-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.reactorle-copy {
+  max-width: 42rem;
+  margin-top: 0.9rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.reactorle-status {
+  min-height: 1.5rem;
+  margin-top: 1rem;
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.reactorle-status[data-state="won"] {
+  color: var(--success);
+}
+
+.reactorle-status[data-state="lost"] {
+  color: var(--error);
+}
+
+.reactorle-board {
+  display: grid;
+  gap: 0.5rem;
+  width: min(100%, 24rem);
+  margin-top: 0.85rem;
+}
+
+.reactorle-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.reactorle-tile {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(247, 239, 227, 0.03);
+  font-family: var(--display-font);
+  font-size: clamp(1.2rem, 3vw, 1.75rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.reactorle-tile[data-state="active"] {
+  border-color: rgba(255, 210, 121, 0.36);
+  background: rgba(255, 210, 121, 0.08);
+}
+
+.reactorle-tile[data-state="correct"] {
+  border-color: rgba(138, 239, 197, 0.3);
+  background: rgba(99, 221, 171, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.reactorle-tile[data-state="present"] {
+  border-color: rgba(255, 210, 121, 0.28);
+  background: rgba(255, 210, 121, 0.2);
+}
+
+.reactorle-tile[data-state="absent"] {
+  border-color: rgba(173, 194, 214, 0.16);
+  background: rgba(106, 128, 150, 0.18);
+}
+
+.reactorle-keyboard {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 36rem);
+  margin-top: 1rem;
+}
+
+.reactorle-keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.reactorle-key {
+  min-width: 2.15rem;
+  min-height: 3rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(247, 239, 227, 0.06);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.reactorle-key:hover,
+.reactorle-key:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 210, 121, 0.34);
+  background: rgba(247, 239, 227, 0.12);
+}
+
+.reactorle-key[data-state="wide"] {
+  min-width: 4.8rem;
+}
+
+.reactorle-key[data-state="correct"] {
+  border-color: rgba(138, 239, 197, 0.3);
+  background: rgba(99, 221, 171, 0.22);
+}
+
+.reactorle-key[data-state="present"] {
+  border-color: rgba(255, 210, 121, 0.28);
+  background: rgba(255, 210, 121, 0.2);
+}
+
+.reactorle-key[data-state="absent"] {
+  border-color: rgba(173, 194, 214, 0.16);
+  background: rgba(106, 128, 150, 0.18);
+}
+
 .guide-page {
   background:
     radial-gradient(circle at 18% 16%, rgba(255, 138, 91, 0.18), transparent 28%),
@@ -953,6 +1125,7 @@ input,
 
   .intake-panel,
   .queue,
+  .reactorle,
   .guide-hero,
   .guide-card {
     padding: 1.2rem;
@@ -963,7 +1136,8 @@ input,
   .request-signal-head,
   .form-footer,
   .top-nav,
-  .queue-header {
+  .queue-header,
+  .reactorle-header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -984,6 +1158,17 @@ input,
   .request-guide-content {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .reactorle-keyboard-row {
+    justify-content: stretch;
+  }
+
+  .reactorle-key {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
+    font-size: 0.78rem;
   }
 }
 
