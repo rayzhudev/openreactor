@@ -64,6 +64,16 @@ Useful environment variables:
 - `OPENREACTOR_AGENT_MODEL`
 - `OPENREACTOR_AGENT_REASONING_EFFORT`
 - `OPENREACTOR_AGENT_SERVICE_TIER`
+- `OPENREACTOR_CLAUDE_UI_MODEL`
+- `OPENREACTOR_CLAUDE_UI_EFFORT`
+
+Leave the `*_SERVICE_TIER` variables unset unless you have a known-good tier for the installed Codex CLI and account. The default reactor behavior is to omit `service_tier` entirely.
+
+For OpenReactor's current repo size, a small-team default of
+`OPENREACTOR_MAX_CONCURRENT_ISSUES=3` is a better balance than either
+single-threaded execution or large fan-out. The codebase is still small enough
+that many accepted issues touch the same frontend and runtime files, so a small
+parallelism cap reduces conflict churn without making the reactor feel stalled.
 
 Helper tooling for issue agents:
 
@@ -92,7 +102,9 @@ also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed.
 
 Each new issue now goes through a cheap lightweight triage agent first. Only
-issues that triage escalates are handed off to the heavier full issue agent.
+issues that triage dispatches are handed off to an implementation tool. UI-heavy
+work can be routed to a Claude UI agent, while everything else goes to the
+standard Codex issue agent.
 
 Run files under `.openreactor/runs/issue-*` include:
 

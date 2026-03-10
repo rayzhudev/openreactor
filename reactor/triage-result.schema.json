@@ -9,7 +9,7 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["reject", "escalate"]
+      "enum": ["reject", "dispatch"]
     },
     "summary": {
       "type": "string",
@@ -17,7 +17,14 @@
     },
     "issueComment": {
       "type": ["string", "null"]
+    },
+    "toolName": {
+      "type": ["string", "null"],
+      "enum": [null, "spawn_codex_issue_agent", "spawn_claude_ui_agent"]
+    },
+    "toolReason": {
+      "type": ["string", "null"]
     }
   },
-  "required": ["issueNumber", "outcome", "summary", "issueComment"]
+  "required": ["issueNumber", "outcome", "summary", "issueComment", "toolName", "toolReason"]
 }

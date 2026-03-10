@@ -4,6 +4,12 @@ import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { OrchestratorConfig } from "./config";
 import type { GitHubIssue } from "./github";
+import {
+  DEFAULT_AGENT_TOOL,
+  describeAgentToolsForPrompt,
+  getAgentTool,
+  type AgentToolName
+} from "./agent-tools";
 
 export interface AgentTestResult {
   command: string;
@@ -12,9 +18,11 @@ export interface AgentTestResult {
 
 export interface TriageResult {
   issueNumber: number;
-  outcome: "reject" | "escalate";
+  outcome: "reject" | "dispatch";
   summary: string;
   issueComment: string | null;
+  toolName: AgentToolName | null;
+  toolReason: string | null;
 }
 
 export interface HumanHandoff {
@@ -38,6 +46,7 @@ export interface RunRecord {
   issueNumber: number;
   issueTitle: string;
   branchName: string;
+  agentTool?: AgentToolName;
   status: "running" | "accepted" | "rejected" | "retry" | "failed";
   iteration: number;
   createdAt: string;
@@ -71,6 +80,7 @@ export interface ActiveRun {
   resultPath: string;
   logPath: string;
   startedAt: number;
+  parseResult: () => Promise<AgentResult | null>;
 }
 
 const RESULT_MARKER = "<!-- openreactor:agent-result -->";
@@ -273,13 +283,28 @@ export async function spawnIssueAgent(input: {
   record: RunRecord;
   githubToken: string;
 }): Promise<ActiveRun> {
+  const tool = getAgentTool(input.record.agentTool);
+  if (tool.provider === "claude") {
+    return spawnClaudeUiIssueAgent(input);
+  }
+
+  return spawnCodexIssueAgent(input);
+}
+
+async function spawnCodexIssueAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
   const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = buildAgentPrompt(config, issue, paths, iteration);
+  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_issue_agent");
 
   await fs.writeFile(promptPath, prompt, "utf8");
 
@@ -319,19 +344,11 @@ export async function spawnIssueAgent(input: {
 
   child.stdin.end(prompt);
 
-  const logHandle = await fs.open(logPath, "w");
-  child.stdout.on("data", (chunk) => {
-    void logHandle.appendFile(chunk);
-  });
-  child.stderr.on("data", (chunk) => {
-    void logHandle.appendFile(chunk);
-  });
-  child.on("close", () => {
-    void logHandle.close();
-  });
+  await attachProcessLogging(child, logPath);
 
   const record: RunRecord = {
     ...input.record,
+    agentTool: "spawn_codex_issue_agent",
     status: "running",
     iteration,
     updatedAt: new Date().toISOString(),
@@ -353,7 +370,86 @@ export async function spawnIssueAgent(input: {
     heartbeatTimer,
     resultPath,
     logPath,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    parseResult: () => parseAgentResult(resultPath)
+  };
+}
+
+async function spawnClaudeUiIssueAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  const { config, issue, paths, githubToken } = input;
+  const iteration = input.record.iteration + 1;
+  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
+  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
+  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
+  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_claude_ui_agent");
+  const schema = await fs.readFile(schemaPath, "utf8");
+
+  await fs.writeFile(promptPath, prompt, "utf8");
+
+  const args = buildClaudeArgs({
+    model: config.claudeUiModel,
+    effort: config.claudeUiEffort,
+    schema,
+    runDir: paths.runDir
+  });
+
+  const child = spawn("claude", args, {
+    cwd: paths.worktreePath,
+    env: {
+      ...process.env,
+      GH_TOKEN: githubToken,
+      GITHUB_TOKEN: githubToken,
+      OPENREACTOR_REPO_OWNER: config.owner,
+      OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+      OPENREACTOR_ISSUE_URL: issue.html_url,
+      OPENREACTOR_RUN_DIR: paths.runDir,
+      OPENREACTOR_PLAN_PATH: paths.planPath,
+      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
+      OPENREACTOR_TASKS_PATH: paths.tasksPath,
+      OPENREACTOR_BRANCH_NAME: paths.branchName,
+      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+
+  const stdoutChunks = await attachProcessLogging(child, logPath);
+
+  const record: RunRecord = {
+    ...input.record,
+    agentTool: "spawn_claude_ui_agent",
+    status: "running",
+    iteration,
+    updatedAt: new Date().toISOString(),
+    lastHeartbeatAt: new Date().toISOString(),
+    lastError: ""
+  };
+  await writeRunRecord(paths, record);
+
+  const heartbeatTimer = setInterval(() => {
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    void writeRunRecord(paths, record);
+  }, 10_000);
+
+  return {
+    issue,
+    record,
+    process: child,
+    heartbeatTimer,
+    resultPath,
+    logPath,
+    startedAt: Date.now(),
+    parseResult: () => parseClaudeAgentResult(stdoutChunks, resultPath)
   };
 }
 
@@ -419,7 +515,7 @@ export async function finalizeIssueAgentRun(input: {
   const exitCode = await waitForExit(input.activeRun.process);
   clearInterval(input.activeRun.heartbeatTimer);
 
-  const parsedResult = await parseAgentResult(input.activeRun.resultPath);
+  const parsedResult = await input.activeRun.parseResult();
   input.activeRun.record.updatedAt = new Date().toISOString();
   input.activeRun.record.lastHeartbeatAt = input.activeRun.record.updatedAt;
   input.activeRun.record.lastResult = parsedResult;
@@ -438,8 +534,23 @@ function buildAgentPrompt(
   config: OrchestratorConfig,
   issue: GitHubIssue,
   paths: IssueRuntimePaths,
-  iteration: number
+  iteration: number,
+  agentTool: AgentToolName
 ): string {
+  const tool = getAgentTool(agentTool);
+  const extraFiles =
+    agentTool === "spawn_claude_ui_agent" ? ["- prompts/ui-agent.md"] : [];
+  const toolRules =
+    agentTool === "spawn_claude_ui_agent"
+      ? [
+          `- This issue was dispatched via ${tool.label}. Treat it as a UI-heavy task unless the code proves otherwise.`,
+          "- Use prompts/ui-agent.md as your frontend design skill equivalent while making design decisions.",
+          "- Prefer tight, polished UI work over broad refactors when solving the issue."
+        ]
+      : [
+          `- This issue was dispatched via ${tool.label}. Handle it as the general-purpose implementation path.`
+        ];
+
   return [
     `You are OpenReactor's autonomous issue agent for GitHub issue #${issue.number}.`,
     "",
@@ -447,6 +558,7 @@ function buildAgentPrompt(
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- prompts/quality-gates.md",
+    ...extraFiles,
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
     `- ${relativeFromWorktree(paths, paths.planPath)}`,
     `- ${relativeFromWorktree(paths, paths.progressPath)}`,
@@ -463,6 +575,7 @@ function buildAgentPrompt(
     "- Treat the issue as product feedback, not a binding specification.",
     "- You may reject the request if that is better for the product.",
     "- If accepted, you may reinterpret the request and implement the best product change.",
+    ...toolRules,
     "- A starter plan.json already exists. Update it instead of replacing it with a different shape.",
     "- Append progress to progress.md before finishing.",
     "- If you discover durable learnings, update the relevant shared docs in prompts/, MEMORY.md, CONSTITUTION.md, or nearby product docs.",
@@ -504,9 +617,12 @@ function buildTriagePrompt(issue: GitHubIssue): string {
     "",
     "Your job:",
     "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly too broad for one safe iteration.",
-    "- Escalate to the full issue agent for anything plausible, ambiguous, weird-but-harmless, or potentially valuable.",
-    "- Bias toward escalation during OpenReactor's early identity-forming stage.",
+    "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable to one of the available implementation tools.",
+    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage.",
     "- Do not perform implementation work, open PRs, or mutate files.",
+    "",
+    "Available implementation tools:",
+    describeAgentToolsForPrompt(),
     "",
     "Return only JSON matching the provided output schema."
   ].join("\n");
@@ -525,6 +641,28 @@ async function parseTriageResult(resultPath: string): Promise<TriageResult | nul
   try {
     const raw = await fs.readFile(resultPath, "utf8");
     return JSON.parse(raw) as TriageResult;
+  } catch {
+    return null;
+  }
+}
+
+async function parseClaudeAgentResult(
+  stdoutChunks: string[],
+  resultPath: string
+): Promise<AgentResult | null> {
+  try {
+    const raw = stdoutChunks.join("").trim();
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as { structured_output?: AgentResult };
+    if (!parsed.structured_output) {
+      return null;
+    }
+
+    await fs.writeFile(resultPath, `${JSON.stringify(parsed.structured_output, null, 2)}\n`, "utf8");
+    return parsed.structured_output;
   } catch {
     return null;
   }
@@ -579,6 +717,28 @@ async function runCommand(command: string, args: string[]): Promise<void> {
   }
 }
 
+async function attachProcessLogging(
+  child: ChildProcessWithoutNullStreams,
+  logPath: string
+): Promise<string[]> {
+  const stdoutChunks: string[] = [];
+  const logHandle = await fs.open(logPath, "w");
+
+  child.stdout.on("data", (chunk) => {
+    const text = chunk.toString();
+    stdoutChunks.push(text);
+    void logHandle.appendFile(text);
+  });
+  child.stderr.on("data", (chunk) => {
+    void logHandle.appendFile(chunk);
+  });
+  child.on("close", () => {
+    void logHandle.close();
+  });
+
+  return stdoutChunks;
+}
+
 function buildCodexArgs(input: {
   model: string;
   reasoningEffort: string;
@@ -591,10 +751,12 @@ function buildCodexArgs(input: {
     "-m",
     input.model,
     "-c",
-    `model_reasoning_effort="${input.reasoningEffort}"`,
-    "-c",
-    `service_tier="${input.serviceTier}"`,
+    `model_reasoning_effort="${input.reasoningEffort}"`
   ];
+
+  if (input.serviceTier) {
+    args.push("-c", `service_tier="${input.serviceTier}"`);
+  }
 
   if (input.fullAccess) {
     args.push("--dangerously-bypass-approvals-and-sandbox");
@@ -613,6 +775,29 @@ function buildCodexArgs(input: {
   );
 
   return args;
+}
+
+function buildClaudeArgs(input: {
+  model: string;
+  effort: string;
+  schema: string;
+  runDir: string;
+}): string[] {
+  return [
+    "-p",
+    "--model",
+    input.model,
+    "--effort",
+    input.effort,
+    "--output-format",
+    "json",
+    "--json-schema",
+    input.schema,
+    "--permission-mode",
+    "bypassPermissions",
+    "--add-dir",
+    input.runDir
+  ];
 }
 
 async function waitForExit(
