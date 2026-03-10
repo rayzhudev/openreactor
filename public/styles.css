@@ -361,6 +361,13 @@ button {
   flex: none;
 }
 
+.feed-link {
+  border-color: rgba(184, 92, 56, 0.24);
+  background:
+    linear-gradient(135deg, rgba(184, 92, 56, 0.12), rgba(86, 112, 95, 0.1)),
+    var(--control-bg);
+}
+
 .frog-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1908,7 +1915,6 @@ button {
   .queue-archive-list {
     grid-template-columns: 1fr;
   }
-
   .top-nav,
   .leaderboard-item-top {
     flex-direction: column;
