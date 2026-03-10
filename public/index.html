@@ -12,155 +12,235 @@
   </head>
   <body>
     <main class="page-shell">
-      <section class="hero" aria-labelledby="page-title">
-        <div class="hero-copy">
-          <div class="intake-panel panel">
-            <div class="masthead">
-              <h1 class="wordmark" id="page-title">
-                <span>Open</span>
-                <span class="wordmark-accent">Reactor</span>
-              </h1>
-              <a
-                id="repo-star-link"
-                class="repo-star-link"
-                href="#"
-                target="_blank"
-                rel="noreferrer"
-                hidden
-              >
-                <svg
-                  class="repo-star-icon"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-                    0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-                    -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
-                    .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
-                    -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
-                    2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
-                    2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
-                    2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
-                  ></path>
-                </svg>
-                <span>Star on GitHub</span>
-              </a>
+      <header class="site-topbar" aria-label="Primary">
+        <a class="brand-chip" href="/" aria-label="OpenReactor home">
+          <span class="brand-chip-mark">OR</span>
+          <span class="brand-chip-copy">
+            <span class="brand-chip-title">OpenReactor</span>
+            <span class="brand-chip-subtitle">Public product pressure, shipped in the open.</span>
+          </span>
+        </a>
+
+        <div class="topbar-actions">
+          <a class="top-nav-link" href="/request-guide/">Request guide</a>
+          <a
+            id="repo-star-link"
+            class="repo-star-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            hidden
+          >
+            <svg
+              class="repo-star-icon"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
+                2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+                2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+                2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+              ></path>
+            </svg>
+            <span>Star on GitHub</span>
+          </a>
+        </div>
+      </header>
+
+      <section class="hero-grid" aria-labelledby="page-title">
+        <article class="hero-intro panel">
+          <div class="hero-intro-copy">
+            <p class="eyebrow">Self-building product</p>
+            <h1 class="wordmark" id="page-title">
+              <span>Pressure</span>
+              <span class="wordmark-accent">builds the brief.</span>
+            </h1>
+            <p class="hero-summary">
+              OpenReactor turns sharp requests into public issues, autonomous review, and visible product movement. The taste is opinionated. The work stays inspectable.
+            </p>
+          </div>
+
+          <div class="hero-marquee" aria-label="How OpenReactor works">
+            <p class="hero-marquee-label">Live loop</p>
+            <div class="hero-marquee-track">
+              <span>Intake</span>
+              <span>Issue</span>
+              <span>Agent</span>
+              <span>PR</span>
+              <span>Deploy</span>
+            </div>
+          </div>
+
+          <div class="hero-ledger" aria-label="Core principles">
+            <article class="hero-ledger-card">
+              <p class="hero-ledger-step">01</p>
+              <h2>Ask for one clean move.</h2>
+              <p>Requests work best when they sound like a product decision, not a brainstorm pile.</p>
+            </article>
+            <article class="hero-ledger-card">
+              <p class="hero-ledger-step">02</p>
+              <h2>Agents judge the product fit.</h2>
+              <p>Accepted work may be narrowed, reframed, or rejected if the product would be better for it.</p>
+            </article>
+            <article class="hero-ledger-card">
+              <p class="hero-ledger-step">03</p>
+              <h2>The queue stays public.</h2>
+              <p>Every request becomes a visible artifact, so the product’s taste is legible instead of hidden.</p>
+            </article>
+          </div>
+        </article>
+
+        <section class="intake-panel panel" aria-labelledby="intake-title">
+          <div class="intake-header">
+            <div>
+              <p class="panel-kicker">Submit a request</p>
+              <h2 id="intake-title" class="intake-title">Write the next pressure point.</h2>
+            </div>
+            <p class="intake-header-copy">
+              Brutal clarity is useful. Dictating pixels is not. Name the friction, the move, and what better should feel like.
+            </p>
+          </div>
+
+          <form id="request-form" class="request-form" novalidate>
+            <label class="request-label" for="request">
+              <span class="sr-only">Request</span>
+              <textarea
+                id="request"
+                name="request"
+                class="request-field-control request-textarea"
+                rows="6"
+                maxlength="2000"
+                minlength="20"
+                aria-describedby="request-signal-hint request-count"
+                placeholder="The current intake page feels generic. Rework it into a more confident editorial layout while keeping the request flow simple."
+                required
+              ></textarea>
+            </label>
+
+            <div class="request-signal" id="request-signal" data-tone="draft" aria-live="polite">
+              <div class="request-signal-head">
+                <div>
+                  <p class="request-signal-title">Signal meter</p>
+                  <p id="request-signal-label" class="request-signal-label">Start with the problem and the product move you want.</p>
+                </div>
+                <p id="request-count" class="request-count">0 / 2000</p>
+              </div>
+
+              <div class="request-signal-bar" aria-hidden="true">
+                <span id="request-signal-fill" class="request-signal-fill"></span>
+              </div>
+
+              <p id="request-signal-hint" class="request-signal-hint">
+                High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
+              </p>
             </div>
 
-            <form id="request-form" class="request-form" novalidate>
-              <label class="request-label" for="request">
-                <span class="sr-only">Request</span>
-                <textarea
-                  id="request"
-                  name="request"
-                  class="request-field-control request-textarea"
-                  rows="6"
-                  maxlength="2000"
-                  minlength="20"
-                  aria-describedby="request-signal-hint request-count"
-                  placeholder="What should OpenReactor build next?"
-                  required
-                ></textarea>
-              </label>
-
-              <div class="request-signal" id="request-signal" data-tone="draft" aria-live="polite">
-                <div class="request-signal-head">
-                  <div>
-                    <p class="request-signal-title">Signal meter</p>
-                    <p id="request-signal-label" class="request-signal-label">Start with the problem and the product move you want.</p>
-                  </div>
-                  <p id="request-count" class="request-count">0 / 2000</p>
-                </div>
-
-                <div class="request-signal-bar" aria-hidden="true">
-                  <span id="request-signal-fill" class="request-signal-fill"></span>
-                </div>
-
-                <p id="request-signal-hint" class="request-signal-hint">
-                  High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
-                </p>
-              </div>
-
-              <details class="request-guide" id="request-guide">
-                <summary class="request-guide-toggle">
-                  <span class="request-guide-heading">
-                    <span class="request-guide-kicker">Request guide</span>
-                    <span class="request-guide-title">Turn rough pressure into a clear issue.</span>
-                  </span>
-                  <span class="request-guide-icon" aria-hidden="true"></span>
-                </summary>
-
-                <div class="request-guide-content">
-                  <p class="request-guide-copy">
-                    Use the box above for one concrete request. The form will turn it into a GitHub issue, so the strongest submissions explain the ask, the problem, and the outcome in plain language.
-                  </p>
-
-                  <div class="request-guide-grid">
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">1</p>
-                      <h3>Name the move</h3>
-                      <p>Call out the feature, fix, or product change you want instead of describing a vague feeling.</p>
-                    </article>
-
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">2</p>
-                      <h3>Explain the friction</h3>
-                      <p>Say what feels broken, confusing, ugly, or slow so the agent can judge the real product problem.</p>
-                    </article>
-
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">3</p>
-                      <h3>Point to the outcome</h3>
-                      <p>Describe what better looks like, including placement or constraints when they matter.</p>
-                    </article>
-                  </div>
-
-                  <div class="request-guide-example">
-                    <p class="request-guide-example-label">Example</p>
-                    <p class="request-guide-example-copy">
-                      Replace the plain request guide with a polished accordion below the entry box so the page stays clean by default but still teaches people how to write a strong request.
-                    </p>
-                  </div>
-                </div>
-              </details>
-
-              <label class="request-label" for="github-username">
-                <span class="request-meta-heading">GitHub username (optional)</span>
-                <input
-                  id="github-username"
-                  name="githubUsername"
-                  class="request-field-control request-input"
-                  type="text"
-                  inputmode="text"
-                  autocomplete="username"
-                  maxlength="40"
-                  placeholder="@octocat"
-                />
-                <span class="request-subcopy">
-                  If accepted work turns into a commit, OpenReactor can use this to credit your GitHub account as a co-author.
+            <details class="request-guide" id="request-guide">
+              <summary class="request-guide-toggle">
+                <span class="request-guide-heading">
+                  <span class="request-guide-kicker">Request guide</span>
+                  <span class="request-guide-title">Turn rough pressure into a clear issue.</span>
                 </span>
-              </label>
+                <span class="request-guide-icon" aria-hidden="true"></span>
+              </summary>
 
-              <label class="honeypot" aria-hidden="true">
-                <span>Website</span>
-                <input id="website" name="website" tabindex="-1" autocomplete="off" />
-              </label>
+              <div class="request-guide-content">
+                <p class="request-guide-copy">
+                  The strongest submissions isolate one move, explain why it matters, and describe the user-facing shift instead of prescribing implementation line by line.
+                </p>
 
-              <div class="form-footer">
-                <p class="form-note">Keep it concrete. The issue agent will decide the best product move, not blindly follow the wording. Open the inline guide when the request needs more framing.</p>
-                <button class="submit-button" id="submit-button" type="submit">Submit</button>
+                <div class="request-guide-grid">
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">1</p>
+                    <h3>Name the move</h3>
+                    <p>Call out the specific feature, fix, or redesign you want instead of gesturing at a mood.</p>
+                  </article>
+
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">2</p>
+                    <h3>Explain the friction</h3>
+                    <p>Say what feels broken, bland, confusing, or slow so the agent can judge the real product problem.</p>
+                  </article>
+
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">3</p>
+                    <h3>Point to the outcome</h3>
+                    <p>Describe what better looks like, including constraints when they affect the shape of the change.</p>
+                  </article>
+                </div>
+
+                <div class="request-guide-example">
+                  <p class="request-guide-example-label">Example</p>
+                  <p class="request-guide-example-copy">
+                    Make the queue feel live by giving accepted, running, and rejected requests stronger visual distinctions and clearer timestamps so the public feed reads like active product work instead of a plain issue list.
+                  </p>
+                </div>
               </div>
+            </details>
 
-              <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
-            </form>
-          </div>
-        </div>
+            <label class="request-label" for="github-username">
+              <span class="request-meta-heading">GitHub username (optional)</span>
+              <input
+                id="github-username"
+                name="githubUsername"
+                class="request-field-control request-input"
+                type="text"
+                inputmode="text"
+                autocomplete="username"
+                maxlength="40"
+                placeholder="@octocat"
+              />
+              <span class="request-subcopy">
+                If accepted work turns into a commit, OpenReactor can use this to credit your GitHub account as a co-author.
+              </span>
+            </label>
+
+            <label class="honeypot" aria-hidden="true">
+              <span>Website</span>
+              <input id="website" name="website" tabindex="-1" autocomplete="off" />
+            </label>
+
+            <div class="form-footer">
+              <p class="form-note">
+                The agent decides the best product move. Requests should argue for the outcome, not lock the implementation.
+              </p>
+              <button class="submit-button" id="submit-button" type="submit">Submit</button>
+            </div>
+
+            <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </section>
+
+      <section class="story-grid" aria-label="Why this loop works">
+        <article class="story-panel panel">
+          <p class="panel-kicker">What the product rewards</p>
+          <h2>Specific pressure travels farther than nice words.</h2>
+          <p class="story-copy">
+            OpenReactor is built to make decisions in public. Clear problem framing gives the agent room to choose a better implementation than the literal request when the product needs it.
+          </p>
+        </article>
+
+        <article class="story-panel story-panel-accent panel">
+          <p class="panel-kicker">Scope discipline</p>
+          <h2>One request. One decision. One visible result.</h2>
+          <p class="story-copy">
+            The current loop is intentionally small: intake, GitHub issue creation, public queue visibility, and an autonomous local agent. Keep requests inside that operating envelope.
+          </p>
+        </article>
       </section>
 
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
-          <h2 id="queue-title">Queue</h2>
+          <div>
+            <p class="panel-kicker">Public queue</p>
+            <h2 id="queue-title">Requests in the open</h2>
+          </div>
           <a
             id="queue-repo-link"
             class="queue-link"
@@ -173,6 +253,9 @@
           </a>
         </div>
 
+        <p class="queue-intro">
+          The queue is the product’s visible memory. Accepted, rejected, and in-progress requests all leave a paper trail.
+        </p>
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
           Loading queue...
         </p>
