@@ -2,6 +2,7 @@ const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
+const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
@@ -10,7 +11,7 @@ boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
-  await loadQueue();
+  await Promise.all([loadRepoMeta(), loadQueue()]);
 }
 
 async function onSubmit(event) {
@@ -110,10 +111,37 @@ async function loadQueue() {
   }
 }
 
+async function loadRepoMeta() {
+  try {
+    const response = await fetch("/api/meta");
+    const data = await readJsonResponse(response, "metadata");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load repository metadata.");
+    }
+
+    renderRepoStarLink(data.repoUrl || "");
+  } catch {
+    renderRepoStarLink("");
+  }
+}
+
+function renderRepoStarLink(repoUrl) {
+  if (repoUrl) {
+    repoStarLink.href = repoUrl;
+    repoStarLink.hidden = false;
+    return;
+  }
+
+  repoStarLink.hidden = true;
+  repoStarLink.removeAttribute("href");
+}
+
 function renderQueue(items, repoUrl) {
   queueList.innerHTML = "";
 
   if (repoUrl) {
+    renderRepoStarLink(repoUrl);
     queueRepoLink.href = repoUrl;
     queueRepoLink.hidden = false;
   } else {
