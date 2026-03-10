@@ -100,7 +100,7 @@ export async function handleHealth(env: Env): Promise<Response> {
   });
 }
 
-export async function handleListRequests(env: Env): Promise<Response> {
+export async function handleListRequests(request: Request, env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
 
   if (!isRepoConfigured(normalized)) {
@@ -133,10 +133,37 @@ export async function handleListRequests(env: Env): Promise<Response> {
       })
     );
 
+<<<<<<< HEAD
     return jsonResponse({
       items: enrichedItems,
       repoUrl: getRepoUrl(normalized)
     });
+=======
+    const repoUrl = getRepoUrl(normalized);
+    const etag = buildQueueEtag(enrichedItems);
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          "Cache-Control": "no-store",
+          ETag: etag,
+          ...corsHeaders()
+        }
+      });
+    }
+
+    return jsonResponse(
+      {
+        items: enrichedItems,
+        repoUrl
+      },
+      200,
+      {
+        ETag: etag
+      }
+    );
+>>>>>>> origin/main
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
   }
@@ -515,12 +542,17 @@ function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: 
   return url.toString();
 }
 
-function jsonResponse(data: Record<string, unknown>, status = 200): Response {
+function jsonResponse(
+  data: Record<string, unknown>,
+  status = 200,
+  extraHeaders: Record<string, string> = {}
+): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      ...extraHeaders,
       ...corsHeaders()
     }
   });
@@ -578,6 +610,24 @@ function isLowSignalText(value: string): boolean {
   }
 
   return false;
+}
+
+function buildQueueEtag(
+  items: Array<{
+    number: number;
+    createdAt: string;
+    status: string;
+    statusDetail?: string | null;
+    statusUpdatedAt?: string | null;
+  }>
+): string {
+  const signature = items
+    .map(
+      (item) =>
+        `${item.number}:${item.status}:${item.createdAt}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
+    )
+    .join("|");
+  return `W/"${signature || "empty"}"`;
 }
 
 function normalizeEnv(env: Env): NormalizedEnv {

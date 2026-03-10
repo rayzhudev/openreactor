@@ -30,3 +30,6 @@
 
 - Decision: publish a single reactor-managed status comment on each claimed issue and surface that detail in the public queue.
   Reason: visibility into running work belongs in the existing GitHub issue and queue MVP, not in a separate dashboard yet.
+
+- Decision: include `agent-browser` in the issue-agent environment and prompt agents to use it for UI verification.
+  Reason: the local reactor loop needs a cheap way to validate rendered changes, not just file diffs, when agents modify the site.
