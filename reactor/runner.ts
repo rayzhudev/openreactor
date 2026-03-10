@@ -270,10 +270,7 @@ export async function spawnIssueAgent(input: {
   await fs.writeFile(promptPath, prompt, "utf8");
 
   const args = [
-    "-a",
-    "never",
-    "-s",
-    "danger-full-access",
+    "--dangerously-bypass-approvals-and-sandbox",
     "exec",
     "-",
     "--skip-git-repo-check",
@@ -382,6 +379,7 @@ function buildAgentPrompt(
     "- prompts/issue-agent.md",
     "- prompts/quality-gates.md",
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
+    `- ${relativeFromWorktree(paths, paths.planPath)}`,
     `- ${relativeFromWorktree(paths, paths.progressPath)}`,
     `- ${relativeFromWorktree(paths, paths.tasksPath)}`,
     "",

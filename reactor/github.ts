@@ -26,6 +26,7 @@ export interface GitHubPullRequest {
   number: number;
   html_url: string;
   state: string;
+  merged_at?: string | null;
   head?: {
     ref?: string;
   };
@@ -114,13 +115,69 @@ export class GitHubClient {
     );
   }
 
+  async closeIssue(
+    issueNumber: number,
+    stateReason: "completed" | "not_planned"
+  ): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          state: "closed",
+          state_reason: stateReason
+        })
+      }
+    );
+  }
+
   async findOpenPullRequestByBranch(branchName: string): Promise<GitHubPullRequest | null> {
+    return this.findPullRequestByBranch(branchName, "open");
+  }
+
+  async findPullRequestByBranch(
+    branchName: string,
+    state: "open" | "closed" | "all" = "open"
+  ): Promise<GitHubPullRequest | null> {
     const head = encodeURIComponent(`${this.config.owner}:${branchName}`);
     const pulls = await this.request<GitHubPullRequest[]>(
-      `/repos/${this.config.owner}/${this.config.repo}/pulls?state=open&head=${head}&per_page=10`
+      `/repos/${this.config.owner}/${this.config.repo}/pulls?state=${state}&head=${head}&per_page=10`
     );
 
     return pulls[0] ?? null;
+  }
+
+  async isPullRequestMerged(pullRequestNumber: number): Promise<boolean> {
+    const headers = new Headers();
+    headers.set("Accept", "application/vnd.github+json");
+    headers.set("User-Agent", USER_AGENT);
+    headers.set("X-GitHub-Api-Version", API_VERSION);
+
+    const accessToken = await this.getAccessToken();
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    const response = await fetch(
+      `${API_BASE}/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}/merge`,
+      {
+        method: "GET",
+        headers
+      }
+    );
+
+    if (response.status === 204) {
+      return true;
+    }
+
+    if (response.status === 404) {
+      return false;
+    }
+
+    const detail = await safeErrorDetail(response);
+    throw new Error(
+      `${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`
+    );
   }
 
   private async request<T = unknown>(path: string, init?: RequestInit): Promise<T> {

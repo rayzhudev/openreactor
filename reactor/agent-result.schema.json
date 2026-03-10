@@ -59,5 +59,15 @@
       }
     }
   },
-  "required": ["issueNumber", "outcome", "summary", "tests"]
+  "required": [
+    "issueNumber",
+    "outcome",
+    "summary",
+    "branchName",
+    "prUrl",
+    "issueComment",
+    "nextStep",
+    "humanHandoff",
+    "tests"
+  ]
 }

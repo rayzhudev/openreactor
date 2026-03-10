@@ -81,6 +81,27 @@ Run files under `.openreactor/runs/issue-*` include:
 - `tasks.md` for the working checklist
 - `progress.md` with a `Codebase Patterns` section for durable learnings
 
+## Reactor service
+
+The repo includes a user-level systemd unit template at
+[`ops/openreactor-reactor.service`](/home/ray/projects/openreactor/ops/openreactor-reactor.service)
+and an env template at
+[`ops/reactor.env.example`](/home/ray/projects/openreactor/ops/reactor.env.example).
+
+The installed service runs directly from this checkout, so code updates are
+picked up after a restart:
+
+```bash
+systemctl --user restart openreactor-reactor.service
+```
+
+Useful commands:
+
+```bash
+systemctl --user status --no-pager openreactor-reactor.service
+journalctl --user -u openreactor-reactor.service -n 100 --no-pager
+```
+
 ## Local development
 
 1. Install dependencies:

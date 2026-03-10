@@ -98,6 +98,7 @@ class Reactor {
       return;
     }
 
+    await this.reconcileTerminalIssueState(candidates);
     await this.resumeClaimedIssues(candidates);
 
     for (const issue of candidates) {
@@ -111,6 +112,45 @@ class Reactor {
 
       await this.github.addLabels(issue.number, [this.config.runningLabel]);
       await this.startIssue(issue);
+    }
+  }
+
+  private async reconcileTerminalIssueState(issues: GitHubIssue[]): Promise<void> {
+    for (const issue of issues) {
+      if (this.activeRuns.has(issue.number)) {
+        continue;
+      }
+
+      const labels = getLabelNames(issue);
+      if (labels.has(this.config.runningLabel)) {
+        continue;
+      }
+
+      if (labels.has(this.config.rejectedLabel)) {
+        await this.github.closeIssue(issue.number, "not_planned");
+        continue;
+      }
+
+      if (!labels.has(this.config.acceptedLabel)) {
+        continue;
+      }
+
+      const branchName = issueRuntimePaths(this.config, issue.number).branchName;
+      const pullRequest = await this.github.findPullRequestByBranch(branchName, "all");
+      if (!pullRequest) {
+        continue;
+      }
+
+      const merged = await this.github.isPullRequestMerged(pullRequest.number);
+      if (!merged) {
+        continue;
+      }
+
+      await this.github.createComment(
+        issue.number,
+        `OpenReactor marked this issue complete because ${pullRequest.html_url} was merged.`
+      );
+      await this.github.closeIssue(issue.number, "completed");
     }
   }
 
@@ -225,6 +265,7 @@ class Reactor {
       if (result?.outcome === "rejected") {
         await this.github.addLabels(issueNumber, [this.config.rejectedLabel]);
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
+        await this.github.closeIssue(issueNumber, "not_planned");
         return;
       }
 
@@ -310,13 +351,19 @@ async function main(): Promise<void> {
   const once = process.argv.includes("--once");
   const dryRun = process.argv.includes("--dry-run");
   const reactor = new Reactor(dryRun);
+  let stopping = false;
 
-  process.on("SIGINT", () => {
+  const handleStopSignal = () => {
+    if (stopping) {
+      return;
+    }
+    stopping = true;
     reactor.stop();
-  });
-  process.on("SIGTERM", () => {
-    reactor.stop();
-  });
+    process.exit(0);
+  };
+
+  process.on("SIGINT", handleStopSignal);
+  process.on("SIGTERM", handleStopSignal);
 
   await reactor.start(once);
 }
