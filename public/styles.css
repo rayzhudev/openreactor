@@ -673,9 +673,17 @@ input,
   text-transform: uppercase;
 }
 
+.queue-deck {
+  max-width: 46rem;
+  margin: 0.9rem 0 0;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
 .queue-status {
   min-height: 1.5rem;
-  margin-top: 1rem;
+  margin-top: 1.15rem;
   color: var(--ink-soft);
   font-size: 0.94rem;
   line-height: 1.5;
@@ -686,12 +694,50 @@ input,
 }
 
 .queue-list {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(24, minmax(0, 1fr));
   gap: 0.9rem;
-  padding: 0;
+  padding: 1rem;
   margin: 1.1rem 0 0;
   list-style: none;
+  border: 1px solid rgba(247, 239, 227, 0.08);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(247, 239, 227, 0.04), rgba(247, 239, 227, 0.02)),
+    linear-gradient(90deg, rgba(247, 239, 227, 0.08) 0 1px, transparent 1px);
+  background-repeat: no-repeat, repeat;
+  background-size: auto, calc(100% / 24) 100%;
+  overflow: hidden;
+}
+
+.queue-list::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 50%;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 210, 121, 0.14) 0 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 210, 121, 0.08), transparent 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: calc(100% / 12) 100%, auto;
+  pointer-events: none;
+}
+
+.queue-item {
+  position: relative;
+  z-index: 1;
+  grid-column: span 12;
+  min-width: 0;
+}
+
+.queue-item:nth-child(4n + 1) {
+  grid-column: span 14;
+}
+
+.queue-item:nth-child(4n + 2) {
+  grid-column: span 10;
 }
 
 .queue-item-link {
@@ -932,6 +978,12 @@ input,
   .guide-grid,
   .queue-list {
     grid-template-columns: 1fr;
+  }
+
+  .queue-item,
+  .queue-item:nth-child(4n + 1),
+  .queue-item:nth-child(4n + 2) {
+    grid-column: 1 / -1;
   }
 
   .request-guide-grid {
