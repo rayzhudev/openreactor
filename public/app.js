@@ -3,6 +3,8 @@ const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
+const effortLevelField = document.querySelector("#effort-level");
+const scopeValueLabelNode = document.querySelector("#scope-value-label");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueBoard = document.querySelector("#queue-board");
 const queueTableWrap = document.querySelector("#queue-table-wrap");
@@ -10,6 +12,7 @@ const queueTableBody = document.querySelector("#queue-table-body");
 const queueArchive = document.querySelector("#queue-archive");
 const queueArchiveList = document.querySelector("#queue-archive-list");
 const queueArchiveCountNode = document.querySelector("#queue-archive-count");
+const queueArchivePagination = document.querySelector("#queue-archive-pagination");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
@@ -71,13 +74,15 @@ const BOARD_COLUMNS = [
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
-let queueItems = [];
+let queueActiveItems = [];
+let queueArchivedItems = [];
 let activeQueueView = "board";
 const queueState = {
   page: DEFAULT_QUEUE_PAGE,
   isLoading: false,
   hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
-  hasNextPage: false
+  hasNextPage: false,
+  archiveTotal: 0
 };
 let deployFingerprint = "";
 let deployCheckTimer = 0;
@@ -94,6 +99,8 @@ boot();
 
 async function boot() {
   initThemePicker();
+  setupReactorle();
+  initSupportSession();
 
   if (!form || !requestField || !submitButton) {
     return;
@@ -101,9 +108,20 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
-  setupReactorle();
+  const githubUsernameField = document.querySelector("#github-username");
+  if (githubUsernameField) {
+    githubUsernameField.addEventListener("input", () => {
+      if (githubUsernameField.getAttribute("aria-invalid") === "true") {
+        githubUsernameField.removeAttribute("aria-invalid");
+        setStatus("");
+      }
+    });
+  }
+  if (effortLevelField) {
+    effortLevelField.addEventListener("input", onEffortInput);
+    updateScopeLabel(Number(effortLevelField.value));
+  }
   initDeployWatcher();
-  initSupportSession();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
   for (const button of queueViewButtons) {
@@ -338,6 +356,10 @@ function reloadForUpdate() {
 
 function onRequestInput(event) {
   updateRequestCount(event.currentTarget.value);
+  if (requestField.getAttribute("aria-invalid") === "true") {
+    requestField.removeAttribute("aria-invalid");
+    setStatus("");
+  }
 }
 
 async function onSubmit(event) {
@@ -351,16 +373,25 @@ async function onSubmit(event) {
   const request = `${formData.get("request") ?? ""}`.trim();
   const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
+  const effortLevel = Math.min(100, Math.max(0, Number(formData.get("effortLevel") ?? 50)));
   const validationError = validateRequest(request, githubUsername);
 
   if (validationError) {
     setStatus(validationError, "error");
+    const isUsernameError = validationError.toLowerCase().includes("username");
+    const errorField = isUsernameError
+      ? document.querySelector("#github-username")
+      : requestField;
+    if (errorField) {
+      errorField.setAttribute("aria-invalid", "true");
+      errorField.focus();
+    }
     submitButton.disabled = false;
     submitButton.textContent = SUBMIT_BUTTON_LABEL;
     return;
   }
 
-  const payload = buildPayload(request, website, githubUsername);
+  const payload = buildPayload(request, website, githubUsername, effortLevel);
 
   try {
     const response = await fetch("/api/requests", {
@@ -385,6 +416,11 @@ async function onSubmit(event) {
 
     form.reset();
     updateRequestCount("");
+    requestField.removeAttribute("aria-invalid");
+    if (effortLevelField) {
+      effortLevelField.value = "50";
+      updateScopeLabel(50);
+    }
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
     await loadQueue(1);
@@ -396,7 +432,7 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, githubUsername) {
+function buildPayload(request, website, githubUsername, effortLevel = 50) {
   const summary = summarizeRequest(request);
 
   return {
@@ -407,8 +443,28 @@ function buildPayload(request, website, githubUsername) {
     outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
     constraints: "",
     successCriteria: "",
-    notes: ""
+    notes: "",
+    effortLevel: Math.min(100, Math.max(0, Math.round(effortLevel)))
   };
+}
+
+function scopeLabelFromValue(value) {
+  if (value <= 25) return "Minimal change";
+  if (value <= 65) return "Moderate change";
+  return "Significant change";
+}
+
+function updateScopeLabel(value) {
+  if (!scopeValueLabelNode) return;
+  const label = scopeLabelFromValue(value);
+  scopeValueLabelNode.textContent = label;
+  if (effortLevelField) {
+    effortLevelField.setAttribute("aria-valuetext", label);
+  }
+}
+
+function onEffortInput(event) {
+  updateScopeLabel(Number(event.currentTarget.value));
 }
 
 function summarizeRequest(request) {
@@ -478,6 +534,7 @@ function isLowSignalText(value) {
 
 function updateRequestCount(request) {
   requestCountNode.textContent = `${request.length} / 2000`;
+  requestCountNode.classList.toggle("request-count--near-limit", request.length > 1800);
 }
 
 function setStatus(message, tone) {
@@ -528,13 +585,10 @@ function buildSupportAuthUrl() {
 }
 
 async function onSupportSignOut() {
-  await fetch(
-    `/api/session?returnTo=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`,
-    {
-      method: "DELETE",
-      credentials: "same-origin"
-    }
-  );
+  await fetch("/api/session", {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
   window.location.assign(`${window.location.pathname}${window.location.search}`);
 }
 
@@ -559,6 +613,10 @@ function announceSupportSessionResult() {
 }
 
 function setupReactorle() {
+  if (!reactorleBoard || !reactorleKeyboard || !reactorleStatusNode) {
+    return;
+  }
+
   renderReactorleBoard();
   renderReactorleKeyboard();
   renderReactorleStatus();
@@ -896,7 +954,9 @@ async function loadQueue(page = 1, options = {}) {
   if (!silent) {
     setQueueStatus("Loading queue...");
     setQueueRefreshNote("");
-    queueItems = [];
+    queueActiveItems = [];
+    queueArchivedItems = [];
+    queueState.archiveTotal = 0;
     renderQueueView();
   }
 
@@ -915,7 +975,7 @@ async function loadQueue(page = 1, options = {}) {
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy(queueItems, page);
+      refreshQueueStatusCopy(queueActiveItems, page, queueState.archiveTotal);
       return;
     }
 
@@ -985,19 +1045,27 @@ function renderRepoStarLink(repoUrl) {
 }
 
 function renderQueue(data) {
-  const items = data.items || [];
-  const page = Number.isInteger(data.page) ? data.page : 1;
-  const hasPreviousPage = Boolean(data.hasPreviousPage);
-  const hasNextPage = Boolean(data.hasNextPage);
+  const activeItems = Array.isArray(data.activeItems) ? data.activeItems : [];
+  const archivedItems = Array.isArray(data.archivedItems) ? data.archivedItems : [];
+  const page = Number.isInteger(data.archivePage)
+    ? data.archivePage
+    : Number.isInteger(data.page)
+      ? data.page
+      : 1;
+  const hasPreviousPage = Boolean(data.archiveHasPreviousPage ?? data.hasPreviousPage);
+  const hasNextPage = Boolean(data.archiveHasNextPage ?? data.hasNextPage);
+  const archiveTotal = Number.isFinite(data.archiveTotal) ? data.archiveTotal : archivedItems.length;
   const repoUrl = data.repoUrl || "";
 
   markQueueRefresh();
-  queueItems = items;
+  queueActiveItems = activeItems;
+  queueArchivedItems = archivedItems;
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
+  queueState.archiveTotal = archiveTotal;
   updateQueueLocation(page);
-  syncQueueControls({ page, hasPreviousPage, hasNextPage });
+  syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -1010,28 +1078,29 @@ function renderQueue(data) {
 
   renderQueueView();
 
-  if (!items.length) {
-    setQueueStatus(page === 1 ? "No requests yet." : `Page ${page} has no requests.`);
+  if (!activeItems.length && !archivedItems.length) {
+    setQueueStatus("No requests yet.");
     setQueueRefreshNote(
-      page === 1
-        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
-        : `Page ${page} is empty.`
+      `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
     );
     return;
   }
 
-  refreshQueueStatusCopy(items, page);
+  refreshQueueStatusCopy(activeItems, page, archiveTotal);
 }
 
 function renderQueueError(message) {
-  queueItems = [];
+  queueActiveItems = [];
+  queueArchivedItems = [];
+  queueState.archiveTotal = 0;
   renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   syncQueueControls({
     page: queueState.page,
     hasPreviousPage: queueState.hasPreviousPage,
-    hasNextPage: queueState.hasNextPage
+    hasNextPage: queueState.hasNextPage,
+    archiveTotal: queueState.archiveTotal
   });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
@@ -1052,7 +1121,7 @@ function renderLeaderboard(items, totals) {
   }
 
   leaderboardSummaryNode.textContent =
-    "Ranks GitHub accounts by merged pull requests authored in this repository.";
+    "Ranks credited GitHub usernames for merged pull requests in this repository.";
   const fragment = document.createDocumentFragment();
 
   for (const [index, item] of items.entries()) {
@@ -1078,7 +1147,12 @@ function renderLeaderboard(items, totals) {
 
     const badge = document.createElement("span");
     badge.className = "leaderboard-badge";
-    badge.textContent = item.accountType === "Bot" ? "Bot" : "Account";
+    badge.textContent =
+      item.creditSource === "issue-requester"
+        ? "Requester"
+        : item.accountType === "Bot"
+          ? "Bot"
+          : "Account";
 
     top.append(profile, badge);
 
@@ -1159,14 +1233,17 @@ function onVisibilityChange() {
   }
 }
 
-function refreshQueueStatusCopy(items = queueItems, page = queueState.page) {
-  const activeCount = items.filter((item) => !isArchivedQueueItem(item)).length;
-  const archivedCount = items.length - activeCount;
-  const countLabel = formatQueueCountLabel(activeCount, archivedCount);
+function refreshQueueStatusCopy(
+  activeItems = queueActiveItems,
+  page = queueState.page,
+  archiveTotal = queueState.archiveTotal
+) {
+  const countLabel = formatQueueCountLabel(activeItems.length, archiveTotal);
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
-  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  const archiveLabel = archiveTotal ? ` Archive page ${page}.` : "";
+  setQueueStatus(`${countLabel}${archiveLabel} Auto-refreshes every ${formatPollInterval()}.`);
   setQueueRefreshNote(freshnessLabel);
 }
 
@@ -1209,12 +1286,9 @@ function renderQueueView() {
     button.setAttribute("aria-pressed", String(isActive));
   }
 
-  const activeItems = queueItems.filter((item) => !isArchivedQueueItem(item));
-  const archivedItems = queueItems.filter((item) => isArchivedQueueItem(item));
-
-  renderQueueBoard(activeItems);
-  renderQueueTable(activeItems);
-  renderQueueArchive(archivedItems);
+  renderQueueBoard(queueActiveItems);
+  renderQueueTable(queueActiveItems);
+  renderQueueArchive(queueArchivedItems, queueState.archiveTotal);
 }
 
 function renderQueueBoard(items) {
@@ -1232,7 +1306,6 @@ function renderQueueBoard(items) {
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
     lane.className = "queue-lane";
-    lane.dataset.status = column.key;
 
     const header = document.createElement("div");
     header.className = "queue-lane-header";
@@ -1244,11 +1317,7 @@ function renderQueueBoard(items) {
     heading.className = "queue-lane-title";
     heading.textContent = column.label;
 
-    const description = document.createElement("p");
-    description.className = "queue-lane-description";
-    description.textContent = column.description;
-
-    titleBlock.append(heading, description);
+    titleBlock.append(heading);
 
     const count = document.createElement("span");
     count.className = "queue-lane-count";
@@ -1304,6 +1373,7 @@ function renderQueueTable(items) {
     titleCell.append(titleLink);
 
     const statusCell = document.createElement("td");
+    statusCell.className = "queue-table-status-cell";
     const status = document.createElement("span");
     status.className = "queue-item-status";
     status.dataset.status = item.status;
@@ -1316,7 +1386,7 @@ function renderQueueTable(items) {
     submittedTime.dateTime = item.createdAt;
     submittedTime.title = item.createdAt;
     const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
-    submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
+    submittedTime.textContent = queueDetail || formatShortDate(item.createdAt);
     submittedCell.append(submittedTime);
 
     const supportCell = document.createElement("td");
@@ -1329,12 +1399,14 @@ function renderQueueTable(items) {
   queueTableBody.append(fragment);
 }
 
-function renderQueueArchive(items) {
+function renderQueueArchive(items, total = items.length) {
+  const wasOpen = queueArchive.open;
   queueArchiveList.innerHTML = "";
   queueArchive.hidden = true;
   queueArchive.removeAttribute("open");
+  queueArchivePagination.hidden = true;
 
-  if (!items.length) {
+  if (!total) {
     return;
   }
 
@@ -1342,27 +1414,68 @@ function renderQueueArchive(items) {
 
   for (const item of items) {
     const row = document.createElement("li");
-    row.className = "queue-card";
-    row.append(createQueueCardLink(item));
+    row.className = "queue-archive-item";
+
+    const link = document.createElement("a");
+    link.className = "queue-archive-link";
+    link.href = item.commentUrl || item.url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+
+    const issue = document.createElement("span");
+    issue.className = "queue-archive-issue";
+    issue.textContent = `#${item.number}`;
+
+    const title = document.createElement("span");
+    title.className = "queue-archive-title";
+    title.textContent = item.title;
+
+    const statusWrap = document.createElement("span");
+    statusWrap.className = "queue-archive-status";
+    statusWrap.dataset.status = item.status;
+
+    const dot = document.createElement("span");
+    dot.className = "queue-archive-dot";
+    dot.dataset.status = item.status;
+
+    const statusLabel = document.createElement("span");
+    statusLabel.textContent = formatStatus(item.status);
+
+    statusWrap.append(dot, statusLabel);
+    link.append(issue, title, statusWrap);
+    row.append(link);
     fragment.append(row);
   }
 
   queueArchive.hidden = false;
-  queueArchiveCountNode.textContent = `${items.length} request${items.length === 1 ? "" : "s"}`;
+  queueArchiveCountNode.textContent = `${total} request${total === 1 ? "" : "s"}`;
   queueArchiveList.append(fragment);
+  queueArchivePagination.hidden = false;
+
+  if (wasOpen || queueState.page > 1) {
+    queueArchive.open = true;
+  }
 }
 
 function createQueueCardLink(item) {
   const card = document.createElement("article");
   card.className = "queue-card-body";
   const link = document.createElement("a");
-  link.className = "queue-card-link";
+  link.className = "queue-item-link";
   link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";
+  link.dataset.status = item.status;
 
   const top = document.createElement("div");
   top.className = "queue-item-top";
+
+  const title = document.createElement("span");
+  title.className = "queue-item-title";
+  title.textContent = item.title;
+
+  const meta = document.createElement("div");
+  meta.className = "queue-item-meta";
 
   const issue = document.createElement("span");
   issue.className = "queue-item-issue";
@@ -1374,13 +1487,6 @@ function createQueueCardLink(item) {
   status.textContent = formatStatus(item.status);
 
   top.append(issue, status);
-
-  const title = document.createElement("span");
-  title.className = "queue-item-title";
-  title.textContent = item.title;
-
-  const meta = document.createElement("div");
-  meta.className = "queue-item-meta";
 
   if (item.githubUsername) {
     const username = document.createElement("span");
@@ -1438,9 +1544,7 @@ function createSupportControls(item, mode = "default") {
   hint.textContent = getSupportHint(item);
 
   summary.append(count, hint);
-
-  const action = buildSupportAction(item, mode);
-  support.append(summary, action);
+  support.append(summary, buildSupportAction(item, mode));
   return support;
 }
 
@@ -1589,6 +1693,7 @@ function formatSupportCount(value) {
 }
 
 async function handleSupportAction(issueNumber, button) {
+  const originalLabel = button.textContent || "Support with GitHub";
   button.disabled = true;
   button.textContent = "Supporting...";
 
@@ -1622,21 +1727,23 @@ async function handleSupportAction(issueNumber, button) {
       renderQueueView();
     } else {
       button.disabled = false;
-      button.textContent = "Support with GitHub";
+      button.textContent = originalLabel;
     }
   }
 }
 
 function syncQueueItemSupport(issueNumber, nextState) {
-  queueItems = queueItems.map((item) =>
+  const syncItem = (item) =>
     item.number === issueNumber
       ? {
           ...item,
           supportCount: Number.isFinite(nextState.supportCount) ? nextState.supportCount : item.supportCount,
           viewerSupports: Boolean(nextState.viewerSupports)
         }
-      : item
-  );
+      : item;
+
+  queueActiveItems = queueActiveItems.map(syncItem);
+  queueArchivedItems = queueArchivedItems.map(syncItem);
   renderQueueView();
 }
 
@@ -1669,13 +1776,15 @@ function changeQueuePage(page) {
   void loadQueue(page);
 }
 
-function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+function syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal = queueState.archiveTotal }) {
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
-  queuePageLabelNode.textContent = `Page ${page}`;
+  queueState.archiveTotal = archiveTotal;
+  queuePageLabelNode.textContent = `Archive page ${page}`;
   queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
   queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+  queueArchivePagination.hidden = archiveTotal === 0;
 }
 
 function updateQueueLocation(page) {
