@@ -588,6 +588,14 @@ input,
   color: var(--error);
 }
 
+.queue-refresh-note {
+  min-height: 1.25rem;
+  margin: 0.25rem 0 0;
+  color: rgba(247, 239, 227, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .queue-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
