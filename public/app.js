@@ -34,7 +34,7 @@ async function onSubmit(event) {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    const data = await readJsonResponse(response, "submission");
 
     if (!response.ok) {
       throw new Error(data.error || "Submission failed.");
@@ -98,7 +98,7 @@ async function loadQueue() {
 
   try {
     const response = await fetch("/api/requests");
-    const data = await response.json();
+    const data = await readJsonResponse(response, "queue");
 
     if (!response.ok) {
       throw new Error(data.error || "Unable to load the public queue.");
@@ -183,4 +183,25 @@ function formatDate(value) {
     day: "numeric",
     year: "numeric"
   }).format(date);
+}
+
+async function readJsonResponse(response, context) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const body = await response.text();
+  const snippet = body.trim().slice(0, 80);
+
+  if (!response.ok) {
+    throw new Error(`The ${context} API returned ${response.status}.`);
+  }
+
+  if (snippet.startsWith("<!DOCTYPE") || snippet.startsWith("<html")) {
+    throw new Error(`The ${context} API returned HTML instead of JSON.`);
+  }
+
+  throw new Error(`The ${context} API returned an unexpected response.`);
 }

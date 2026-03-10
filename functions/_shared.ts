@@ -188,7 +188,7 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
       201
     );
   } catch (error) {
-    if (isGithubAuthError(error)) {
+    if (hasGitHubAppAuth(normalized) || isGithubAuthError(error)) {
       console.warn("Falling back to GitHub issue URL after API auth failure.", error);
       return jsonResponse(
         {
@@ -359,7 +359,8 @@ async function githubRequestWithFallback<T>(env: Env, path: string, init?: Reque
   try {
     return await githubRequest<T>(env, path, init);
   } catch (error) {
-    if (!hasGitHubApiAuth(env) || !isGithubAuthError(error)) {
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method !== "GET" || !hasGitHubApiAuth(env)) {
       throw error;
     }
 
