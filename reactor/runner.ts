@@ -60,6 +60,7 @@ export interface ActiveRun {
   heartbeatTimer: ReturnType<typeof setInterval>;
   resultPath: string;
   logPath: string;
+  startedAt: number;
 }
 
 const RESULT_MARKER = "<!-- openreactor:agent-result -->";
@@ -339,7 +340,8 @@ export async function spawnIssueAgent(input: {
     process: child,
     heartbeatTimer,
     resultPath,
-    logPath
+    logPath,
+    startedAt: Date.now()
   };
 }
 
@@ -404,6 +406,8 @@ function buildAgentPrompt(
     `- Keep the claim label ${config.runningLabel} in place if more iterations are needed.`,
     `- If you finish with accepted or rejected, remove ${config.runningLabel} yourself and apply the final label.`,
     "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, and no reported checks failed.",
+    "- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/main, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.",
+    "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
     "",
     "Return only JSON matching the provided output schema.",

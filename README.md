@@ -55,6 +55,7 @@ bun run reactor:dry-run
 Useful environment variables:
 
 - `OPENREACTOR_POLL_INTERVAL_MS`
+- `OPENREACTOR_MAX_ITERATION_RUNTIME_MS`
 - `OPENREACTOR_MAX_CONCURRENT_ISSUES`
 - `OPENREACTOR_MAX_ITERATIONS_PER_ISSUE`
 - `OPENREACTOR_AGENT_MODEL`
@@ -63,6 +64,7 @@ Helper tooling for issue agents:
 
 ```bash
 bun run reactor:tool --help
+bun run reactor:tool coauthor-trailer --username octocat
 ```
 
 Production intake smoke test:
@@ -75,7 +77,10 @@ bun run smoke:pages -- --base-url https://openreactor.net --cleanup
 App installation token already injected into the run. That avoids using the
 server's SSH identity for remote publication. It also enables PR auto-merge by
 default; agents should pass `--no-auto-merge` when a PR must wait for manual
-review or human intervention.
+review or human intervention. Accepted issues are also re-queued automatically
+if their open PR becomes unmergeable due to merge conflicts, and the reactor
+also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
+branches get re-claimed even when the issue itself is already closed.
 
 Run files under `.openreactor/runs/issue-*` include:
 

@@ -86,6 +86,9 @@ If accepted and fully complete:
 - ensure the branch is pushed
 - open or update a PR
 - enable auto-merge unless the PR needs human intervention or manual review
+- if the PR already exists and is blocked by merge conflicts, keep the same PR alive and update the branch until it is mergeable again
+- for merge-conflict repairs, fetch `origin/main`, merge or rebase it into the issue branch, resolve conflicts carefully, rerun the relevant checks, then push the same branch and update the same PR
+- do not recreate, reopen, or replace a PR that is already merged
 - add the `accepted` label
 - remove the `or:running` label
 - leave a concise issue comment linking the PR
@@ -118,6 +121,12 @@ If more work is needed after this iteration:
 - do not apply `accepted` or `rejected`
 - update `plan.json`, `tasks.md`, and `progress.md`
 - return `retry`
+
+## Commit Attribution
+
+- If the issue body includes a `## GitHub Username` value and you create a commit for accepted work, add that submitter as a co-author on the commit.
+- Use `bun run reactor:tool coauthor-trailer --username <login>` to generate the exact `Co-authored-by:` trailer, then append that trailer to the commit message.
+- If the username is missing or invalid, do not guess at commit attribution.
 
 ## Coding Rules
 
