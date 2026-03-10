@@ -2,11 +2,15 @@ const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
+const queueList = document.querySelector("#queue-list");
+const queueStatusNode = document.querySelector("#queue-status");
+const queueRepoLink = document.querySelector("#queue-repo-link");
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
+  await loadQueue();
 }
 
 async function onSubmit(event) {
@@ -45,6 +49,7 @@ async function onSubmit(event) {
     form.reset();
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
+    await loadQueue();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
@@ -85,4 +90,97 @@ function summarizeRequest(request) {
 function setStatus(message, tone) {
   statusNode.textContent = message;
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
+}
+
+async function loadQueue() {
+  setQueueStatus("Loading recent requests...");
+  queueList.innerHTML = "";
+
+  try {
+    const response = await fetch("/api/requests");
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load the public queue.");
+    }
+
+    renderQueue(data.items || [], data.repoUrl || "");
+  } catch (error) {
+    renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
+  }
+}
+
+function renderQueue(items, repoUrl) {
+  queueList.innerHTML = "";
+
+  if (repoUrl) {
+    queueRepoLink.href = repoUrl;
+    queueRepoLink.hidden = false;
+  } else {
+    queueRepoLink.hidden = true;
+    queueRepoLink.removeAttribute("href");
+  }
+
+  if (!items.length) {
+    setQueueStatus("No public requests yet. The first accepted submission will appear here.");
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.className = "queue-item";
+
+    const link = document.createElement("a");
+    link.className = "queue-item-link";
+    link.href = item.url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+
+    const title = document.createElement("span");
+    title.className = "queue-item-title";
+    title.textContent = item.title;
+
+    const meta = document.createElement("span");
+    meta.className = "queue-item-meta";
+    meta.textContent = `#${item.number} · ${formatStatus(item.status)} · ${formatDate(item.createdAt)}`;
+
+    link.append(title, meta);
+    row.append(link);
+    fragment.append(row);
+  }
+
+  queueList.append(fragment);
+  setQueueStatus(`${items.length} public request${items.length === 1 ? "" : "s"} loaded.`);
+}
+
+function renderQueueError(message) {
+  queueList.innerHTML = "";
+  queueRepoLink.hidden = true;
+  queueRepoLink.removeAttribute("href");
+  setQueueStatus(`${message} Check GitHub directly if the queue API is unavailable.`, "error");
+}
+
+function setQueueStatus(message, tone) {
+  queueStatusNode.textContent = message;
+  queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+}
+
+function formatStatus(status) {
+  return status.replace(/-/g, " ");
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "unknown date";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
 }
