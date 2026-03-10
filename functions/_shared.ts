@@ -255,6 +255,20 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     return { error: "Contact must be 160 characters or fewer." };
   }
 
+  const lowSignalFields: Array<[label: string, value: string]> = [
+    ["Summary", summary],
+    ["Problem", problem],
+    ["Outcome", outcome]
+  ];
+
+  for (const [label, value] of lowSignalFields) {
+    if (isLowSignalText(value)) {
+      return {
+        error: `${label} must describe the request in plain language instead of repeated or placeholder text.`
+      };
+    }
+  }
+
   return {
     name,
     contact,
@@ -462,6 +476,35 @@ function corsHeaders(): Record<string, string> {
 
 function clean(value?: string): string {
   return (value ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+function isLowSignalText(value: string): boolean {
+  const normalized = clean(value).toLowerCase();
+  const alphanumeric = normalized.replace(/[^a-z0-9]+/g, "");
+
+  if (alphanumeric.length < 12) {
+    return false;
+  }
+
+  if (new Set(alphanumeric).size <= 3) {
+    return true;
+  }
+
+  if (/([a-z0-9])\1{7,}/.test(alphanumeric)) {
+    return true;
+  }
+
+  const words = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+
+  if (words.length === 1 && alphanumeric.length >= 24) {
+    return true;
+  }
+
+  if (words.length >= 6 && new Set(words).size <= 2) {
+    return true;
+  }
+
+  return false;
 }
 
 function normalizeEnv(env: Env): NormalizedEnv {

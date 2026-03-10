@@ -16,3 +16,8 @@
 
 - Decision: require structured request fields instead of free-form text only.
   Reason: better issue quality now is more valuable than workflow complexity.
+
+## 2026-03-10
+
+- Decision: reject repetitive placeholder or gibberish intake text before it becomes a GitHub issue.
+  Reason: queue quality is part of the MVP, and low-signal requests create noise without adding actionable product feedback.
