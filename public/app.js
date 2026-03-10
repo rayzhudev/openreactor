@@ -29,6 +29,10 @@ const queuePageLabelNode = document.querySelector("#queue-page-label");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
 const themeOptionNodes = Array.from(document.querySelectorAll(".theme-option"));
+const supportSessionNode = document.querySelector("#support-session");
+const supportSessionCopyNode = document.querySelector("#support-session-copy");
+const supportSessionLink = document.querySelector("#support-session-link");
+const supportSignOutButton = document.querySelector("#support-signout-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
@@ -79,6 +83,12 @@ let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
 let reactorleState = loadReactorleState();
+let supportSession = {
+  authAvailable: false,
+  authenticated: false,
+  login: "",
+  profileUrl: ""
+};
 
 boot();
 
@@ -93,6 +103,7 @@ async function boot() {
   requestField.addEventListener("input", onRequestInput);
   setupReactorle();
   initDeployWatcher();
+  initSupportSession();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
   for (const button of queueViewButtons) {
@@ -109,8 +120,53 @@ async function boot() {
     hasPreviousPage: queueState.hasPreviousPage,
     hasNextPage: queueState.hasNextPage
   });
-  await Promise.all([loadRepoMeta(), loadQueue(queueState.page), loadLeaderboard()]);
+  await Promise.all([loadRepoMeta(), loadSupportSession(), loadQueue(queueState.page), loadLeaderboard()]);
   startQueuePolling();
+}
+
+function initSupportSession() {
+  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+    return;
+  }
+
+  supportSignOutButton.addEventListener("click", onSupportSignOut);
+  renderSupportSession();
+}
+
+async function loadSupportSession() {
+  if (!supportSessionNode) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/session", {
+      cache: "no-store",
+      credentials: "same-origin"
+    });
+    const data = await readJsonResponse(response, "session");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load GitHub support session.");
+    }
+
+    supportSession = {
+      authAvailable: Boolean(data.authAvailable),
+      authenticated: Boolean(data.authenticated),
+      login: data.login || "",
+      profileUrl: data.profileUrl || ""
+    };
+  } catch {
+    supportSession = {
+      authAvailable: false,
+      authenticated: false,
+      login: "",
+      profileUrl: ""
+    };
+  }
+
+  renderSupportSession();
+  renderQueueView();
+  announceSupportSessionResult();
 }
 
 function initThemePicker() {
@@ -427,6 +483,79 @@ function updateRequestCount(request) {
 function setStatus(message, tone) {
   statusNode.textContent = message;
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
+}
+
+function renderSupportSession() {
+  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+    return;
+  }
+
+  supportSessionNode.hidden = false;
+
+  if (supportSession.authenticated && supportSession.login) {
+    supportSessionNode.dataset.state = "connected";
+    supportSessionCopyNode.textContent = `Support actions run through GitHub as @${supportSession.login}.`;
+    supportSessionLink.hidden = false;
+    supportSessionLink.href = supportSession.profileUrl || "https://github.com";
+    supportSessionLink.textContent = "View profile";
+    supportSessionLink.target = "_blank";
+    supportSessionLink.rel = "noreferrer";
+    supportSignOutButton.hidden = false;
+    return;
+  }
+
+  supportSessionNode.dataset.state = supportSession.authAvailable ? "available" : "handoff";
+  supportSessionCopyNode.textContent = supportSession.authAvailable
+    ? "Sign in with GitHub to support issues from the site."
+    : "Support counts come from GitHub. Website sign-in needs maintainer OAuth setup first.";
+  supportSessionLink.hidden = false;
+  supportSessionLink.href = supportSession.authAvailable
+    ? buildSupportAuthUrl()
+    : "https://github.com/rayzhudev/openreactor/issues";
+  supportSessionLink.textContent = supportSession.authAvailable ? "Sign in with GitHub" : "Support on GitHub";
+  supportSessionLink.target = supportSession.authAvailable ? "_self" : "_blank";
+  if (supportSession.authAvailable) {
+    supportSessionLink.removeAttribute("rel");
+  } else {
+    supportSessionLink.rel = "noreferrer";
+  }
+  supportSignOutButton.hidden = true;
+}
+
+function buildSupportAuthUrl() {
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  return `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+async function onSupportSignOut() {
+  await fetch(
+    `/api/session?returnTo=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`,
+    {
+      method: "DELETE",
+      credentials: "same-origin"
+    }
+  );
+  window.location.assign(`${window.location.pathname}${window.location.search}`);
+}
+
+function announceSupportSessionResult() {
+  const url = new URL(window.location.href);
+  const supportStatus = url.searchParams.get("support");
+
+  if (!supportStatus) {
+    return;
+  }
+
+  if (supportStatus === "connected") {
+    setQueueStatus("GitHub sign-in connected. You can now support issues from the website.");
+  } else if (supportStatus === "auth-error") {
+    setQueueStatus("GitHub sign-in did not complete. Try again or support directly on GitHub.", "error");
+  } else if (supportStatus === "auth-unavailable") {
+    setQueueStatus("Website sign-in is not configured yet. Support directly on GitHub for now.", "error");
+  }
+
+  url.searchParams.delete("support");
+  window.history.replaceState({}, "", url);
 }
 
 function setupReactorle() {
@@ -1182,15 +1311,18 @@ function renderQueueTable(items) {
     statusCell.append(status);
 
     const submittedCell = document.createElement("td");
-  const submittedTime = document.createElement("time");
-  submittedTime.className = "queue-table-time";
-  submittedTime.dateTime = item.createdAt;
-  submittedTime.title = item.createdAt;
-  const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
-  submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
-  submittedCell.append(submittedTime);
+    const submittedTime = document.createElement("time");
+    submittedTime.className = "queue-table-time";
+    submittedTime.dateTime = item.createdAt;
+    submittedTime.title = item.createdAt;
+    const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
+    submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
+    submittedCell.append(submittedTime);
 
-    row.append(issueCell, titleCell, statusCell, submittedCell);
+    const supportCell = document.createElement("td");
+    supportCell.append(createSupportControls(item, "compact"));
+
+    row.append(issueCell, titleCell, statusCell, submittedCell, supportCell);
     fragment.append(row);
   }
 
@@ -1221,6 +1353,8 @@ function renderQueueArchive(items) {
 }
 
 function createQueueCardLink(item) {
+  const card = document.createElement("article");
+  card.className = "queue-card-body";
   const link = document.createElement("a");
   link.className = "queue-card-link";
   link.href = item.commentUrl || item.url;
@@ -1284,7 +1418,80 @@ function createQueueCardLink(item) {
   cta.textContent = "Open issue and comment on GitHub";
 
   link.append(top, title, meta, discussion, cta);
+  card.append(link, createSupportControls(item));
+  return card;
+}
+
+function createSupportControls(item, mode = "default") {
+  const support = document.createElement("div");
+  support.className = mode === "compact" ? "queue-support queue-support-compact" : "queue-support";
+
+  const summary = document.createElement("div");
+  summary.className = "queue-support-summary";
+
+  const count = document.createElement("span");
+  count.className = "queue-support-count";
+  count.textContent = formatSupportCount(item.supportCount);
+
+  const hint = document.createElement("span");
+  hint.className = "queue-support-hint";
+  hint.textContent = getSupportHint(item);
+
+  summary.append(count, hint);
+
+  const action = buildSupportAction(item, mode);
+  support.append(summary, action);
+  return support;
+}
+
+function buildSupportAction(item, mode) {
+  if (item.viewerSupports) {
+    const status = document.createElement("span");
+    status.className = "queue-support-action queue-support-action-state";
+    status.textContent = "Supported";
+    return status;
+  }
+
+  if (supportSession.authenticated) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "queue-support-action";
+    button.textContent = mode === "compact" ? "Support" : "Support with GitHub";
+    button.addEventListener("click", () => {
+      void handleSupportAction(item.number, button);
+    });
+    return button;
+  }
+
+  const link = document.createElement("a");
+  link.className = "queue-support-action";
+  link.href = supportSession.authAvailable ? buildSupportAuthUrl() : item.url;
+  link.textContent = supportSession.authAvailable ? "Sign in to support" : "Support on GitHub";
+
+  if (supportSession.authAvailable) {
+    link.target = "_self";
+  } else {
+    link.target = "_blank";
+    link.rel = "noreferrer";
+  }
+
   return link;
+}
+
+function getSupportHint(item) {
+  if (item.viewerSupports) {
+    return "Your GitHub support is already mirrored here.";
+  }
+
+  if (supportSession.authenticated) {
+    return "Writes a thumbs-up reaction to the GitHub issue.";
+  }
+
+  if (supportSession.authAvailable) {
+    return "GitHub sign-in is required so support stays tied to a real account.";
+  }
+
+  return "GitHub remains the canonical support ledger until website sign-in is configured.";
 }
 
 function isArchivedQueueItem(item) {
@@ -1374,6 +1581,63 @@ function formatStatusTimestamp(value) {
 function formatCommentCount(value) {
   const count = Number.isFinite(value) ? Math.max(0, value) : 0;
   return `${count} comment${count === 1 ? "" : "s"}`;
+}
+
+function formatSupportCount(value) {
+  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${count} support${count === 1 ? "" : "s"}`;
+}
+
+async function handleSupportAction(issueNumber, button) {
+  button.disabled = true;
+  button.textContent = "Supporting...";
+
+  try {
+    const response = await fetch("/api/support", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ issueNumber })
+    });
+    const data = await readJsonResponse(response, "support");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to support this issue.");
+    }
+
+    syncQueueItemSupport(issueNumber, {
+      supportCount: data.supportCount,
+      viewerSupports: Boolean(data.viewerSupports)
+    });
+    setQueueStatus(`Support recorded on GitHub for issue #${issueNumber}.`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to support this issue.";
+    setQueueStatus(message, "error");
+
+    if (/sign in/i.test(message)) {
+      supportSession.authenticated = false;
+      renderSupportSession();
+      renderQueueView();
+    } else {
+      button.disabled = false;
+      button.textContent = "Support with GitHub";
+    }
+  }
+}
+
+function syncQueueItemSupport(issueNumber, nextState) {
+  queueItems = queueItems.map((item) =>
+    item.number === issueNumber
+      ? {
+          ...item,
+          supportCount: Number.isFinite(nextState.supportCount) ? nextState.supportCount : item.supportCount,
+          viewerSupports: Boolean(nextState.viewerSupports)
+        }
+      : item
+  );
+  renderQueueView();
 }
 
 async function readJsonResponse(response, context) {

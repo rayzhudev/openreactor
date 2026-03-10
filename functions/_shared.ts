@@ -11,10 +11,17 @@ const GITHUB_ISSUES_PER_PAGE = 100;
 const MAX_GITHUB_REQUEST_PAGES = 10;
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
+const SUPPORT_REACTION_CONTENT = "+1";
+const GITHUB_REACTIONS_PER_PAGE = 100;
+const SESSION_COOKIE_NAME = "openreactor_session";
+const AUTH_STATE_COOKIE_NAME = "openreactor_auth_state";
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+const AUTH_STATE_TTL_SECONDS = 10 * 60;
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
 const signingKeyCache = new Map<string, Promise<CryptoKey>>();
+const sessionKeyCache = new Map<string, Promise<CryptoKey>>();
 
 export interface Env {
   GITHUB_OWNER?: string;
@@ -23,8 +30,10 @@ export interface Env {
   GITHUB_LABELS?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_CLIENT_ID?: string;
+  GITHUB_APP_CLIENT_SECRET?: string;
   GITHUB_APP_INSTALLATION_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
+  SESSION_SECRET?: string;
 }
 
 interface NormalizedEnv {
@@ -34,8 +43,10 @@ interface NormalizedEnv {
   GITHUB_LABELS: string;
   GITHUB_APP_ID: string;
   GITHUB_APP_CLIENT_ID: string;
+  GITHUB_APP_CLIENT_SECRET: string;
   GITHUB_APP_INSTALLATION_ID: string;
   GITHUB_APP_PRIVATE_KEY: string;
+  SESSION_SECRET: string;
 }
 
 interface FeatureRequestInput {
@@ -73,10 +84,45 @@ interface GitHubIssue {
   state: "open" | "closed";
   pull_request?: Record<string, unknown>;
   labels?: Array<{ name?: string }>;
+  reactions?: {
+    "+1"?: number;
+  };
 }
 interface GitHubIssueComment {
   body?: string;
   updated_at?: string;
+}
+
+interface GitHubReaction {
+  id: number;
+  content?: string;
+  user?: {
+    login?: string;
+  };
+}
+
+interface GitHubUser {
+  login: string;
+  html_url: string;
+}
+
+interface GitHubOAuthTokenResponse {
+  access_token?: string;
+  scope?: string;
+  token_type?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface SupportSession {
+  accessToken: string;
+  login: string;
+  profileUrl: string;
+}
+
+interface AuthStatePayload {
+  nonce: string;
+  returnTo: string;
 }
 
 interface GitHubPullRequest {
@@ -150,6 +196,154 @@ export async function handleHealth(env: Env): Promise<Response> {
   });
 }
 
+export async function handleSession(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+  const session = await readSupportSession(request, normalized);
+
+  return jsonResponse({
+    authAvailable: hasGitHubUserAuth(normalized),
+    authenticated: Boolean(session),
+    login: session?.login ?? null,
+    profileUrl: session?.profileUrl ?? null
+  });
+}
+
+export async function handleSessionDelete(request: Request, env: Env): Promise<Response> {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Set-Cookie": clearCookie(SESSION_COOKIE_NAME),
+      ...corsHeaders()
+    }
+  });
+}
+
+export async function handleGitHubAuthStart(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+
+  if (!hasGitHubUserAuth(normalized)) {
+    return jsonResponse(
+      { error: "GitHub sign-in is not configured yet for support actions." },
+      503
+    );
+  }
+
+  const requestUrl = new URL(request.url);
+  const returnTo = sanitizeReturnTo(requestUrl.searchParams.get("returnTo"));
+  const state: AuthStatePayload = {
+    nonce: createNonce(),
+    returnTo
+  };
+  const sealedState = await sealSessionValue(normalized, state);
+  const callbackUrl = new URL("/api/auth/callback", requestUrl);
+  const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
+  authorizeUrl.searchParams.set("client_id", normalized.GITHUB_APP_CLIENT_ID);
+  authorizeUrl.searchParams.set("redirect_uri", callbackUrl.toString());
+  authorizeUrl.searchParams.set("scope", "public_repo read:user");
+  authorizeUrl.searchParams.set("state", state.nonce);
+
+  return redirectResponse(authorizeUrl.toString(), [
+    serializeCookie(AUTH_STATE_COOKIE_NAME, sealedState, {
+      maxAge: AUTH_STATE_TTL_SECONDS
+    })
+  ], 302);
+}
+
+export async function handleGitHubAuthCallback(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+  const requestUrl = new URL(request.url);
+
+  if (!hasGitHubUserAuth(normalized)) {
+    return redirectResponse("/?support=auth-unavailable");
+  }
+
+  const stateParam = requestUrl.searchParams.get("state") ?? "";
+  const code = requestUrl.searchParams.get("code") ?? "";
+  const authState = await readSealedCookie<AuthStatePayload>(request, normalized, AUTH_STATE_COOKIE_NAME);
+  const returnTo = sanitizeReturnTo(authState?.returnTo);
+
+  if (!code || !authState || !stateParam || authState.nonce !== stateParam) {
+    return redirectResponse(
+      `${returnTo}${returnTo.includes("?") ? "&" : "?"}support=auth-error`,
+      [clearCookie(AUTH_STATE_COOKIE_NAME)]
+    );
+  }
+
+  try {
+    const accessToken = await exchangeGitHubUserCode(normalized, code, new URL("/api/auth/callback", requestUrl).toString());
+    const user = await githubUserRequest<GitHubUser>(accessToken, "/user");
+    const session: SupportSession = {
+      accessToken,
+      login: user.login,
+      profileUrl: user.html_url
+    };
+
+    return redirectResponse(`${returnTo}${returnTo.includes("?") ? "&" : "?"}support=connected`, [
+      serializeCookie(SESSION_COOKIE_NAME, await sealSessionValue(normalized, session), {
+        maxAge: SESSION_TTL_SECONDS
+      }),
+      clearCookie(AUTH_STATE_COOKIE_NAME)
+    ]);
+  } catch (error) {
+    console.error("GitHub sign-in failed.", error);
+    return redirectResponse(
+      `${returnTo}${returnTo.includes("?") ? "&" : "?"}support=auth-error`,
+      [clearCookie(AUTH_STATE_COOKIE_NAME)]
+    );
+  }
+}
+
+export async function handleCreateSupport(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
+    return jsonResponse({ error: "Support is not configured yet." }, 503);
+  }
+
+  const session = await readSupportSession(request, normalized);
+  if (!session) {
+    return jsonResponse({ error: "Sign in with GitHub to support issues from the website." }, 401);
+  }
+
+  let issueNumber = 0;
+  try {
+    const payload = (await request.json()) as { issueNumber?: number };
+    issueNumber = Number(payload.issueNumber);
+  } catch {
+    return jsonResponse({ error: "Invalid JSON request body." }, 400);
+  }
+
+  if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+    return jsonResponse({ error: "Issue number must be a positive integer." }, 400);
+  }
+
+  try {
+    await createIssueSupportReaction(normalized, session.accessToken, issueNumber);
+    const issue = await githubUserRequest<GitHubIssue>(
+      session.accessToken,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues/${issueNumber}`
+    );
+
+    return jsonResponse({
+      issueNumber,
+      supportCount: issue.reactions?.["+1"] ?? 0,
+      viewerSupports: true
+    });
+  } catch (error) {
+    if (isGithubAuthError(error)) {
+      return jsonResponse(
+        { error: "GitHub sign-in expired. Sign in again to support this issue." },
+        401,
+        {
+          "Set-Cookie": clearCookie(SESSION_COOKIE_NAME)
+        }
+      );
+    }
+
+    return errorResponse("Unable to record support on GitHub.", 502, error);
+  }
+}
+
 export async function handleListRequests(request: Request, env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
 
@@ -165,13 +359,22 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
   }
 
   try {
+    const session = await readSupportSession(request, normalized);
     const page = getQueuePage(request);
     const issues = await listRequestIssues(normalized, page);
     const start = (page - 1) * MAX_QUEUE_ITEMS;
     const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
     const items = await Promise.all(
       visibleIssues.map(async (issue) => {
-        const statusUpdate = await getIssueStatusUpdate(normalized, issue.number);
+        const [statusUpdate, viewerSupports] = await Promise.all([
+          getIssueStatusUpdate(normalized, issue.number),
+          session
+            ? getViewerSupportState(normalized, issue.number, session.login, session.accessToken).catch(
+                () => false
+              )
+            : Promise.resolve(false)
+        ]);
+
         return {
           number: issue.number,
           title: issue.title.replace(/^\[Request\]\s*/, ""),
@@ -181,6 +384,8 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
           createdAt: issue.created_at,
           status: getIssueStatus(issue),
           githubUsername: getIssueGitHubUsername(issue),
+          supportCount: issue.reactions?.["+1"] ?? 0,
+          viewerSupports,
           statusDetail: statusUpdate?.detail ?? null,
           statusUpdatedAt: statusUpdate?.updatedAt ?? null
         };
@@ -759,6 +964,72 @@ async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]>
   return requestIssues;
 }
 
+async function getViewerSupportState(
+  env: NormalizedEnv,
+  issueNumber: number,
+  viewerLogin: string,
+  accessToken: string
+): Promise<boolean> {
+  const normalizedViewerLogin = clean(viewerLogin).toLowerCase();
+
+  if (!normalizedViewerLogin) {
+    return false;
+  }
+
+  for (let page = 1; page <= MAX_GITHUB_REQUEST_PAGES; page += 1) {
+    const reactions = await githubUserRequest<GitHubReaction[]>(
+      accessToken,
+      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${issueNumber}/reactions?per_page=${GITHUB_REACTIONS_PER_PAGE}&page=${page}`
+    );
+
+    if (
+      reactions.some(
+        (reaction) =>
+          reaction.content === SUPPORT_REACTION_CONTENT &&
+          clean(reaction.user?.login).toLowerCase() === normalizedViewerLogin
+      )
+    ) {
+      return true;
+    }
+
+    if (reactions.length < GITHUB_REACTIONS_PER_PAGE) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+async function createIssueSupportReaction(
+  env: NormalizedEnv,
+  accessToken: string,
+  issueNumber: number
+): Promise<void> {
+  const headers = new Headers({
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    "User-Agent": GITHUB_USER_AGENT,
+    "X-GitHub-Api-Version": GITHUB_API_VERSION
+  });
+
+  const response = await fetch(
+    `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${issueNumber}/reactions`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ content: SUPPORT_REACTION_CONTENT })
+    }
+  );
+
+  if (response.status === 200 || response.status === 201) {
+    return;
+  }
+
+  const detail = await safeErrorDetail(response);
+  throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+}
+
 function getQueuePage(request: Request): number {
   const value = new URL(request.url).searchParams.get("page");
   const page = Number.parseInt(value ?? "1", 10);
@@ -825,6 +1096,19 @@ function jsonResponse(
   });
 }
 
+function redirectResponse(location: string, cookies: string[] = [], status = 303): Response {
+  const headers = new Headers({ Location: location });
+
+  for (const cookie of cookies) {
+    headers.append("Set-Cookie", cookie);
+  }
+
+  return new Response(null, {
+    status,
+    headers
+  });
+}
+
 function xmlResponse(body: string, status = 200): Response {
   return new Response(body, {
     status,
@@ -843,7 +1127,7 @@ function errorResponse(message: string, status: number, error: unknown): Respons
 function corsHeaders(): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type"
   };
 }
@@ -933,8 +1217,62 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function clean(value?: string): string {
+function clean(value?: string | null): string {
   return (value ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+function sanitizeReturnTo(value?: string | null): string {
+  const cleaned = clean(value);
+
+  if (!cleaned.startsWith("/")) {
+    return "/";
+  }
+
+  if (cleaned.startsWith("//")) {
+    return "/";
+  }
+
+  return cleaned;
+}
+
+function createNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return toBase64Url(bytes);
+}
+
+function parseCookieHeader(header: string | null): Map<string, string> {
+  const cookies = new Map<string, string>();
+
+  for (const part of (header ?? "").split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+
+    if (!name || !rest.length) {
+      continue;
+    }
+
+    cookies.set(name, decodeURIComponent(rest.join("=")));
+  }
+
+  return cookies;
+}
+
+function serializeCookie(
+  name: string,
+  value: string,
+  options: { maxAge?: number; path?: string } = {}
+): string {
+  const path = options.path ?? "/";
+  const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${path}`, "HttpOnly", "SameSite=Lax"];
+
+  if (options.maxAge !== undefined) {
+    parts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`);
+  }
+
+  return parts.join("; ");
+}
+
+function clearCookie(name: string): string {
+  return serializeCookie(name, "", { maxAge: 0 });
 }
 
 function normalizeGitHubUsername(value?: string): string {
@@ -986,6 +1324,8 @@ function buildQueueEtag({
     status: string;
     commentCount?: number;
     githubUsername?: string | null;
+    supportCount?: number;
+    viewerSupports?: boolean;
     statusDetail?: string | null;
     statusUpdatedAt?: string | null;
   }>;
@@ -996,7 +1336,7 @@ function buildQueueEtag({
   const signature = items
     .map(
       (item) =>
-        `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
+        `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.supportCount ?? 0}:${item.viewerSupports ? 1 : 0}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
     )
     .join("|");
   const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
@@ -1011,8 +1351,10 @@ function normalizeEnv(env: Env): NormalizedEnv {
     GITHUB_LABELS: clean(env.GITHUB_LABELS),
     GITHUB_APP_ID: clean(env.GITHUB_APP_ID),
     GITHUB_APP_CLIENT_ID: clean(env.GITHUB_APP_CLIENT_ID),
+    GITHUB_APP_CLIENT_SECRET: clean(env.GITHUB_APP_CLIENT_SECRET),
     GITHUB_APP_INSTALLATION_ID: clean(env.GITHUB_APP_INSTALLATION_ID),
-    GITHUB_APP_PRIVATE_KEY: cleanPrivateKey(env.GITHUB_APP_PRIVATE_KEY)
+    GITHUB_APP_PRIVATE_KEY: cleanPrivateKey(env.GITHUB_APP_PRIVATE_KEY),
+    SESSION_SECRET: clean(env.SESSION_SECRET)
   };
 }
 
@@ -1028,6 +1370,16 @@ function hasGitHubApiAuth(env: Env): boolean {
 function hasGitHubAppAuth(env: Env): boolean {
   const normalized = normalizeEnv(env);
   return Boolean(normalized.GITHUB_APP_ID && normalized.GITHUB_APP_PRIVATE_KEY);
+}
+
+function hasGitHubUserAuth(env: Env): boolean {
+  const normalized = normalizeEnv(env);
+  return Boolean(
+    normalized.GITHUB_APP_CLIENT_ID &&
+      normalized.GITHUB_APP_CLIENT_SECRET &&
+      normalized.SESSION_SECRET &&
+      isRepoConfigured(normalized)
+  );
 }
 
 function getGitHubAuthMode(env: Env): "app" | "token" | "redirect" | "unconfigured" {
@@ -1128,6 +1480,59 @@ async function githubAppRequest<T>(appJwt: string, path: string, init?: RequestI
   return (await response.json()) as T;
 }
 
+async function githubUserRequest<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/vnd.github+json");
+  headers.set("Authorization", `Bearer ${accessToken}`);
+  headers.set("User-Agent", GITHUB_USER_AGENT);
+  headers.set("X-GitHub-Api-Version", GITHUB_API_VERSION);
+
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    headers
+  });
+
+  if (!response.ok) {
+    const detail = await safeErrorDetail(response);
+    throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function exchangeGitHubUserCode(
+  env: NormalizedEnv,
+  code: string,
+  redirectUri: string
+): Promise<string> {
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": GITHUB_USER_AGENT
+    },
+    body: JSON.stringify({
+      client_id: env.GITHUB_APP_CLIENT_ID,
+      client_secret: env.GITHUB_APP_CLIENT_SECRET,
+      code,
+      redirect_uri: redirectUri
+    })
+  });
+
+  const data = (await response.json()) as GitHubOAuthTokenResponse;
+
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description || data.error || "GitHub OAuth exchange failed.");
+  }
+
+  return data.access_token;
+}
+
 async function createGitHubAppJwt(env: NormalizedEnv): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = encodeJsonBase64Url({
@@ -1156,6 +1561,12 @@ function encodeJsonBase64Url(value: Record<string, number | string>): string {
 
 function toBase64Url(value: Buffer | Uint8Array): string {
   return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(value: string): Uint8Array {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
+  return new Uint8Array(Buffer.from(`${padded}${padding}`, "base64"));
 }
 
 function cleanPrivateKey(value?: string): string {
@@ -1198,6 +1609,82 @@ function toArrayBuffer(value: Buffer | ArrayBuffer | Uint8Array): ArrayBuffer {
 
   const view = value as Uint8Array;
   return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+}
+
+async function getSessionKey(secret: string): Promise<CryptoKey> {
+  const cached = sessionKeyCache.get(secret);
+  if (cached) {
+    return cached;
+  }
+
+  const imported = (async () => {
+    const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+    return crypto.subtle.importKey("raw", hashed, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  })();
+
+  sessionKeyCache.set(secret, imported);
+  return imported;
+}
+
+async function sealSessionValue<T extends object>(env: NormalizedEnv, value: T): Promise<string> {
+  const key = await getSessionKey(env.SESSION_SECRET);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(value));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(iv) },
+    key,
+    plaintext
+  );
+
+  return `${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ciphertext))}`;
+}
+
+async function unsealSessionValue<T>(env: NormalizedEnv, value: string): Promise<T | null> {
+  if (!env.SESSION_SECRET || !value.includes(".")) {
+    return null;
+  }
+
+  const [ivValue, ciphertextValue] = value.split(".", 2);
+
+  try {
+    const key = await getSessionKey(env.SESSION_SECRET);
+    const plaintext = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: toArrayBuffer(fromBase64Url(ivValue)) },
+      key,
+      toArrayBuffer(fromBase64Url(ciphertextValue))
+    );
+    return JSON.parse(Buffer.from(plaintext).toString("utf8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function readSealedCookie<T>(
+  request: Request,
+  env: NormalizedEnv,
+  cookieName: string
+): Promise<T | null> {
+  const cookies = parseCookieHeader(request.headers.get("cookie"));
+  const value = cookies.get(cookieName);
+
+  if (!value) {
+    return null;
+  }
+
+  return unsealSessionValue<T>(env, value);
+}
+
+async function readSupportSession(
+  request: Request,
+  env: NormalizedEnv
+): Promise<SupportSession | null> {
+  const session = await readSealedCookie<SupportSession>(request, env, SESSION_COOKIE_NAME);
+
+  if (!session?.accessToken || !session.login || !session.profileUrl) {
+    return null;
+  }
+
+  return session;
 }
 
 async function safeErrorDetail(response: Response): Promise<string> {

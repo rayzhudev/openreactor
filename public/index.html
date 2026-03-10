@@ -33,6 +33,17 @@
         <p class="brand-mark">OpenReactor</p>
         <div class="topbar-actions">
           <a class="queue-link feed-link" href="/updates.xml">RSS updates</a>
+          <div id="support-session" class="support-session" hidden>
+            <p id="support-session-copy" class="support-session-copy">
+              Sign in with GitHub to support issues from the site.
+            </p>
+            <a id="support-session-link" class="support-session-link" href="/api/auth/github?returnTo=/">
+              Sign in with GitHub
+            </a>
+            <button id="support-signout-button" class="support-signout-button" type="button" hidden>
+              Sign out
+            </button>
+          </div>
           <div class="theme-picker" role="group" aria-label="Color theme">
             <span class="theme-picker-label">Theme</span>
             <div class="theme-picker-options">
@@ -312,6 +323,7 @@
                 <th scope="col">Title</th>
                 <th scope="col">Status</th>
                 <th scope="col">Submitted</th>
+                <th scope="col">Support</th>
               </tr>
             </thead>
             <tbody id="queue-table-body"></tbody>

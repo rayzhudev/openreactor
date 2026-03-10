@@ -36,3 +36,6 @@
 
 - Decision: use native GitHub issue comments as the public discussion layer for queued requests until the product has an application-backed backend.
   Reason: it adds visible feedback and acceptance signal without introducing new persistence or moderation infrastructure during the MVP intake loop.
+
+- Decision: use GitHub issue `+1` reactions as the canonical public support signal, with the website only mirroring and writing through to that reaction state.
+  Reason: it prevents a parallel vote ledger while still allowing signed-in website support actions once GitHub OAuth secrets are configured.

@@ -12,6 +12,7 @@ The current MVP is intentionally small:
 - structured request form
 - GitHub issue creation
 - public queue view backed by GitHub issues
+- GitHub-backed support counts and signed-in support actions when website OAuth is configured
 
 OpenReactor is now wired to prefer GitHub App authentication for direct issue
 creation. If GitHub App credentials are not present yet, the form falls back to

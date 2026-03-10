@@ -1,6 +1,38 @@
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/session*", async (route) => {
+    if (route.request().method() === "DELETE") {
+      await route.fulfill({
+        status: 204
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        authAvailable: true,
+        authenticated: true,
+        login: "supporter",
+        profileUrl: "https://github.com/supporter"
+      })
+    });
+  });
+
+  await page.route("**/api/support", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        issueNumber: 101,
+        supportCount: 6,
+        viewerSupports: true
+      })
+    });
+  });
+
   await page.route("**/api/meta", async (route) => {
     await route.fulfill({
       status: 200,
@@ -41,6 +73,8 @@ test.beforeEach(async ({ page }) => {
             status: "in-progress",
             url: "https://github.com/rayzhudev/openreactor/issues/101",
             createdAt: "2026-03-10T13:32:11.567Z",
+            supportCount: 5,
+            viewerSupports: false,
             statusDetail: "PR open",
             statusUpdatedAt: "2026-03-10T13:40:00.000Z"
           },
@@ -50,6 +84,8 @@ test.beforeEach(async ({ page }) => {
             status: "complete",
             url: "https://github.com/rayzhudev/openreactor/issues/98",
             createdAt: "2026-03-10T09:14:00.000Z",
+            supportCount: 2,
+            viewerSupports: true,
             statusDetail: "Merged",
             statusUpdatedAt: "2026-03-10T10:00:00.000Z"
           }
@@ -94,6 +130,12 @@ test("renders the redesign and submits a request through the mocked API", async 
   await expect(page.getByRole("heading", { level: 2, name: /requests in the open/i })).toBeVisible();
   await expect(page.getByText("Radically improve the homepage art direction").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /leaderboard/i })).toBeVisible();
+  await expect(page.getByText(/support actions run through github as @supporter/i)).toBeVisible();
+  await expect(page.getByText("5 supports").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /support with github/i }).first().click();
+  await expect(page.getByText("6 supports").first()).toBeVisible();
+  await expect(page.getByText("Supported").first()).toBeVisible();
 
   await page.locator("#request").fill(
     "The landing page feels generic. Redesign it into a more editorial layout with stronger hierarchy while keeping the form and public queue on the same page."
