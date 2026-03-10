@@ -1,4 +1,4 @@
-import { createPrivateKey, sign } from "node:crypto";
+import { createPrivateKey } from "node:crypto";
 
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const GITHUB_API_VERSION = "2022-11-28";
@@ -9,6 +9,7 @@ const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
+const signingKeyCache = new Map<string, Promise<CryptoKey>>();
 
 export interface Env {
   GITHUB_OWNER?: string;
@@ -525,7 +526,7 @@ async function getInstallationAccessToken(env: NormalizedEnv): Promise<string> {
     return cached.token;
   }
 
-  const appJwt = createGitHubAppJwt(env);
+  const appJwt = await createGitHubAppJwt(env);
   const installationId = env.GITHUB_APP_INSTALLATION_ID || (await discoverInstallationId(env, appJwt));
   const tokenResponse = await githubAppRequest<{ token: string; expires_at: string }>(
     appJwt,
@@ -587,7 +588,7 @@ async function githubAppRequest<T>(appJwt: string, path: string, init?: RequestI
   return (await response.json()) as T;
 }
 
-function createGitHubAppJwt(env: NormalizedEnv): string {
+async function createGitHubAppJwt(env: NormalizedEnv): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = encodeJsonBase64Url({
     alg: "RS256",
@@ -599,21 +600,64 @@ function createGitHubAppJwt(env: NormalizedEnv): string {
     iss: env.GITHUB_APP_CLIENT_ID || env.GITHUB_APP_ID
   });
   const signingInput = `${header}.${payload}`;
-  const signature = sign("RSA-SHA256", Buffer.from(signingInput), createPrivateKey(env.GITHUB_APP_PRIVATE_KEY));
+  const signingKey = await importSigningKey(env.GITHUB_APP_PRIVATE_KEY);
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    signingKey,
+    toArrayBuffer(new TextEncoder().encode(signingInput))
+  );
 
-  return `${signingInput}.${toBase64Url(signature)}`;
+  return `${signingInput}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
 function encodeJsonBase64Url(value: Record<string, number | string>): string {
   return toBase64Url(Buffer.from(JSON.stringify(value)));
 }
 
-function toBase64Url(value: Buffer): string {
-  return value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+function toBase64Url(value: Buffer | Uint8Array): string {
+  return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function cleanPrivateKey(value?: string): string {
   return clean(value).replace(/\\n/g, "\n");
+}
+
+async function importSigningKey(privateKeyPem: string): Promise<CryptoKey> {
+  const cached = signingKeyCache.get(privateKeyPem);
+  if (cached) {
+    return cached;
+  }
+
+  const imported = (async () => {
+    const privateKey = createPrivateKey(privateKeyPem);
+    const pkcs8 = privateKey.export({
+      format: "der",
+      type: "pkcs8"
+    });
+
+    return crypto.subtle.importKey(
+      "pkcs8",
+      toArrayBuffer(pkcs8),
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: "SHA-256"
+      },
+      false,
+      ["sign"]
+    );
+  })();
+
+  signingKeyCache.set(privateKeyPem, imported);
+  return imported;
+}
+
+function toArrayBuffer(value: Buffer | ArrayBuffer | Uint8Array): ArrayBuffer {
+  if (value instanceof ArrayBuffer) {
+    return value;
+  }
+
+  const view = value as Uint8Array;
+  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
 }
 
 async function safeErrorDetail(response: Response): Promise<string> {
