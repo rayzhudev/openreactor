@@ -623,13 +623,39 @@ button {
 
 .product-explainer-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1rem 1.25rem;
   padding: 1rem 1.05rem;
   border-top: 1px solid var(--line);
   border-left: 3px solid rgba(198, 100, 63, 0.38);
   background: linear-gradient(90deg, var(--accent-surface), rgba(198, 100, 63, 0));
+}
+
+.engine-explainer {
+  flex: 1 1 16rem;
+  min-width: min(100%, 18rem);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card-flat-bg);
+}
+
+.engine-explainer-kicker {
+  margin-bottom: 0.35rem;
+  color: var(--accent-dark);
+  font-family: var(--ui-font);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.engine-explainer-copy {
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+  line-height: 1.65;
 }
 
 .product-explainer-link {
