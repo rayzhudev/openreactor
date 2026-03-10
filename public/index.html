@@ -66,6 +66,7 @@
                 <textarea
                   id="request"
                   name="request"
+                  class="request-field-control request-textarea"
                   rows="6"
                   maxlength="2000"
                   minlength="20"
@@ -92,6 +93,23 @@
                   High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
                 </p>
               </div>
+
+              <label class="request-label" for="github-username">
+                <span class="request-meta-heading">GitHub username (optional)</span>
+                <input
+                  id="github-username"
+                  name="githubUsername"
+                  class="request-field-control request-input"
+                  type="text"
+                  inputmode="text"
+                  autocomplete="username"
+                  maxlength="40"
+                  placeholder="@octocat"
+                />
+                <span class="request-subcopy">
+                  If accepted work turns into a commit, OpenReactor can use this to credit your GitHub account as a co-author.
+                </span>
+              </label>
 
               <label class="honeypot" aria-hidden="true">
                 <span>Website</span>

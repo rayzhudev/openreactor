@@ -36,6 +36,7 @@ interface NormalizedEnv {
 interface FeatureRequestInput {
   name?: string;
   contact?: string;
+  githubUsername?: string;
   summary: string;
   problem: string;
   outcome: string;
@@ -48,6 +49,7 @@ interface FeatureRequestInput {
 interface ValidatedFeatureRequest {
   name: string;
   contact: string;
+  githubUsername: string;
   summary: string;
   problem: string;
   outcome: string;
@@ -222,6 +224,7 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
   const notes = clean(input.notes);
   const name = clean(input.name);
   const contact = clean(input.contact);
+  const githubUsername = normalizeGitHubUsername(input.githubUsername);
 
   if (summary.length < 8 || summary.length > 120) {
     return { error: "Summary must be between 8 and 120 characters." };
@@ -255,6 +258,13 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     return { error: "Contact must be 160 characters or fewer." };
   }
 
+  if (githubUsername && !isValidGitHubUsername(githubUsername)) {
+    return {
+      error:
+        "GitHub username must be 1 to 39 characters using letters, numbers, or single hyphens."
+    };
+  }
+
   const lowSignalFields: Array<[label: string, value: string]> = [
     ["Summary", summary],
     ["Problem", problem],
@@ -272,6 +282,7 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
   return {
     name,
     contact,
+    githubUsername,
     summary,
     problem,
     outcome,
@@ -309,6 +320,9 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     "",
     "## Submitted By",
     input.name || "_Anonymous_",
+    "",
+    "## GitHub Username",
+    input.githubUsername ? `@${input.githubUsername}` : "_Not provided_",
     "",
     "## Contact",
     input.contact || "_Not provided_",
@@ -476,6 +490,14 @@ function corsHeaders(): Record<string, string> {
 
 function clean(value?: string): string {
   return (value ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+function normalizeGitHubUsername(value?: string): string {
+  return clean(value).replace(/^@+/, "");
+}
+
+function isValidGitHubUsername(value: string): boolean {
+  return /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(value);
 }
 
 function isLowSignalText(value: string): boolean {

@@ -79,6 +79,7 @@ a {
 }
 
 textarea,
+input,
 .submit-button {
   font: inherit;
 }
@@ -264,9 +265,19 @@ textarea,
   display: block;
 }
 
-textarea {
+.request-meta-heading {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-family: var(--ui-font);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.request-field-control {
   width: 100%;
-  min-height: 14rem;
   padding: 1.35rem 1.4rem;
   border: 1px solid var(--line);
   border-radius: 28px;
@@ -283,11 +294,20 @@ textarea {
     background 180ms ease;
 }
 
-textarea::placeholder {
+.request-textarea {
+  min-height: 14rem;
+  resize: vertical;
+}
+
+.request-input {
+  min-height: 3.8rem;
+}
+
+.request-field-control::placeholder {
   color: rgba(247, 239, 227, 0.34);
 }
 
-textarea:focus {
+.request-field-control:focus {
   outline: none;
   border-color: rgba(255, 138, 91, 0.72);
   box-shadow:
@@ -401,6 +421,15 @@ textarea:focus {
 .request-signal[data-tone="strong"] .request-signal-fill {
   background: linear-gradient(90deg, rgba(99, 221, 171, 0.94), rgba(138, 239, 197, 0.98));
   box-shadow: 0 0 24px rgba(99, 221, 171, 0.2);
+}
+
+.request-subcopy {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--ink-faint);
+  font-family: var(--ui-font);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .form-footer {
