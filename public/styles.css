@@ -1,31 +1,31 @@
 :root {
   color-scheme: light dark;
-  --paper: #ede2d0;
-  --paper-strong: rgba(251, 246, 238, 0.96);
-  --paper-soft: rgba(251, 246, 238, 0.8);
-  --surface: #faf4eb;
+  --paper: #f7f5f2;
+  --paper-strong: rgba(255, 255, 255, 0.96);
+  --paper-soft: rgba(255, 255, 255, 0.82);
+  --surface: #fcfbf9;
   --surface-soft: rgba(255, 255, 255, 0.8);
-  --ink: #1e1712;
-  --ink-soft: rgba(30, 23, 18, 0.78);
-  --ink-faint: rgba(30, 23, 18, 0.58);
-  --line: rgba(30, 23, 18, 0.13);
-  --line-strong: rgba(30, 23, 18, 0.22);
+  --ink: #1a1a1a;
+  --ink-soft: rgba(26, 26, 26, 0.78);
+  --ink-faint: rgba(26, 26, 26, 0.58);
+  --line: rgba(26, 26, 26, 0.13);
+  --line-strong: rgba(26, 26, 26, 0.22);
   --accent: #c6643f;
   --accent-dark: #7b3125;
   --accent-soft: #efba6b;
-  --accent-bright: #56705f;
+  --accent-bright: #5a7a9b;
   --queue-queued: #506d89;
   --queue-progress: #9d5b20;
   --queue-complete: #2f6d56;
   --queue-rejected: #9d4331;
   --success: #2f6d56;
   --error: #9d4331;
-  --shadow: 0 28px 72px rgba(70, 38, 19, 0.12);
-  --shadow-soft: 0 20px 48px rgba(70, 38, 19, 0.09);
+  --shadow: 0 28px 72px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 20px 48px rgba(0, 0, 0, 0.06);
   --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
-  --page-glow-1: rgba(198, 100, 63, 0.12);
-  --page-glow-2: rgba(86, 112, 95, 0.1);
-  --grid-line: rgba(30, 23, 18, 0.03);
+  --page-glow-1: rgba(198, 100, 63, 0.1);
+  --page-glow-2: rgba(90, 122, 155, 0.06);
+  --grid-line: rgba(26, 26, 26, 0.03);
   --panel-bg: linear-gradient(180deg, var(--paper-strong), rgba(255, 255, 255, 0.68));
   --control-bg: rgba(255, 255, 255, 0.56);
   --control-bg-strong: rgba(255, 255, 255, 0.72);
@@ -36,11 +36,11 @@
   --field-focus-shadow:
     0 0 0 4px rgba(184, 92, 56, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --placeholder: rgba(23, 33, 37, 0.38);
+  --placeholder: rgba(26, 26, 26, 0.38);
   --accent-muted: rgba(184, 92, 56, 0.12);
   --accent-surface: rgba(184, 92, 56, 0.08);
   --accent-surface-strong: rgba(184, 92, 56, 0.14);
-  --queue-count-bg: rgba(23, 33, 37, 0.08);
+  --queue-count-bg: rgba(26, 26, 26, 0.08);
   --table-hover-bg: rgba(255, 255, 255, 0.48);
   --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0));
   --display-font: "Baskerville", "Iowan Old Style", "Palatino Linotype", serif;
@@ -51,20 +51,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #101711;
-    --paper-strong: rgba(18, 27, 19, 0.96);
-    --paper-soft: rgba(26, 37, 27, 0.84);
-    --surface: #162118;
-    --surface-soft: rgba(26, 37, 27, 0.9);
-    --ink: #f0ecd7;
-    --ink-soft: rgba(240, 236, 215, 0.78);
-    --ink-faint: rgba(240, 236, 215, 0.54);
-    --line: rgba(240, 236, 215, 0.12);
-    --line-strong: rgba(240, 236, 215, 0.2);
+    --paper: #131416;
+    --paper-strong: rgba(20, 21, 24, 0.96);
+    --paper-soft: rgba(28, 30, 34, 0.84);
+    --surface: #1a1b1e;
+    --surface-soft: rgba(28, 30, 34, 0.9);
+    --ink: #f0ece4;
+    --ink-soft: rgba(240, 236, 228, 0.78);
+    --ink-faint: rgba(240, 236, 228, 0.54);
+    --line: rgba(240, 236, 228, 0.12);
+    --line-strong: rgba(240, 236, 228, 0.2);
     --accent: #d59c58;
     --accent-dark: #efe0a6;
-    --accent-soft: #42563d;
-    --accent-bright: #95b36e;
+    --accent-soft: #4a5564;
+    --accent-bright: #8fb3d5;
     --queue-queued: #b7c4cf;
     --queue-progress: #d59c58;
     --queue-complete: #8fbe97;
@@ -74,44 +74,44 @@
     --shadow: 0 28px 72px rgba(0, 0, 0, 0.36);
     --shadow-soft: 0 20px 48px rgba(0, 0, 0, 0.3);
     --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
-    --page-glow-1: rgba(213, 156, 88, 0.18);
-    --page-glow-2: rgba(149, 179, 110, 0.16);
-    --grid-line: rgba(240, 236, 215, 0.04);
-    --panel-bg: linear-gradient(180deg, rgba(21, 31, 22, 0.96), rgba(12, 18, 12, 0.92));
-    --control-bg: rgba(240, 236, 215, 0.08);
-    --control-bg-strong: rgba(240, 236, 215, 0.12);
-    --control-bg-hover: rgba(240, 236, 215, 0.16);
-    --card-bg: linear-gradient(180deg, rgba(28, 40, 29, 0.94), rgba(15, 23, 16, 0.92));
-    --card-flat-bg: rgba(21, 31, 22, 0.9);
+    --page-glow-1: rgba(213, 156, 88, 0.14);
+    --page-glow-2: rgba(143, 179, 213, 0.1);
+    --grid-line: rgba(240, 236, 228, 0.04);
+    --panel-bg: linear-gradient(180deg, rgba(22, 24, 28, 0.96), rgba(13, 14, 17, 0.92));
+    --control-bg: rgba(240, 236, 228, 0.08);
+    --control-bg-strong: rgba(240, 236, 228, 0.12);
+    --control-bg-hover: rgba(240, 236, 228, 0.16);
+    --card-bg: linear-gradient(180deg, rgba(28, 31, 36, 0.94), rgba(16, 17, 20, 0.92));
+    --card-flat-bg: rgba(22, 24, 28, 0.9);
     --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     --field-focus-shadow:
       0 0 0 4px rgba(213, 156, 88, 0.16),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --placeholder: rgba(240, 236, 215, 0.34);
+    --placeholder: rgba(240, 236, 228, 0.34);
     --accent-muted: rgba(213, 156, 88, 0.14);
     --accent-surface: rgba(213, 156, 88, 0.1);
-    --accent-surface-strong: rgba(149, 179, 110, 0.16);
-    --queue-count-bg: rgba(240, 236, 215, 0.08);
-    --table-hover-bg: rgba(240, 236, 215, 0.06);
+    --accent-surface-strong: rgba(143, 179, 213, 0.14);
+    --queue-count-bg: rgba(240, 236, 228, 0.08);
+    --table-hover-bg: rgba(240, 236, 228, 0.06);
     --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #101711;
-  --paper-strong: rgba(18, 27, 19, 0.96);
-  --paper-soft: rgba(26, 37, 27, 0.84);
-  --surface: #162118;
-  --surface-soft: rgba(26, 37, 27, 0.9);
-  --ink: #f0ecd7;
-  --ink-soft: rgba(240, 236, 215, 0.78);
-  --ink-faint: rgba(240, 236, 215, 0.54);
-  --line: rgba(240, 236, 215, 0.12);
-  --line-strong: rgba(240, 236, 215, 0.2);
+  --paper: #131416;
+  --paper-strong: rgba(20, 21, 24, 0.96);
+  --paper-soft: rgba(28, 30, 34, 0.84);
+  --surface: #1a1b1e;
+  --surface-soft: rgba(28, 30, 34, 0.9);
+  --ink: #f0ece4;
+  --ink-soft: rgba(240, 236, 228, 0.78);
+  --ink-faint: rgba(240, 236, 228, 0.54);
+  --line: rgba(240, 236, 228, 0.12);
+  --line-strong: rgba(240, 236, 228, 0.2);
   --accent: #d59c58;
   --accent-dark: #efe0a6;
-  --accent-soft: #42563d;
-  --accent-bright: #95b36e;
+  --accent-soft: #4a5564;
+  --accent-bright: #8fb3d5;
   --queue-queued: #b7c4cf;
   --queue-progress: #d59c58;
   --queue-complete: #8fbe97;
@@ -121,25 +121,25 @@
   --shadow: 0 28px 72px rgba(0, 0, 0, 0.36);
   --shadow-soft: 0 20px 48px rgba(0, 0, 0, 0.3);
   --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
-  --page-glow-1: rgba(213, 156, 88, 0.18);
-  --page-glow-2: rgba(149, 179, 110, 0.16);
-  --grid-line: rgba(240, 236, 215, 0.04);
-  --panel-bg: linear-gradient(180deg, rgba(21, 31, 22, 0.96), rgba(12, 18, 12, 0.92));
-  --control-bg: rgba(240, 236, 215, 0.08);
-  --control-bg-strong: rgba(240, 236, 215, 0.12);
-  --control-bg-hover: rgba(240, 236, 215, 0.16);
-  --card-bg: linear-gradient(180deg, rgba(28, 40, 29, 0.94), rgba(15, 23, 16, 0.92));
-  --card-flat-bg: rgba(21, 31, 22, 0.9);
+  --page-glow-1: rgba(213, 156, 88, 0.14);
+  --page-glow-2: rgba(143, 179, 213, 0.1);
+  --grid-line: rgba(240, 236, 228, 0.04);
+  --panel-bg: linear-gradient(180deg, rgba(22, 24, 28, 0.96), rgba(13, 14, 17, 0.92));
+  --control-bg: rgba(240, 236, 228, 0.08);
+  --control-bg-strong: rgba(240, 236, 228, 0.12);
+  --control-bg-hover: rgba(240, 236, 228, 0.16);
+  --card-bg: linear-gradient(180deg, rgba(28, 31, 36, 0.94), rgba(16, 17, 20, 0.92));
+  --card-flat-bg: rgba(22, 24, 28, 0.9);
   --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --field-focus-shadow:
     0 0 0 4px rgba(213, 156, 88, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --placeholder: rgba(240, 236, 215, 0.34);
+  --placeholder: rgba(240, 236, 228, 0.34);
   --accent-muted: rgba(213, 156, 88, 0.14);
   --accent-surface: rgba(213, 156, 88, 0.1);
-  --accent-surface-strong: rgba(149, 179, 110, 0.16);
-  --queue-count-bg: rgba(240, 236, 215, 0.08);
-  --table-hover-bg: rgba(240, 236, 215, 0.06);
+  --accent-surface-strong: rgba(143, 179, 213, 0.14);
+  --queue-count-bg: rgba(240, 236, 228, 0.08);
+  --table-hover-bg: rgba(240, 236, 228, 0.06);
   --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
 }
 
@@ -466,7 +466,7 @@ button {
 .feed-link {
   border-color: rgba(184, 92, 56, 0.24);
   background:
-    linear-gradient(135deg, rgba(184, 92, 56, 0.12), rgba(86, 112, 95, 0.1)),
+    linear-gradient(135deg, rgba(184, 92, 56, 0.12), rgba(90, 122, 155, 0.08)),
     var(--control-bg);
 }
 
@@ -533,7 +533,7 @@ button {
 }
 
 .frog-pupil {
-  fill: #1b241b;
+  fill: #1a1a1a;
   animation: mascot-blink 5.5s linear infinite;
   transform-origin: center;
 }
@@ -1109,7 +1109,7 @@ button {
 .hero-copy {
   background:
     radial-gradient(circle at top left, rgba(239, 186, 107, 0.16), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(86, 112, 95, 0.12), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(90, 122, 155, 0.08), transparent 26%),
     var(--panel-bg);
 }
 
