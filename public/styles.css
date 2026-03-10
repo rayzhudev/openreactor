@@ -48,11 +48,43 @@ p {
   margin: 0;
 }
 
+.masthead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .wordmark {
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.04em;
+}
+
+.repo-star-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.repo-star-link:hover,
+.repo-star-link:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--ink);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .page-copy {
@@ -282,6 +314,14 @@ textarea:focus {
   .page-shell {
     width: min(100% - 1.25rem, 920px);
     padding-top: 4rem;
+  }
+
+  .masthead {
+    flex-direction: column;
+  }
+
+  .repo-star-link {
+    align-self: flex-start;
   }
 
   textarea {
