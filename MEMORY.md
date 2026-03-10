@@ -39,3 +39,5 @@
 
 - Decision: credit merged issue-loop PRs on the public leaderboard to the requester's optional GitHub username when the issue body provides one.
   Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
+- Decision: treat issues whose structured `GitHub Username` matches the repo owner as maintainer steering.
+  Reason: maintainer requests should be able to push the product in sharper new directions without being rejected solely for normal constitution-fit or roadmap-fit heuristics, while still preserving hard safety and feasibility limits.
