@@ -27,3 +27,6 @@
 
 - Decision: allow submitters to optionally provide a GitHub username and carry it through the issue body for commit attribution.
   Reason: accepted changes should be able to credit the requester without adding a separate identity system outside GitHub.
+
+- Decision: include `agent-browser` in the issue-agent environment and prompt agents to use it for UI verification.
+  Reason: the local reactor loop needs a cheap way to validate rendered changes, not just file diffs, when agents modify the site.

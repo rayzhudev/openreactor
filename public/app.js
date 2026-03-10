@@ -6,6 +6,7 @@ const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
+const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
@@ -13,7 +14,11 @@ const updateNoticeButton = document.querySelector("#update-notice-button");
 const SUBMIT_BUTTON_LABEL = "Submit";
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
+const QUEUE_POLL_INTERVAL_MS = 30_000;
 
+let queueEtag = "";
+let lastQueueRefreshAt = 0;
+let queuePollTimer = 0;
 let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
@@ -24,8 +29,10 @@ async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
   initDeployWatcher();
+  document.addEventListener("visibilitychange", onVisibilityChange);
   updateRequestCount(requestField.value);
   await Promise.all([loadRepoMeta(), loadQueue()]);
+  startQueuePolling();
 }
 
 function initDeployWatcher() {
@@ -34,7 +41,6 @@ function initDeployWatcher() {
   }
 
   updateNoticeButton.addEventListener("click", reloadForUpdate);
-  document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("focus", checkForDeployUpdate);
   window.addEventListener("online", checkForDeployUpdate);
 
@@ -56,8 +62,14 @@ async function primeDeployFingerprint() {
 }
 
 function onVisibilityChange() {
-  if (document.visibilityState === "visible") {
-    void checkForDeployUpdate();
+  if (document.visibilityState !== "visible") {
+    return;
+  }
+
+  void checkForDeployUpdate();
+
+  if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
+    void loadQueue({ silent: true });
   }
 }
 
@@ -134,7 +146,6 @@ function stopDeployWatcher() {
     deployCheckTimer = 0;
   }
 
-  document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("focus", checkForDeployUpdate);
   window.removeEventListener("online", checkForDeployUpdate);
 }
@@ -292,20 +303,38 @@ function setStatus(message, tone) {
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
 }
 
-async function loadQueue() {
-  setQueueStatus("Loading queue...");
-  queueList.innerHTML = "";
+async function loadQueue(options = {}) {
+  const { silent = false } = options;
+
+  if (!silent) {
+    setQueueStatus("Loading queue...");
+    setQueueRefreshNote("");
+    queueList.innerHTML = "";
+  }
 
   try {
-    const response = await fetch("/api/requests");
+    const headers = queueEtag ? { "If-None-Match": queueEtag } : {};
+    const response = await fetch("/api/requests", {
+      headers,
+      cache: "no-store"
+    });
+
+    if (response.status === 304) {
+      markQueueRefresh();
+      refreshQueueStatusCopy();
+      return;
+    }
+
     const data = await readJsonResponse(response, "queue");
 
     if (!response.ok) {
       throw new Error(data.error || "Unable to load the public queue.");
     }
 
+    queueEtag = response.headers.get("etag") || "";
     renderQueue(data.items || [], data.repoUrl || "");
   } catch (error) {
+    queueEtag = "";
     renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
   }
 }
@@ -337,6 +366,7 @@ function renderRepoStarLink(repoUrl) {
 }
 
 function renderQueue(items, repoUrl) {
+  markQueueRefresh();
   queueList.innerHTML = "";
 
   if (repoUrl) {
@@ -349,7 +379,8 @@ function renderQueue(items, repoUrl) {
   }
 
   if (!items.length) {
-    setQueueStatus("No requests yet.");
+    setQueueStatus(`No requests yet. Auto-refreshes every ${formatPollInterval()}.`);
+    setQueueRefreshNote(`Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`);
     return;
   }
 
@@ -399,7 +430,7 @@ function renderQueue(items, repoUrl) {
   }
 
   queueList.append(fragment);
-  setQueueStatus(`${items.length} request${items.length === 1 ? "" : "s"}.`);
+  refreshQueueStatusCopy(items.length);
 }
 
 function renderQueueError(message) {
@@ -407,11 +438,63 @@ function renderQueueError(message) {
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
+  setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
 
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+}
+
+function setQueueRefreshNote(message) {
+  queueRefreshNoteNode.textContent = message;
+}
+
+function startQueuePolling() {
+  stopQueuePolling();
+  queuePollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+
+    loadQueue({ silent: true });
+  }, QUEUE_POLL_INTERVAL_MS);
+}
+
+function stopQueuePolling() {
+  if (!queuePollTimer) {
+    return;
+  }
+
+  window.clearInterval(queuePollTimer);
+  queuePollTimer = 0;
+}
+
+function refreshQueueStatusCopy(itemCount = queueList.childElementCount) {
+  const countLabel = `${itemCount} request${itemCount === 1 ? "" : "s"}.`;
+  const freshnessLabel = lastQueueRefreshAt
+    ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
+    : "Waiting for the first refresh.";
+  setQueueStatus(`${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  setQueueRefreshNote(freshnessLabel);
+}
+
+function markQueueRefresh() {
+  lastQueueRefreshAt = Date.now();
+}
+
+function formatPollInterval() {
+  return `${Math.round(QUEUE_POLL_INTERVAL_MS / 1000)}s`;
+}
+
+function formatRelativeRefreshTime(timestamp) {
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+
+  if (seconds <= 2) {
+    return "just now";
+  }
+
+  return `${seconds}s ago`;
 }
 
 function formatStatus(status) {
