@@ -63,6 +63,7 @@ interface GitHubIssue {
   html_url: string;
   title: string;
   body?: string;
+  comments?: number;
   created_at: string;
   state: "open" | "closed";
   pull_request?: Record<string, unknown>;
@@ -115,6 +116,8 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
         number: issue.number,
         title: issue.title.replace(/^\[Request\]\s*/, ""),
         url: issue.html_url,
+        commentUrl: issue.html_url,
+        commentCount: issue.comments ?? 0,
         createdAt: issue.created_at,
         status: getIssueStatus(issue)
       }));
