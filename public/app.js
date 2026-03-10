@@ -326,11 +326,22 @@ function renderQueue(items, repoUrl) {
     title.className = "queue-item-title";
     title.textContent = item.title;
 
-    const meta = document.createElement("time");
+    const meta = document.createElement("div");
     meta.className = "queue-item-meta";
-    meta.dateTime = item.createdAt;
-    meta.title = item.createdAt;
-    meta.textContent = formatSubmissionTimestamp(item.createdAt);
+
+    if (item.githubUsername) {
+      const username = document.createElement("span");
+      username.className = "queue-item-username";
+      username.textContent = formatGitHubUsername(item.githubUsername);
+      meta.append(username);
+    }
+
+    const submittedAt = document.createElement("time");
+    submittedAt.className = "queue-item-submitted-at";
+    submittedAt.dateTime = item.createdAt;
+    submittedAt.title = item.createdAt;
+    submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
+    meta.append(submittedAt);
 
     const cta = document.createElement("span");
     cta.className = "queue-item-cta";
@@ -359,6 +370,10 @@ function setQueueStatus(message, tone) {
 
 function formatStatus(status) {
   return status.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatGitHubUsername(value) {
+  return `@${value.replace(/^@+/, "")}`;
 }
 
 function formatSubmissionTimestamp(value) {
