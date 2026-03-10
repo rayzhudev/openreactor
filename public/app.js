@@ -10,6 +10,9 @@ const queueTableBody = document.querySelector("#queue-table-body");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const reactorleBoard = document.querySelector("#reactorle-board");
+const reactorleStatusNode = document.querySelector("#reactorle-status");
+const reactorleKeyboard = document.querySelector("#reactorle-keyboard");
 const queueViewButtons = Array.from(document.querySelectorAll(".queue-view-button"));
 const queueNewerButton = document.querySelector("#queue-newer");
 const queueOlderButton = document.querySelector("#queue-older");
@@ -22,6 +25,29 @@ const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
 const QUEUE_POLL_INTERVAL_MS = 30_000;
+const REACTORLE_WORD_LENGTH = 5;
+const REACTORLE_MAX_GUESSES = 6;
+const REACTORLE_STORAGE_KEY = "openreactor-reactorle-state";
+const REACTORLE_WORDS = [
+  "agent",
+  "build",
+  "check",
+  "claim",
+  "draft",
+  "issue",
+  "label",
+  "merge",
+  "patch",
+  "queue",
+  "scope",
+  "share",
+  "shift",
+  "solve",
+  "stack",
+  "state",
+  "track"
+];
+const REACTORLE_KEYBOARD_ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const BOARD_COLUMNS = [
   { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
   { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." },
@@ -43,12 +69,14 @@ const queueState = {
 let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
+let reactorleState = loadReactorleState();
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  setupReactorle();
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -324,6 +352,336 @@ function updateRequestCount(request) {
 function setStatus(message, tone) {
   statusNode.textContent = message;
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
+}
+
+function setupReactorle() {
+  renderReactorleBoard();
+  renderReactorleKeyboard();
+  renderReactorleStatus();
+  document.addEventListener("keydown", onReactorleKeydown);
+}
+
+function onReactorleKeydown(event) {
+  const target = event.target;
+
+  if (
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement
+  ) {
+    return;
+  }
+
+  const key = event.key.toUpperCase();
+
+  if (key === "BACKSPACE") {
+    event.preventDefault();
+    updateReactorleGuess("BACKSPACE");
+    return;
+  }
+
+  if (key === "ENTER") {
+    event.preventDefault();
+    updateReactorleGuess("ENTER");
+    return;
+  }
+
+  if (/^[A-Z]$/.test(key)) {
+    event.preventDefault();
+    updateReactorleGuess(key);
+  }
+}
+
+function updateReactorleGuess(key) {
+  if (reactorleState.status !== "playing") {
+    return;
+  }
+
+  reactorleState.flash = "";
+
+  if (key === "BACKSPACE") {
+    reactorleState.currentGuess = reactorleState.currentGuess.slice(0, -1);
+    persistReactorleState();
+    renderReactorleBoard();
+    renderReactorleStatus();
+    return;
+  }
+
+  if (key === "ENTER") {
+    submitReactorleGuess();
+    return;
+  }
+
+  if (
+    reactorleState.currentGuess.length < REACTORLE_WORD_LENGTH &&
+    /^[A-Z]$/.test(key)
+  ) {
+    reactorleState.currentGuess += key.toLowerCase();
+    persistReactorleState();
+    renderReactorleBoard();
+    renderReactorleStatus();
+  }
+}
+
+function submitReactorleGuess() {
+  if (reactorleState.currentGuess.length !== REACTORLE_WORD_LENGTH) {
+    reactorleState.flash = "Use five letters.";
+    renderReactorleStatus();
+    return;
+  }
+
+  reactorleState.guesses.push(reactorleState.currentGuess);
+  reactorleState.currentGuess = "";
+  reactorleState.flash = "";
+
+  if (reactorleState.guesses.at(-1) === reactorleState.answer) {
+    reactorleState.status = "won";
+  } else if (reactorleState.guesses.length >= REACTORLE_MAX_GUESSES) {
+    reactorleState.status = "lost";
+  }
+
+  persistReactorleState();
+  renderReactorleBoard();
+  renderReactorleKeyboard();
+  renderReactorleStatus();
+}
+
+function renderReactorleBoard() {
+  reactorleBoard.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+
+  for (let rowIndex = 0; rowIndex < REACTORLE_MAX_GUESSES; rowIndex += 1) {
+    const row = document.createElement("div");
+    row.className = "reactorle-row";
+    row.setAttribute("role", "row");
+    const guess = getReactorleDisplayGuess(rowIndex);
+    const evaluation =
+      rowIndex < reactorleState.guesses.length
+        ? evaluateGuess(reactorleState.guesses[rowIndex], reactorleState.answer)
+        : [];
+
+    for (let columnIndex = 0; columnIndex < REACTORLE_WORD_LENGTH; columnIndex += 1) {
+      const tile = document.createElement("div");
+      tile.className = "reactorle-tile";
+      tile.setAttribute("role", "gridcell");
+      tile.textContent = guess[columnIndex] ? guess[columnIndex].toUpperCase() : "";
+
+      const status = evaluation[columnIndex];
+      if (status) {
+        tile.dataset.state = status;
+      } else if (
+        rowIndex === reactorleState.guesses.length &&
+        columnIndex < reactorleState.currentGuess.length
+      ) {
+        tile.dataset.state = "active";
+      } else {
+        tile.dataset.state = "empty";
+      }
+
+      row.append(tile);
+    }
+
+    fragment.append(row);
+  }
+
+  reactorleBoard.append(fragment);
+}
+
+function renderReactorleKeyboard() {
+  reactorleKeyboard.innerHTML = "";
+  const letterStates = collectKeyboardLetterStates();
+  const fragment = document.createDocumentFragment();
+
+  for (const rowKeys of REACTORLE_KEYBOARD_ROWS) {
+    const row = document.createElement("div");
+    row.className = "reactorle-keyboard-row";
+
+    if (rowKeys === REACTORLE_KEYBOARD_ROWS.at(-1)) {
+      row.append(buildReactorleKey("Enter", "ENTER", "wide"));
+    }
+
+    for (const key of rowKeys) {
+      row.append(buildReactorleKey(key, key, letterStates.get(key.toLowerCase()) || "unused"));
+    }
+
+    if (rowKeys === REACTORLE_KEYBOARD_ROWS.at(-1)) {
+      row.append(buildReactorleKey("Back", "BACKSPACE", "wide"));
+    }
+
+    fragment.append(row);
+  }
+
+  reactorleKeyboard.append(fragment);
+}
+
+function buildReactorleKey(label, value, state) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "reactorle-key";
+  button.dataset.state = state;
+  button.textContent = label;
+  button.addEventListener("click", () => updateReactorleGuess(value));
+  return button;
+}
+
+function renderReactorleStatus() {
+  if (reactorleState.flash) {
+    reactorleStatusNode.textContent = reactorleState.flash;
+    reactorleStatusNode.dataset.state = "info";
+    return;
+  }
+
+  if (reactorleState.status === "won") {
+    const guessesUsed = reactorleState.guesses.length;
+    reactorleStatusNode.textContent = `Solved in ${guessesUsed} guess${guessesUsed === 1 ? "" : "es"}. Tomorrow brings a new word.`;
+    reactorleStatusNode.dataset.state = "won";
+    return;
+  }
+
+  if (reactorleState.status === "lost") {
+    reactorleStatusNode.textContent = `Out of guesses. Today's word was ${reactorleState.answer.toUpperCase()}.`;
+    reactorleStatusNode.dataset.state = "lost";
+    return;
+  }
+
+  reactorleStatusNode.textContent = `${REACTORLE_MAX_GUESSES - reactorleState.guesses.length} guesses left.`;
+  reactorleStatusNode.dataset.state = "playing";
+}
+
+function getReactorleDisplayGuess(rowIndex) {
+  if (rowIndex < reactorleState.guesses.length) {
+    return reactorleState.guesses[rowIndex];
+  }
+
+  if (rowIndex === reactorleState.guesses.length) {
+    return reactorleState.currentGuess;
+  }
+
+  return "";
+}
+
+function collectKeyboardLetterStates() {
+  const letterStates = new Map();
+  const ranking = { absent: 1, present: 2, correct: 3 };
+
+  for (const guess of reactorleState.guesses) {
+    const evaluation = evaluateGuess(guess, reactorleState.answer);
+
+    for (let index = 0; index < guess.length; index += 1) {
+      const letter = guess[index];
+      const nextState = evaluation[index];
+      const currentState = letterStates.get(letter);
+
+      if (!currentState || ranking[nextState] > ranking[currentState]) {
+        letterStates.set(letter, nextState);
+      }
+    }
+  }
+
+  return letterStates;
+}
+
+function loadReactorleState() {
+  const puzzleDate = getLocalDateStamp();
+  const answer = getReactorleAnswer(puzzleDate);
+
+  try {
+    const raw = localStorage.getItem(REACTORLE_STORAGE_KEY);
+
+    if (raw) {
+      const parsed = JSON.parse(raw);
+
+      if (
+        parsed &&
+        parsed.date === puzzleDate &&
+        parsed.answer === answer &&
+        Array.isArray(parsed.guesses) &&
+        typeof parsed.currentGuess === "string" &&
+        typeof parsed.status === "string"
+      ) {
+        return {
+          date: puzzleDate,
+          answer,
+          guesses: parsed.guesses.slice(0, REACTORLE_MAX_GUESSES),
+          currentGuess: parsed.currentGuess.slice(0, REACTORLE_WORD_LENGTH),
+          status: ["playing", "won", "lost"].includes(parsed.status)
+            ? parsed.status
+            : "playing",
+          flash: ""
+        };
+      }
+    }
+  } catch {}
+
+  return {
+    date: puzzleDate,
+    answer,
+    guesses: [],
+    currentGuess: "",
+    status: "playing",
+    flash: ""
+  };
+}
+
+function persistReactorleState() {
+  try {
+    localStorage.setItem(
+      REACTORLE_STORAGE_KEY,
+      JSON.stringify({
+        date: reactorleState.date,
+        answer: reactorleState.answer,
+        guesses: reactorleState.guesses,
+        currentGuess: reactorleState.currentGuess,
+        status: reactorleState.status
+      })
+    );
+  } catch {}
+}
+
+function getReactorleAnswer(dateStamp) {
+  let hash = 0;
+
+  for (const character of dateStamp) {
+    hash = (hash * 31 + character.charCodeAt(0)) % REACTORLE_WORDS.length;
+  }
+
+  return REACTORLE_WORDS[hash];
+}
+
+function getLocalDateStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function evaluateGuess(guess, answer) {
+  const statuses = Array(REACTORLE_WORD_LENGTH).fill("absent");
+  const remainingLetters = answer.split("");
+
+  for (let index = 0; index < REACTORLE_WORD_LENGTH; index += 1) {
+    if (guess[index] === answer[index]) {
+      statuses[index] = "correct";
+      remainingLetters[index] = "";
+    }
+  }
+
+  for (let index = 0; index < REACTORLE_WORD_LENGTH; index += 1) {
+    if (statuses[index] === "correct") {
+      continue;
+    }
+
+    const remainingIndex = remainingLetters.indexOf(guess[index]);
+    if (remainingIndex >= 0) {
+      statuses[index] = "present";
+      remainingLetters[remainingIndex] = "";
+    }
+  }
+
+  return statuses;
 }
 
 async function loadQueue(page = 1, options = {}) {
