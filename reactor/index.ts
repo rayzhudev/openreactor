@@ -1,6 +1,12 @@
 import process from "node:process";
 import { loadConfig, type OrchestratorConfig } from "./config";
 import {
+  DEFAULT_AGENT_TOOL,
+  getAgentTool,
+  isAgentToolName,
+  type AgentToolName
+} from "./agent-tools";
+import {
   GitHubClient,
   type GitHubIssue,
   type GitHubIssueComment,
@@ -126,18 +132,18 @@ class Reactor {
         status: "in-progress",
         phase: "triage",
         detail:
-          "Claimed by the reactor. Starting lightweight triage before handing the request to a full coding agent."
+          "Claimed by the reactor. Starting lightweight triage before dispatching the request to the best implementation agent."
       });
-      const triaged = await this.triageIssue(issue);
-      if (!triaged) {
+      const triageDecision = await this.triageIssue(issue);
+      if (!triageDecision) {
         continue;
       }
 
-      await this.startIssue(issue);
+      await this.startIssue(issue, undefined, triageDecision);
     }
   }
 
-  private async triageIssue(issue: GitHubIssue): Promise<boolean> {
+  private async triageIssue(issue: GitHubIssue): Promise<AgentToolName | null> {
     const paths = issueRuntimePaths(this.config, issue.number);
     const accessToken = await this.github.getAgentAccessToken();
     const { result } = await runIssueTriage({
@@ -157,14 +163,23 @@ class Reactor {
       await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
       await this.github.removeLabel(issue.number, this.config.runningLabel);
       await this.github.closeIssue(issue.number, "not_planned");
-      return false;
+      return null;
     }
 
-    if (result?.outcome === "escalate") {
-      return true;
+    if (result?.outcome === "dispatch") {
+      const toolName = isAgentToolName(result.toolName) ? result.toolName : DEFAULT_AGENT_TOOL;
+      const tool = getAgentTool(toolName);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "in-progress",
+        phase: "implementation",
+        detail:
+          result.toolReason ??
+          `Lightweight triage selected ${tool.label} for the next implementation attempt.`
+      });
+      return toolName;
     }
 
-    return true;
+    return DEFAULT_AGENT_TOOL;
   }
 
   private async reconcileStaleActiveRuns(): Promise<void> {
@@ -367,12 +382,18 @@ class Reactor {
     return true;
   }
 
-  private async startIssue(issue: GitHubIssue, existingRecord?: RunRecord): Promise<void> {
+  private async startIssue(
+    issue: GitHubIssue,
+    existingRecord?: RunRecord,
+    selectedTool?: AgentToolName
+  ): Promise<void> {
     const paths = issueRuntimePaths(this.config, issue.number);
     await ensureIssueWorktree(this.config, paths);
     await writeIssueContext(this.config, issue, paths);
 
+    const agentTool = selectedTool ?? existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
     const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
+    record.agentTool = agentTool;
     await writeRunRecord(paths, record);
     await this.syncIssueStatusComment(issue.number, {
       status: "in-progress",
@@ -475,7 +496,7 @@ class Reactor {
           status: "retry",
           lastResult: result,
           lastError: result ? "" : `codex exited with code ${exitCode ?? "unknown"}`
-        });
+        }, activeRun.record.agentTool ?? DEFAULT_AGENT_TOOL);
       }
     } catch (error) {
       await this.github.removeLabel(issueNumber, this.config.runningLabel);

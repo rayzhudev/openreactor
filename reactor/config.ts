@@ -28,6 +28,8 @@ export interface OrchestratorConfig {
   agentModel: string;
   agentReasoningEffort: string;
   agentServiceTier: string;
+  claudeUiModel: string;
+  claudeUiEffort: string;
 }
 
 export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
@@ -40,7 +42,7 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     worktreesDir: path.join(stateRoot, "worktrees"),
     pollIntervalMs: numberFromEnv("OPENREACTOR_POLL_INTERVAL_MS", 60_000),
     maxIterationRuntimeMs: numberFromEnv("OPENREACTOR_MAX_ITERATION_RUNTIME_MS", 20 * 60_000),
-    maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 2),
+    maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 3),
     maxIterationsPerIssue: numberFromEnv("OPENREACTOR_MAX_ITERATIONS_PER_ISSUE", 8),
     runningLabel: clean(process.env.OPENREACTOR_RUNNING_LABEL) || "or:running",
     acceptedLabel: clean(process.env.OPENREACTOR_ACCEPTED_LABEL) || "accepted",
@@ -54,14 +56,16 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     githubAppClientId: clean(valueOf("GITHUB_APP_CLIENT_ID", localEnv)),
     githubAppInstallationId: clean(valueOf("GITHUB_APP_INSTALLATION_ID", localEnv)),
     githubAppPrivateKey: clean(valueOf("GITHUB_APP_PRIVATE_KEY", localEnv)).replace(/\\n/g, "\n"),
-    triageModel: clean(process.env.OPENREACTOR_TRIAGE_MODEL) || "gpt-5-mini",
+    triageModel: clean(process.env.OPENREACTOR_TRIAGE_MODEL) || "gpt-5.3-codex-spark",
     triageReasoningEffort:
-      clean(process.env.OPENREACTOR_TRIAGE_REASONING_EFFORT) || "minimal",
-    triageServiceTier: clean(process.env.OPENREACTOR_TRIAGE_SERVICE_TIER) || "default",
+      clean(process.env.OPENREACTOR_TRIAGE_REASONING_EFFORT) || "low",
+    triageServiceTier: clean(process.env.OPENREACTOR_TRIAGE_SERVICE_TIER),
     agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL) || "gpt-5.4",
     agentReasoningEffort:
       clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",
-    agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER) || "default"
+    agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
+    claudeUiModel: clean(process.env.OPENREACTOR_CLAUDE_UI_MODEL) || "sonnet",
+    claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium"
   };
 }
 
