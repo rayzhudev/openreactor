@@ -780,6 +780,81 @@ button {
   font-size: 0.9rem;
 }
 
+/* Scope slider */
+.scope-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.scope-field-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.scope-value-label {
+  font-family: var(--ui-font);
+  font-size: 0.88rem;
+  color: var(--ink-faint);
+}
+
+.scope-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  cursor: pointer;
+  outline: none;
+  transition: background 180ms ease;
+}
+
+.scope-slider:focus-visible {
+  box-shadow: var(--field-focus-shadow);
+  border-radius: 2px;
+}
+
+.scope-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: background 180ms ease, transform 120ms ease;
+}
+
+.scope-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.scope-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: background 180ms ease, transform 120ms ease;
+  cursor: pointer;
+}
+
+.scope-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.scope-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
 .form-footer,
 .queue-header,
 .queue-actions,

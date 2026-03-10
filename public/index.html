@@ -183,6 +183,30 @@
 
             <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
 
+            <div class="scope-field">
+              <div class="scope-field-header">
+                <span class="request-meta-heading">Scope</span>
+                <span class="scope-value-label" id="scope-value-label">Moderate change</span>
+              </div>
+              <input
+                id="effort-level"
+                name="effortLevel"
+                class="scope-slider"
+                type="range"
+                min="0"
+                max="100"
+                value="50"
+                step="1"
+                aria-label="Desired scope of change"
+                aria-valuetext="Moderate change"
+              />
+              <div class="scope-ticks" aria-hidden="true">
+                <span>Minimal</span>
+                <span>Moderate</span>
+                <span>Significant</span>
+              </div>
+            </div>
+
             <details class="request-guide" id="request-guide">
               <summary class="request-guide-toggle">
                 <span class="request-guide-heading">
