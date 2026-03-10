@@ -13,6 +13,10 @@ Rules:
   or is clearly too broad for one safe iteration.
 - Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially
   valuable.
+- Small, fun, silly feature requests (mini-games, easter eggs, playful
+  experiments) are in scope. They belong on the `/playground/` page, which
+  exists to collect community-contributed experiments separate from the core
+  intake homepage. Dispatch these rather than rejecting them.
 - Bias toward escalation while OpenReactor's identity is still forming.
 - Choose `spawn_claude_ui_agent` for issues that are primarily about frontend
   design, layout, styling, UI polish, component presentation, or other visual

@@ -84,6 +84,7 @@ boot();
 
 async function boot() {
   initThemePicker();
+  setupReactorle();
 
   if (!form || !requestField || !submitButton) {
     return;
@@ -91,7 +92,6 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
-  setupReactorle();
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -430,6 +430,10 @@ function setStatus(message, tone) {
 }
 
 function setupReactorle() {
+  if (!reactorleBoard || !reactorleKeyboard || !reactorleStatusNode) {
+    return;
+  }
+
   renderReactorleBoard();
   renderReactorleKeyboard();
   renderReactorleStatus();

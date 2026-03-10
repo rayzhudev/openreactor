@@ -31,6 +31,10 @@
     <main class="page-shell">
       <header class="topbar">
         <p class="brand-mark">OpenReactor</p>
+        <nav class="site-nav" aria-label="Site navigation">
+          <a class="site-nav-link site-nav-link-active" href="/" aria-current="page">Intake</a>
+          <a class="site-nav-link" href="/playground/">Playground</a>
+        </nav>
         <div class="topbar-actions">
           <a class="queue-link feed-link" href="/updates.xml">RSS updates</a>
           <div class="theme-picker" role="group" aria-label="Color theme">
@@ -336,38 +340,6 @@
             Older
           </button>
         </nav>
-      </section>
-
-      <section class="reactorle panel" aria-labelledby="reactorle-title">
-        <div class="reactorle-header">
-          <div>
-            <p class="panel-kicker">Daily mini puzzle</p>
-            <h2 id="reactorle-title">Reactorle</h2>
-          </div>
-          <p class="reactorle-badge">6 guesses</p>
-        </div>
-
-        <p class="reactorle-copy">
-          A Wordle-style five-letter puzzle for the homepage. Type anywhere outside the form or use the on-screen keys.
-        </p>
-
-        <div
-          id="reactorle-status"
-          class="reactorle-status"
-          role="status"
-          aria-live="polite"
-        ></div>
-        <div
-          id="reactorle-board"
-          class="reactorle-board"
-          role="grid"
-          aria-label="Daily five-letter puzzle board"
-        ></div>
-        <div
-          id="reactorle-keyboard"
-          class="reactorle-keyboard"
-          aria-label="Puzzle keyboard"
-        ></div>
       </section>
 
       <section class="leaderboard panel" aria-labelledby="leaderboard-title">
