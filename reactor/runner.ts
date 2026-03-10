@@ -10,6 +10,13 @@ export interface AgentTestResult {
   status: "passed" | "failed" | "not-run";
 }
 
+export interface TriageResult {
+  issueNumber: number;
+  outcome: "reject" | "escalate";
+  summary: string;
+  issueComment: string | null;
+}
+
 export interface HumanHandoff {
   required: boolean;
   instructions: string;
@@ -47,6 +54,9 @@ export interface IssueRuntimePaths {
   worktreePath: string;
   branchName: string;
   runFilePath: string;
+  triagePromptPath: string;
+  triageResultPath: string;
+  triageLogPath: string;
   contextPath: string;
   progressPath: string;
   tasksPath: string;
@@ -75,6 +85,9 @@ export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: numbe
     worktreePath,
     branchName,
     runFilePath: path.join(runDir, "run.json"),
+    triagePromptPath: path.join(runDir, "triage.prompt.md"),
+    triageResultPath: path.join(runDir, "triage.result.json"),
+    triageLogPath: path.join(runDir, "triage.log"),
     contextPath: path.join(runDir, "context.md"),
     progressPath: path.join(runDir, "progress.md"),
     tasksPath: path.join(runDir, "tasks.md"),
@@ -270,21 +283,14 @@ export async function spawnIssueAgent(input: {
 
   await fs.writeFile(promptPath, prompt, "utf8");
 
-  const args = [
-    "--dangerously-bypass-approvals-and-sandbox",
-    "exec",
-    "-",
-    "--skip-git-repo-check",
-    "--output-schema",
-    schemaPath,
-    "-o",
-    resultPath
-  ];
-
-  if (config.agentModel) {
-    args.unshift(config.agentModel);
-    args.unshift("-m");
-  }
+  const args = buildCodexArgs({
+    model: config.agentModel,
+    reasoningEffort: config.agentReasoningEffort,
+    serviceTier: config.agentServiceTier,
+    fullAccess: true,
+    outputSchemaPath: schemaPath,
+    outputPath: resultPath
+  });
 
   const child = spawn("codex", args, {
     cwd: paths.worktreePath,
@@ -343,6 +349,61 @@ export async function spawnIssueAgent(input: {
     logPath,
     startedAt: Date.now()
   };
+}
+
+export async function runIssueTriage(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  githubToken: string;
+}): Promise<{ result: TriageResult | null; exitCode: number | null }> {
+  const { config, issue, paths, githubToken } = input;
+  const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
+  const prompt = buildTriagePrompt(issue);
+
+  await fs.mkdir(paths.runDir, { recursive: true });
+  await fs.writeFile(paths.triagePromptPath, prompt, "utf8");
+
+  const args = buildCodexArgs({
+    model: config.triageModel,
+    reasoningEffort: config.triageReasoningEffort,
+    serviceTier: config.triageServiceTier,
+    fullAccess: false,
+    outputSchemaPath: schemaPath,
+    outputPath: paths.triageResultPath
+  });
+
+  const child = spawn("codex", args, {
+    cwd: config.repoRoot,
+    env: {
+      ...process.env,
+      GH_TOKEN: githubToken,
+      GITHUB_TOKEN: githubToken,
+      OPENREACTOR_REPO_OWNER: config.owner,
+      OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+      OPENREACTOR_ISSUE_URL: issue.html_url,
+      OPENREACTOR_RUN_DIR: paths.runDir
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+
+  const logHandle = await fs.open(paths.triageLogPath, "w");
+  child.stdout.on("data", (chunk) => {
+    void logHandle.appendFile(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    void logHandle.appendFile(chunk);
+  });
+  child.on("close", () => {
+    void logHandle.close();
+  });
+
+  const exitCode = await waitForExit(child);
+  const result = await parseTriageResult(paths.triageResultPath);
+  return { result, exitCode };
 }
 
 export async function finalizeIssueAgentRun(input: {
@@ -416,10 +477,48 @@ function buildAgentPrompt(
   ].join("\n");
 }
 
+function buildTriagePrompt(issue: GitHubIssue): string {
+  return [
+    `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
+    "",
+    "Read these files before deciding:",
+    "- prompts/triage-agent.md",
+    "- prompts/product-context.md",
+    "- prompts/issue-agent.md",
+    "- CONSTITUTION.md",
+    "- ROADMAP.md",
+    "",
+    "Issue context:",
+    `- Issue: #${issue.number}`,
+    `- Title: ${issue.title}`,
+    `- URL: ${issue.html_url}`,
+    "",
+    "Issue body:",
+    issue.body?.trim() || "_No body provided._",
+    "",
+    "Your job:",
+    "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly too broad for one safe iteration.",
+    "- Escalate to the full issue agent for anything plausible, ambiguous, weird-but-harmless, or potentially valuable.",
+    "- Bias toward escalation during OpenReactor's early identity-forming stage.",
+    "- Do not perform implementation work, open PRs, or mutate files.",
+    "",
+    "Return only JSON matching the provided output schema."
+  ].join("\n");
+}
+
 async function parseAgentResult(resultPath: string): Promise<AgentResult | null> {
   try {
     const raw = await fs.readFile(resultPath, "utf8");
     return JSON.parse(raw) as AgentResult;
+  } catch {
+    return null;
+  }
+}
+
+async function parseTriageResult(resultPath: string): Promise<TriageResult | null> {
+  try {
+    const raw = await fs.readFile(resultPath, "utf8");
+    return JSON.parse(raw) as TriageResult;
   } catch {
     return null;
   }
@@ -472,6 +571,42 @@ async function runCommand(command: string, args: string[]): Promise<void> {
   if (exitCode !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with exit code ${exitCode}`);
   }
+}
+
+function buildCodexArgs(input: {
+  model: string;
+  reasoningEffort: string;
+  serviceTier: string;
+  fullAccess: boolean;
+  outputSchemaPath: string;
+  outputPath: string;
+}): string[] {
+  const args = [
+    "-m",
+    input.model,
+    "-c",
+    `model_reasoning_effort="${input.reasoningEffort}"`,
+    "-c",
+    `service_tier="${input.serviceTier}"`,
+  ];
+
+  if (input.fullAccess) {
+    args.push("--dangerously-bypass-approvals-and-sandbox");
+  } else {
+    args.push("-a", "never", "-s", "read-only");
+  }
+
+  args.push(
+    "exec",
+    "-",
+    "--skip-git-repo-check",
+    "--output-schema",
+    input.outputSchemaPath,
+    "-o",
+    input.outputPath
+  );
+
+  return args;
 }
 
 async function waitForExit(
