@@ -34,6 +34,11 @@ constraint.
 - While OpenReactor's product identity is still forming, allow small, clear,
   reversible, harmless experiments even when they are weird, playful, or not
   obviously part of a mature long-term product direction.
+- Treat native GitHub `:+1:` reactions on the root issue as the only canonical
+  support signal; do not invent parallel vote state in labels, comments, or
+  local files.
+- Let public support influence prioritization and evidence only within safety,
+  maintainer-boundary, and feasibility constraints.
 
 ## Must not do
 

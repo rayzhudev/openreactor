@@ -41,3 +41,6 @@
   Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
 - Decision: treat issues whose structured `GitHub Username` matches the repo owner as maintainer steering.
   Reason: maintainer requests should be able to push the product in sharper new directions without being rejected solely for normal constitution-fit or roadmap-fit heuristics, while still preserving hard safety and feasibility limits.
+
+- Decision: treat native GitHub `:+1:` reactions on the root issue body as the canonical support signal, with higher support expected before it materially upgrades evidence on higher-sensitivity requests.
+  Reason: popularity should stay GitHub-native and visible without creating parallel vote state, while still remaining subordinate to safety, maintainer boundaries, and secret-dependent feasibility limits.

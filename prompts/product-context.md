@@ -44,6 +44,24 @@ Product constraints:
 - Preserve a readable audit trail in GitHub issues, commits, PRs, and repo docs.
 - When you discover durable process or product learnings, update the relevant shared docs rather than leaving them trapped in one run.
 
+GitHub support contract:
+
+- The only canonical support signal is the native `:+1:` reaction count on the
+  root GitHub issue body.
+- Do not create duplicate support state in labels, issue comments, PR comments,
+  checks, or local run files just to track votes.
+- Treat support as public evidence for demand, not as an approval mechanism.
+- For low-sensitivity issues, even a small amount of support can strengthen the
+  case to act.
+- For medium-sensitivity issues, support should usually reach about 3 `:+1:`
+  reactions before it materially upgrades the evidence.
+- For high-sensitivity issues, support should usually reach about 5 `:+1:`
+  reactions before it materially upgrades the evidence, and even then it does
+  not remove the need for explicit justification.
+- Support can influence direction, but it cannot override safety rules,
+  maintainer-only boundaries, or requests blocked by missing secrets or
+  unavailable external access.
+
 Shared-memory update rules:
 
 - Update `MEMORY.md` when a product or architecture decision changes.

@@ -88,6 +88,42 @@ Agent behavior requirements:
 - if accepted, choose the best product change even if it differs from the literal request
 - maintain issue comments/labels, testing notes, and PR linkage as part of the run
 
+## 7.1) Canonical GitHub Support Signal
+
+OpenReactor uses one public support signal in GitHub:
+
+- the count of `:+1:` reactions on the root issue body
+
+OpenReactor must not create parallel support state in labels, issue comments,
+PR comments, check runs, local run files, or product-side counters just to track
+"votes." Those surfaces may discuss support, but the canonical count stays the
+native GitHub reaction count on the issue itself.
+
+Support is evidence, not approval:
+
+- it can raise priority for a coherent in-scope request
+- it can help move an issue from weak evidence toward moderate or strong
+  evidence
+- it cannot by itself force acceptance or implementation
+
+Sensitivity changes how much support matters:
+
+- low-sensitivity requests may be meaningfully strengthened by even a small
+  amount of support
+- medium-sensitivity requests should usually need around 3 `:+1:` reactions
+  before support materially upgrades their evidence
+- high-sensitivity requests should usually need around 5 `:+1:` reactions
+  before support materially upgrades their evidence, and still need explicit
+  agent justification
+
+Hard limits:
+
+- support never overrides safety rules
+- support never overrides maintainer-only boundaries
+- support never makes a secret-dependent or unavailable-access request feasible
+- support never replaces the agent's product judgment about scope, coherence, or
+  risk
+
 ## 8) Backend Strategy
 Split the product backend from the agent runtime:
 - Cloudflare Pages + Functions power the public website and its API surface today
