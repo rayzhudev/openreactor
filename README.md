@@ -70,7 +70,11 @@ Helper tooling for issue agents:
 ```bash
 bun run reactor:tool --help
 bun run reactor:tool coauthor-trailer --username octocat
+bun run agent-browser:install
 ```
+
+Issue-agent runs also receive isolated `agent-browser` session settings so UI
+changes can be checked against a local URL without colliding across issues.
 
 Production intake smoke test:
 
