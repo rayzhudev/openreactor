@@ -730,6 +730,8 @@ input,
 }
 
 .queue-item-meta {
+  display: grid;
+  gap: 0.2rem;
   font-size: 0.92rem;
   color: var(--ink-soft);
 }
@@ -756,10 +758,22 @@ input,
   color: var(--accent-soft);
 }
 
+.queue-item-username {
+  font-family: var(--ui-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+}
+
 .queue-item-comment-hint {
   font-size: 0.92rem;
   line-height: 1.45;
   color: var(--ink-soft);
+}
+
+.queue-item-submitted-at {
+  color: inherit;
 }
 
 .queue-item-cta {

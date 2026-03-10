@@ -119,7 +119,8 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
         commentUrl: issue.html_url,
         commentCount: issue.comments ?? 0,
         createdAt: issue.created_at,
-        status: getIssueStatus(issue)
+        status: getIssueStatus(issue),
+        githubUsername: getIssueGitHubUsername(issue)
       }));
 
     const repoUrl = getRepoUrl(normalized);
@@ -446,6 +447,28 @@ function getIssueStatus(issue: GitHubIssue): string {
   }
 
   return "queued";
+}
+
+function getIssueGitHubUsername(issue: GitHubIssue): string | null {
+  const value = getIssueSectionValue(issue.body, "GitHub Username");
+
+  if (!value || /^_not provided_$/i.test(value)) {
+    return null;
+  }
+
+  const normalized = normalizeGitHubUsername(value);
+  return isValidGitHubUsername(normalized) ? normalized : null;
+}
+
+function getIssueSectionValue(body: string | undefined, heading: string): string {
+  if (!body) {
+    return "";
+  }
+
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`^## ${escapedHeading}\\n([\\s\\S]*?)(?:\\n## |$)`, "m"));
+
+  return clean(match?.[1]);
 }
 
 function getRepoUrl(env: Env): string | null {
