@@ -7,6 +7,7 @@
     "dev": "wrangler pages dev public --functions functions",
     "deploy": "wrangler pages deploy public --project-name openreactor",
     "check": "tsc --noEmit",
+    "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",
     "reactor:dry-run": "bun run reactor/index.ts --once --dry-run",

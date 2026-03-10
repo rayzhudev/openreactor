@@ -65,6 +65,12 @@ Helper tooling for issue agents:
 bun run reactor:tool --help
 ```
 
+Production intake smoke test:
+
+```bash
+bun run smoke:pages -- --base-url https://openreactor.net --cleanup
+```
+
 `reactor:tool ensure-pr` pushes branches over HTTPS with the short-lived GitHub
 App installation token already injected into the run. That avoids using the
 server's SSH identity for remote publication.
