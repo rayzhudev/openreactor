@@ -1,11 +1,14 @@
 import { createPrivateKey } from "node:crypto";
 
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
+const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
 const MAX_LEADERBOARD_ITEMS = 8;
 const MAX_LEADERBOARD_PAGES = 10;
+const GITHUB_ISSUES_PER_PAGE = 100;
+const MAX_GITHUB_REQUEST_PAGES = 10;
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
@@ -65,10 +68,16 @@ interface GitHubIssue {
   html_url: string;
   title: string;
   body?: string;
+  comments?: number;
   created_at: string;
   state: "open" | "closed";
   pull_request?: Record<string, unknown>;
   labels?: Array<{ name?: string }>;
+}
+
+interface GitHubIssueComment {
+  body?: string;
+  updated_at?: string;
 }
 
 interface GitHubPullRequest {
@@ -121,35 +130,78 @@ export async function handleHealth(env: Env): Promise<Response> {
   });
 }
 
-export async function handleListRequests(env: Env): Promise<Response> {
+export async function handleListRequests(request: Request, env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
 
   if (!isRepoConfigured(normalized)) {
-    return jsonResponse({ items: [], repoUrl: null });
+    return jsonResponse({
+      items: [],
+      repoUrl: null,
+      page: 1,
+      pageSize: MAX_QUEUE_ITEMS,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
   }
 
   try {
-    const issues = await githubRequestWithFallback<GitHubIssue[]>(
-      normalized,
-      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=all&sort=created&direction=desc&per_page=100`
+    const page = getQueuePage(request);
+    const issues = await listRequestIssues(normalized, page);
+    const start = (page - 1) * MAX_QUEUE_ITEMS;
+    const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
+    const items = await Promise.all(
+      visibleIssues.map(async (issue) => {
+        const statusUpdate = await getIssueStatusUpdate(normalized, issue.number);
+        return {
+          number: issue.number,
+          title: issue.title.replace(/^\[Request\]\s*/, ""),
+          url: issue.html_url,
+          commentUrl: issue.html_url,
+          commentCount: issue.comments ?? 0,
+          createdAt: issue.created_at,
+          status: getIssueStatus(issue),
+          githubUsername: getIssueGitHubUsername(issue),
+          statusDetail: statusUpdate?.detail ?? null,
+          statusUpdatedAt: statusUpdate?.updatedAt ?? null
+        };
+      })
     );
 
-    const items = issues
-      .filter((issue) => !issue.pull_request)
-      .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
-      .slice(0, MAX_QUEUE_ITEMS)
-      .map((issue) => ({
-        number: issue.number,
-        title: issue.title.replace(/^\[Request\]\s*/, ""),
-        url: issue.html_url,
-        createdAt: issue.created_at,
-        status: getIssueStatus(issue)
-      }));
-
-    return jsonResponse({
+    const repoUrl = getRepoUrl(normalized);
+    const hasPreviousPage = page > 1;
+    const hasNextPage = issues.length > start + MAX_QUEUE_ITEMS;
+    const etag = buildQueueEtag({
       items,
-      repoUrl: getRepoUrl(normalized)
+      page,
+      hasPreviousPage,
+      hasNextPage
     });
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          "Cache-Control": "no-store",
+          ETag: etag,
+          ...corsHeaders()
+        }
+      });
+    }
+
+    return jsonResponse(
+      {
+        items,
+        repoUrl,
+        page,
+        pageSize: MAX_QUEUE_ITEMS,
+        hasPreviousPage,
+        hasNextPage
+      },
+      200,
+      {
+        ETag: etag
+      }
+    );
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
   }
@@ -509,6 +561,38 @@ function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
   };
 }
 
+async function getIssueStatusUpdate(
+  env: Env,
+  issueNumber: number
+): Promise<{ detail: string; updatedAt: string | null } | null> {
+  try {
+    const normalized = normalizeEnv(env);
+    const comments = await githubRequestWithFallback<GitHubIssueComment[]>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues/${issueNumber}/comments?per_page=100`
+    );
+    const statusComment = comments.find((comment) =>
+      (comment.body ?? "").includes(STATUS_COMMENT_MARKER)
+    );
+
+    if (!statusComment?.body) {
+      return null;
+    }
+
+    const detail = extractStatusField(statusComment.body, "Detail");
+    if (!detail) {
+      return null;
+    }
+
+    return {
+      detail,
+      updatedAt: extractStatusField(statusComment.body, "Updated") || statusComment.updated_at || null
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/vnd.github+json");
@@ -577,6 +661,69 @@ function getIssueStatus(issue: GitHubIssue): string {
   return "queued";
 }
 
+function extractStatusField(body: string, label: string): string {
+  const match = body.match(new RegExp(`^${label}:\\s*(.+)$`, "m"));
+  return match?.[1]?.trim() ?? "";
+}
+
+function getIssueGitHubUsername(issue: GitHubIssue): string | null {
+  const value = getIssueSectionValue(issue.body, "GitHub Username");
+
+  if (!value || /^_not provided_$/i.test(value)) {
+    return null;
+  }
+
+  const normalized = normalizeGitHubUsername(value);
+  return isValidGitHubUsername(normalized) ? normalized : null;
+}
+
+function getIssueSectionValue(body: string | undefined, heading: string): string {
+  if (!body) {
+    return "";
+  }
+
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`^## ${escapedHeading}\\n([\\s\\S]*?)(?:\\n## |$)`, "m"));
+
+  return clean(match?.[1]);
+}
+
+async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]> {
+  const targetCount = page * MAX_QUEUE_ITEMS + 1;
+  const requestIssues: GitHubIssue[] = [];
+  const normalized = normalizeEnv(env);
+
+  for (let currentPage = 1; currentPage <= MAX_GITHUB_REQUEST_PAGES; currentPage += 1) {
+    const issues = await githubRequestWithFallback<GitHubIssue[]>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=all&sort=created&direction=desc&per_page=${GITHUB_ISSUES_PER_PAGE}&page=${currentPage}`
+    );
+
+    requestIssues.push(
+      ...issues
+        .filter((issue) => !issue.pull_request)
+        .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
+    );
+
+    if (requestIssues.length >= targetCount || issues.length < GITHUB_ISSUES_PER_PAGE) {
+      break;
+    }
+  }
+
+  return requestIssues;
+}
+
+function getQueuePage(request: Request): number {
+  const value = new URL(request.url).searchParams.get("page");
+  const page = Number.parseInt(value ?? "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
+}
+
 function getRepoUrl(env: Env): string | null {
   const normalized = normalizeEnv(env);
 
@@ -616,12 +763,17 @@ function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: 
   return url.toString();
 }
 
-function jsonResponse(data: Record<string, unknown>, status = 200): Response {
+function jsonResponse(
+  data: Record<string, unknown>,
+  status = 200,
+  extraHeaders: Record<string, string> = {}
+): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      ...extraHeaders,
       ...corsHeaders()
     }
   });
@@ -679,6 +831,35 @@ function isLowSignalText(value: string): boolean {
   }
 
   return false;
+}
+
+function buildQueueEtag({
+  items,
+  page,
+  hasPreviousPage,
+  hasNextPage
+}: {
+  items: Array<{
+    number: number;
+    createdAt: string;
+    status: string;
+    commentCount?: number;
+    githubUsername?: string | null;
+    statusDetail?: string | null;
+    statusUpdatedAt?: string | null;
+  }>;
+  page: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}): string {
+  const signature = items
+    .map(
+      (item) =>
+        `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
+    )
+    .join("|");
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
+  return `W/"${pageState}:${signature || "empty"}"`;
 }
 
 function normalizeEnv(env: Env): NormalizedEnv {

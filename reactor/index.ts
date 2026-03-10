@@ -1,6 +1,11 @@
 import process from "node:process";
 import { loadConfig, type OrchestratorConfig } from "./config";
-import { GitHubClient, type GitHubIssue, type GitHubPullRequest } from "./github";
+import {
+  GitHubClient,
+  type GitHubIssue,
+  type GitHubIssueComment,
+  type GitHubPullRequest
+} from "./github";
 import {
   type AgentResult,
   createInitialRunRecord,
@@ -17,6 +22,8 @@ import {
   type ActiveRun,
   type RunRecord
 } from "./runner";
+
+const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 
 class Reactor {
   private readonly config: OrchestratorConfig;
@@ -115,6 +122,12 @@ class Reactor {
       }
 
       await this.github.addLabels(issue.number, [this.config.runningLabel]);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "in-progress",
+        phase: "triage",
+        detail:
+          "Claimed by the reactor. Starting lightweight triage before handing the request to a full coding agent."
+      });
       const triaged = await this.triageIssue(issue);
       if (!triaged) {
         continue;
@@ -135,6 +148,11 @@ class Reactor {
     });
 
     if (result?.outcome === "reject") {
+      await this.syncIssueStatusComment(issue.number, {
+        status: "rejected",
+        phase: "triage",
+        detail: "Rejected during lightweight triage as not worth pursuing in the current product direction."
+      });
       await this.github.createComment(issue.number, result.issueComment || result.summary);
       await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
       await this.github.removeLabel(issue.number, this.config.runningLabel);
@@ -169,6 +187,12 @@ class Reactor {
 
       if (shouldComment) {
         try {
+          await this.syncIssueStatusComment(activeRun.issue.number, {
+            status: "in-progress",
+            phase: "retrying",
+            iteration: activeRun.record.iteration,
+            detail: `Iteration ${activeRun.record.iteration} hit the runtime limit, so the reactor is stopping it and preparing a clean retry.`
+          });
           await this.github.createComment(activeRun.issue.number, reason);
         } catch {
           // Retry orchestration should continue even if the status comment fails.
@@ -350,6 +374,14 @@ class Reactor {
 
     const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
     await writeRunRecord(paths, record);
+    await this.syncIssueStatusComment(issue.number, {
+      status: "in-progress",
+      phase: existingRecord ? "retrying" : "reviewing",
+      iteration: record.iteration + 1,
+      detail: existingRecord
+        ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
+        : "Full issue agent is reviewing the request and deciding the best product change."
+    });
 
     const accessToken = await this.github.getAgentAccessToken();
     const activeRun = await spawnIssueAgent({
@@ -387,6 +419,12 @@ class Reactor {
             prUrl: acceptedValidation.pullRequest.html_url
           };
           await writeRunRecord(paths, activeRun.record);
+          await this.syncIssueStatusComment(issueNumber, {
+            status: "complete",
+            phase: "accepted",
+            iteration: activeRun.record.iteration,
+            detail: `Accepted and linked to PR ${acceptedValidation.pullRequest.html_url}.`
+          });
           await this.github.addLabels(issueNumber, [this.config.acceptedLabel]);
           await this.github.removeLabel(issueNumber, this.config.runningLabel);
           return;
@@ -394,6 +432,12 @@ class Reactor {
       }
 
       if (result?.outcome === "rejected") {
+        await this.syncIssueStatusComment(issueNumber, {
+          status: "rejected",
+          phase: "rejected",
+          iteration: activeRun.record.iteration,
+          detail: result.summary
+        });
         await this.github.addLabels(issueNumber, [this.config.rejectedLabel]);
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
         await this.github.closeIssue(issueNumber, "not_planned");
@@ -403,6 +447,12 @@ class Reactor {
       const nextIteration = activeRun.record.iteration;
       if (nextIteration >= this.config.maxIterationsPerIssue) {
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
+        await this.syncIssueStatusComment(issueNumber, {
+          status: "queued",
+          phase: "paused",
+          iteration: nextIteration,
+          detail: `Automatic handling paused after ${this.config.maxIterationsPerIssue} iterations. A future retry or human follow-up is needed.`
+        });
         await this.github.createComment(
           issueNumber,
           [
@@ -429,6 +479,11 @@ class Reactor {
       }
     } catch (error) {
       await this.github.removeLabel(issueNumber, this.config.runningLabel);
+      await this.syncIssueStatusComment(issueNumber, {
+        status: "queued",
+        phase: "error",
+        detail: `The reactor hit an execution error: ${formatError(error)}`
+      });
       await this.github.createComment(
         issueNumber,
         `OpenReactor failed to continue issue #${issueNumber}: ${formatError(error)}`
@@ -489,6 +544,61 @@ class Reactor {
 
     return { ok: true, pullRequest: mergedPullRequest };
   }
+
+  private async syncIssueStatusComment(
+    issueNumber: number,
+    input: {
+      status: string;
+      phase: string;
+      detail: string;
+      iteration?: number;
+    }
+  ): Promise<void> {
+    try {
+      const body = buildStatusCommentBody(input);
+      const existing = await this.findStatusComment(issueNumber);
+
+      if (existing?.body === body) {
+        return;
+      }
+
+      if (existing) {
+        await this.github.updateComment(existing.id, body);
+        return;
+      }
+
+      await this.github.createComment(issueNumber, body);
+    } catch (error) {
+      console.warn(`Unable to sync status comment for issue #${issueNumber}.`, error);
+    }
+  }
+
+  private async findStatusComment(issueNumber: number): Promise<GitHubIssueComment | null> {
+    const comments = await this.github.listIssueComments(issueNumber);
+    return comments.find((comment) => comment.body.includes(STATUS_COMMENT_MARKER)) ?? null;
+  }
+}
+
+function buildStatusCommentBody(input: {
+  status: string;
+  phase: string;
+  detail: string;
+  iteration?: number;
+}): string {
+  const lines = [
+    STATUS_COMMENT_MARKER,
+    "",
+    `OpenReactor status: ${input.status}`,
+    `Phase: ${input.phase}`,
+    `Detail: ${input.detail}`,
+    `Updated: ${new Date().toISOString()}`
+  ];
+
+  if (typeof input.iteration === "number") {
+    lines.push(`Iteration: ${input.iteration}`);
+  }
+
+  return lines.join("\n");
 }
 
 function hasConflictingMergeState(value?: string | null): boolean {

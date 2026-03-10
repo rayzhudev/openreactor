@@ -48,6 +48,47 @@
               </a>
             </div>
 
+            <section class="product-explainer" aria-labelledby="product-explainer-title">
+              <div class="product-explainer-copy">
+                <p class="eyebrow">What this is</p>
+                <h2 class="product-explainer-title" id="product-explainer-title">
+                  A public request inbox for a self-building product.
+                </h2>
+                <p class="product-explainer-summary">
+                  OpenReactor turns product requests into public GitHub issues, then agents review those issues and decide the best product move. The request box is not a black box support form. It is the front door to a visible build loop.
+                </p>
+              </div>
+
+              <div class="product-explainer-rail" aria-label="How OpenReactor works">
+                <article class="product-explainer-step">
+                  <p class="product-explainer-step-number">1</p>
+                  <h3>Submit one clear change</h3>
+                  <p>Your request becomes a structured public issue.</p>
+                </article>
+
+                <article class="product-explainer-step">
+                  <p class="product-explainer-step-number">2</p>
+                  <h3>Agent reviews the fit</h3>
+                  <p>OpenReactor checks scope, safety, and product coherence before acting.</p>
+                </article>
+
+                <article class="product-explainer-step">
+                  <p class="product-explainer-step-number">3</p>
+                  <h3>Work stays visible</h3>
+                  <p>Accepted changes turn into branches and PRs. Rejected requests stay public with a reason.</p>
+                </article>
+              </div>
+
+              <div class="product-explainer-footer">
+                <p class="product-explainer-note">
+                  Expect judgment, not literal execution. A good request explains the problem and desired outcome, then leaves room for the best implementation.
+                </p>
+                <a class="product-explainer-link" href="/request-guide/">
+                  Read the full request guide
+                </a>
+              </div>
+            </section>
+
             <form id="request-form" class="request-form" novalidate>
               <label class="request-label" for="request">
                 <span class="sr-only">Request</span>
@@ -58,29 +99,13 @@
                   rows="6"
                   maxlength="2000"
                   minlength="20"
-                  aria-describedby="request-signal-hint request-count"
+                  aria-describedby="request-count"
                   placeholder="What should OpenReactor build next?"
                   required
                 ></textarea>
               </label>
 
-              <div class="request-signal" id="request-signal" data-tone="draft" aria-live="polite">
-                <div class="request-signal-head">
-                  <div>
-                    <p class="request-signal-title">Signal meter</p>
-                    <p id="request-signal-label" class="request-signal-label">Start with the problem and the product move you want.</p>
-                  </div>
-                  <p id="request-count" class="request-count">0 / 2000</p>
-                </div>
-
-                <div class="request-signal-bar" aria-hidden="true">
-                  <span id="request-signal-fill" class="request-signal-fill"></span>
-                </div>
-
-                <p id="request-signal-hint" class="request-signal-hint">
-                  High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
-                </p>
-              </div>
+              <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
 
               <details class="request-guide" id="request-guide">
                 <summary class="request-guide-toggle">
@@ -160,23 +185,105 @@
 
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
-          <h2 id="queue-title">Queue</h2>
-          <a
-            id="queue-repo-link"
-            class="queue-link"
-            href="#"
-            target="_blank"
-            rel="noreferrer"
-            hidden
-          >
-            View on GitHub
-          </a>
+          <div class="queue-heading">
+            <h2 id="queue-title">Queue</h2>
+            <p class="queue-subcopy">Watch requests move from intake to shipped or rejected.</p>
+          </div>
+
+          <div class="queue-actions">
+            <div class="queue-view-toggle" role="group" aria-label="Queue layout">
+              <button
+                id="queue-view-board"
+                class="queue-view-button"
+                type="button"
+                data-view="board"
+                aria-pressed="true"
+              >
+                Board
+              </button>
+              <button
+                id="queue-view-list"
+                class="queue-view-button"
+                type="button"
+                data-view="list"
+                aria-pressed="false"
+              >
+                List
+              </button>
+            </div>
+
+            <a
+              id="queue-repo-link"
+              class="queue-link"
+              href="#"
+              target="_blank"
+              rel="noreferrer"
+              hidden
+            >
+              View on GitHub
+            </a>
+          </div>
         </div>
 
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
           Loading queue...
         </p>
-        <ul id="queue-list" class="queue-list"></ul>
+        <p id="queue-refresh-note" class="queue-refresh-note" aria-live="polite"></p>
+        <div id="queue-board" class="queue-board" aria-label="Queue board"></div>
+        <div id="queue-table-wrap" class="queue-table-wrap" hidden>
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th scope="col">Issue</th>
+                <th scope="col">Title</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="queue-table-body"></tbody>
+          </table>
+        </div>
+        <nav class="queue-pagination" aria-label="Queue pages">
+          <button id="queue-newer" class="queue-pagination-button" type="button">
+            Newer
+          </button>
+          <p id="queue-page-label" class="queue-page-label" aria-live="polite">Page 1</p>
+          <button id="queue-older" class="queue-pagination-button" type="button">
+            Older
+          </button>
+        </nav>
+      </section>
+
+      <section class="reactorle panel" aria-labelledby="reactorle-title">
+        <div class="reactorle-header">
+          <div>
+            <p class="panel-kicker">Daily mini puzzle</p>
+            <h2 id="reactorle-title">Reactorle</h2>
+          </div>
+          <p class="reactorle-badge">6 guesses</p>
+        </div>
+
+        <p class="reactorle-copy">
+          A Wordle-style five-letter puzzle for the homepage. Type anywhere outside the form or use the on-screen keys.
+        </p>
+
+        <div
+          id="reactorle-status"
+          class="reactorle-status"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <div
+          id="reactorle-board"
+          class="reactorle-board"
+          role="grid"
+          aria-label="Daily five-letter puzzle board"
+        ></div>
+        <div
+          id="reactorle-keyboard"
+          class="reactorle-keyboard"
+          aria-label="Puzzle keyboard"
+        ></div>
       </section>
 
       <section class="leaderboard panel" aria-labelledby="leaderboard-title">
@@ -211,6 +318,19 @@
         <ol id="leaderboard-list" class="leaderboard-list"></ol>
       </section>
     </main>
+
+    <div
+      id="update-notice"
+      class="update-notice"
+      role="status"
+      aria-live="polite"
+      data-visible="false"
+      hidden
+    >
+      <button id="update-notice-button" class="update-notice-button" type="button">
+        Changes available. Reload page?
+      </button>
+    </div>
 
     <script type="module" src="/app.js"></script>
   </body>
