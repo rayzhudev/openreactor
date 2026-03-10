@@ -1343,6 +1343,182 @@ input,
   background: rgba(106, 128, 150, 0.18);
 }
 
+.leaderboard {
+  margin-top: 1.6rem;
+  padding: 1.75rem;
+  animation: rise 900ms ease-out 180ms both;
+}
+
+.leaderboard-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.leaderboard h2 {
+  margin-top: 0.2rem;
+  font-family: var(--display-font);
+  font-size: clamp(1.95rem, 3vw, 3rem);
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.leaderboard-summary,
+.leaderboard-status,
+.leaderboard-stat-label,
+.leaderboard-latest,
+.leaderboard-count,
+.leaderboard-badge {
+  font-family: var(--ui-font);
+}
+
+.leaderboard-summary {
+  max-width: 30rem;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.leaderboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1.1rem;
+}
+
+.leaderboard-stat {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(247, 239, 227, 0.06), rgba(247, 239, 227, 0.02));
+}
+
+.leaderboard-stat-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.leaderboard-stat-value {
+  font-family: var(--display-font);
+  font-size: clamp(1.4rem, 3vw, 2.35rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.leaderboard-status {
+  min-height: 1.5rem;
+  margin-top: 1rem;
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.leaderboard-status.error {
+  color: var(--error);
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0;
+  margin: 1rem 0 0;
+  list-style: none;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(247, 239, 227, 0.06), rgba(247, 239, 227, 0.02));
+}
+
+.leaderboard-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  height: 3rem;
+  border-radius: 18px;
+  background: rgba(255, 210, 121, 0.12);
+  color: var(--accent-soft);
+  font-family: var(--display-font);
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.leaderboard-item-body {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.leaderboard-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.leaderboard-profile,
+.leaderboard-latest {
+  min-width: 0;
+  text-decoration: none;
+}
+
+.leaderboard-profile {
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.leaderboard-profile:hover,
+.leaderboard-profile:focus-visible,
+.leaderboard-latest:hover,
+.leaderboard-latest:focus-visible {
+  color: var(--accent-soft);
+}
+
+.leaderboard-badge {
+  width: fit-content;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(247, 239, 227, 0.09);
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.leaderboard-count {
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.leaderboard-latest {
+  overflow: hidden;
+  color: var(--accent-soft);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .guide-page {
   background:
     radial-gradient(circle at 18% 16%, rgba(255, 138, 91, 0.18), transparent 28%),
@@ -1523,7 +1699,8 @@ input,
 @media (max-width: 980px) {
   .product-explainer-rail,
   .guide-hero,
-  .guide-grid {
+  .guide-grid,
+  .leaderboard-stats {
     grid-template-columns: 1fr;
   }
 
@@ -1550,6 +1727,7 @@ input,
 
   .intake-panel,
   .queue,
+  .leaderboard,
   .reactorle,
   .guide-hero,
   .guide-card {
@@ -1563,6 +1741,8 @@ input,
   .form-footer,
   .top-nav,
   .queue-header,
+  .leaderboard-header,
+  .leaderboard-item-top,
   .reactorle-header {
     flex-direction: column;
     align-items: stretch;
@@ -1593,6 +1773,14 @@ input,
   .guide-shell {
     width: min(100% - 1rem, 1180px);
     padding: 1rem 0 3rem;
+  }
+
+  .leaderboard-summary {
+    text-align: left;
+  }
+
+  .leaderboard-latest {
+    white-space: normal;
   }
 
   .request-guide-toggle,
