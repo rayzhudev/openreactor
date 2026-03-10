@@ -12,6 +12,7 @@ const queueTableBody = document.querySelector("#queue-table-body");
 const queueArchive = document.querySelector("#queue-archive");
 const queueArchiveList = document.querySelector("#queue-archive-list");
 const queueArchiveCountNode = document.querySelector("#queue-archive-count");
+const queueArchivePagination = document.querySelector("#queue-archive-pagination");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
@@ -69,13 +70,15 @@ const BOARD_COLUMNS = [
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
-let queueItems = [];
+let queueActiveItems = [];
+let queueArchivedItems = [];
 let activeQueueView = "board";
 const queueState = {
   page: DEFAULT_QUEUE_PAGE,
   isLoading: false,
   hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
-  hasNextPage: false
+  hasNextPage: false,
+  archiveTotal: 0
 };
 let deployFingerprint = "";
 let deployCheckTimer = 0;
@@ -798,7 +801,9 @@ async function loadQueue(page = 1, options = {}) {
   if (!silent) {
     setQueueStatus("Loading queue...");
     setQueueRefreshNote("");
-    queueItems = [];
+    queueActiveItems = [];
+    queueArchivedItems = [];
+    queueState.archiveTotal = 0;
     renderQueueView();
   }
 
@@ -817,7 +822,7 @@ async function loadQueue(page = 1, options = {}) {
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy(queueItems, page);
+      refreshQueueStatusCopy(queueActiveItems, page, queueState.archiveTotal);
       return;
     }
 
@@ -887,19 +892,27 @@ function renderRepoStarLink(repoUrl) {
 }
 
 function renderQueue(data) {
-  const items = data.items || [];
-  const page = Number.isInteger(data.page) ? data.page : 1;
-  const hasPreviousPage = Boolean(data.hasPreviousPage);
-  const hasNextPage = Boolean(data.hasNextPage);
+  const activeItems = Array.isArray(data.activeItems) ? data.activeItems : [];
+  const archivedItems = Array.isArray(data.archivedItems) ? data.archivedItems : [];
+  const page = Number.isInteger(data.archivePage)
+    ? data.archivePage
+    : Number.isInteger(data.page)
+      ? data.page
+      : 1;
+  const hasPreviousPage = Boolean(data.archiveHasPreviousPage ?? data.hasPreviousPage);
+  const hasNextPage = Boolean(data.archiveHasNextPage ?? data.hasNextPage);
+  const archiveTotal = Number.isFinite(data.archiveTotal) ? data.archiveTotal : archivedItems.length;
   const repoUrl = data.repoUrl || "";
 
   markQueueRefresh();
-  queueItems = items;
+  queueActiveItems = activeItems;
+  queueArchivedItems = archivedItems;
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
+  queueState.archiveTotal = archiveTotal;
   updateQueueLocation(page);
-  syncQueueControls({ page, hasPreviousPage, hasNextPage });
+  syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -912,28 +925,29 @@ function renderQueue(data) {
 
   renderQueueView();
 
-  if (!items.length) {
-    setQueueStatus(page === 1 ? "No requests yet." : `Page ${page} has no requests.`);
+  if (!activeItems.length && !archivedItems.length) {
+    setQueueStatus("No requests yet.");
     setQueueRefreshNote(
-      page === 1
-        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
-        : `Page ${page} is empty.`
+      `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
     );
     return;
   }
 
-  refreshQueueStatusCopy(items, page);
+  refreshQueueStatusCopy(activeItems, page, archiveTotal);
 }
 
 function renderQueueError(message) {
-  queueItems = [];
+  queueActiveItems = [];
+  queueArchivedItems = [];
+  queueState.archiveTotal = 0;
   renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   syncQueueControls({
     page: queueState.page,
     hasPreviousPage: queueState.hasPreviousPage,
-    hasNextPage: queueState.hasNextPage
+    hasNextPage: queueState.hasNextPage,
+    archiveTotal: queueState.archiveTotal
   });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
@@ -954,7 +968,7 @@ function renderLeaderboard(items, totals) {
   }
 
   leaderboardSummaryNode.textContent =
-    "Ranks GitHub accounts by merged pull requests authored in this repository.";
+    "Ranks credited GitHub usernames for merged pull requests in this repository.";
   const fragment = document.createDocumentFragment();
 
   for (const [index, item] of items.entries()) {
@@ -980,7 +994,12 @@ function renderLeaderboard(items, totals) {
 
     const badge = document.createElement("span");
     badge.className = "leaderboard-badge";
-    badge.textContent = item.accountType === "Bot" ? "Bot" : "Account";
+    badge.textContent =
+      item.creditSource === "issue-requester"
+        ? "Requester"
+        : item.accountType === "Bot"
+          ? "Bot"
+          : "Account";
 
     top.append(profile, badge);
 
@@ -1061,14 +1080,17 @@ function onVisibilityChange() {
   }
 }
 
-function refreshQueueStatusCopy(items = queueItems, page = queueState.page) {
-  const activeCount = items.filter((item) => !isArchivedQueueItem(item)).length;
-  const archivedCount = items.length - activeCount;
-  const countLabel = formatQueueCountLabel(activeCount, archivedCount);
+function refreshQueueStatusCopy(
+  activeItems = queueActiveItems,
+  page = queueState.page,
+  archiveTotal = queueState.archiveTotal
+) {
+  const countLabel = formatQueueCountLabel(activeItems.length, archiveTotal);
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
-  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  const archiveLabel = archiveTotal ? ` Archive page ${page}.` : "";
+  setQueueStatus(`${countLabel}${archiveLabel} Auto-refreshes every ${formatPollInterval()}.`);
   setQueueRefreshNote(freshnessLabel);
 }
 
@@ -1111,12 +1133,9 @@ function renderQueueView() {
     button.setAttribute("aria-pressed", String(isActive));
   }
 
-  const activeItems = queueItems.filter((item) => !isArchivedQueueItem(item));
-  const archivedItems = queueItems.filter((item) => isArchivedQueueItem(item));
-
-  renderQueueBoard(activeItems);
-  renderQueueTable(activeItems);
-  renderQueueArchive(archivedItems);
+  renderQueueBoard(queueActiveItems);
+  renderQueueTable(queueActiveItems);
+  renderQueueArchive(queueArchivedItems, queueState.archiveTotal);
 }
 
 function renderQueueBoard(items) {
@@ -1228,12 +1247,14 @@ function renderQueueTable(items) {
   queueTableBody.append(fragment);
 }
 
-function renderQueueArchive(items) {
+function renderQueueArchive(items, total = items.length) {
+  const wasOpen = queueArchive.open;
   queueArchiveList.innerHTML = "";
   queueArchive.hidden = true;
   queueArchive.removeAttribute("open");
+  queueArchivePagination.hidden = true;
 
-  if (!items.length) {
+  if (!total) {
     return;
   }
 
@@ -1247,8 +1268,13 @@ function renderQueueArchive(items) {
   }
 
   queueArchive.hidden = false;
-  queueArchiveCountNode.textContent = `${items.length} request${items.length === 1 ? "" : "s"}`;
+  queueArchiveCountNode.textContent = `${total} request${total === 1 ? "" : "s"}`;
   queueArchiveList.append(fragment);
+  queueArchivePagination.hidden = false;
+
+  if (wasOpen || queueState.page > 1) {
+    queueArchive.open = true;
+  }
 }
 
 function createQueueCardLink(item) {
@@ -1436,13 +1462,15 @@ function changeQueuePage(page) {
   void loadQueue(page);
 }
 
-function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+function syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal = queueState.archiveTotal }) {
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
-  queuePageLabelNode.textContent = `Page ${page}`;
+  queueState.archiveTotal = archiveTotal;
+  queuePageLabelNode.textContent = `Archive page ${page}`;
   queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
   queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+  queueArchivePagination.hidden = archiveTotal === 0;
 }
 
 function updateQueueLocation(page) {

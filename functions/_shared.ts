@@ -4,11 +4,13 @@ const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
-const MAX_QUEUE_ITEMS = 12;
+const MAX_ARCHIVE_ITEMS = 12;
 const MAX_LEADERBOARD_ITEMS = 8;
 const MAX_LEADERBOARD_PAGES = 10;
+const MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH = 20;
 const GITHUB_ISSUES_PER_PAGE = 100;
 const MAX_GITHUB_REQUEST_PAGES = 10;
+const ISSUE_BRANCH_PREFIX = "openreactor/issue-";
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
@@ -86,6 +88,9 @@ interface GitHubPullRequest {
   html_url: string;
   title: string;
   merged_at?: string | null;
+  head?: {
+    ref?: string;
+  };
   user?: {
     login?: string;
     html_url?: string;
@@ -118,6 +123,7 @@ interface LeaderboardContributor {
   login: string;
   profileUrl: string;
   accountType: string;
+  creditSource: "pr-author" | "issue-requester";
   mergedCount: number;
   latestMergedAt: string;
   latestPullRequest: {
@@ -158,45 +164,40 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
   if (!isRepoConfigured(normalized)) {
     return jsonResponse({
       items: [],
+      activeItems: [],
+      archivedItems: [],
       repoUrl: null,
-      page: 1,
-      pageSize: MAX_QUEUE_ITEMS,
-      hasPreviousPage: false,
-      hasNextPage: false
+      archivePage: 1,
+      archivePageSize: MAX_ARCHIVE_ITEMS,
+      archiveTotal: 0,
+      archiveHasPreviousPage: false,
+      archiveHasNextPage: false
     });
   }
 
   try {
-    const page = getQueuePage(request);
-    const issues = await listRequestIssues(normalized, page);
-    const start = (page - 1) * MAX_QUEUE_ITEMS;
-    const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
-    const items = await Promise.all(
-      visibleIssues.map(async (issue) => {
-        const statusUpdate = await getIssueStatusUpdate(normalized, issue.number);
-        return {
-          number: issue.number,
-          title: issue.title.replace(/^\[Request\]\s*/, ""),
-          url: issue.html_url,
-          commentUrl: issue.html_url,
-          commentCount: issue.comments ?? 0,
-          createdAt: issue.created_at,
-          status: getIssueStatus(issue),
-          githubUsername: getIssueGitHubUsername(issue),
-          statusDetail: statusUpdate?.detail ?? null,
-          statusUpdatedAt: statusUpdate?.updatedAt ?? null
-        };
-      })
-    );
+    const archivePage = getQueuePage(request);
+    const issues = await listRequestIssues(normalized);
+    const activeIssues = issues.filter((issue) => !isArchivedIssue(issue));
+    const archivedIssues = issues.filter((issue) => isArchivedIssue(issue));
+    const start = (archivePage - 1) * MAX_ARCHIVE_ITEMS;
+    const visibleArchivedIssues = archivedIssues.slice(start, start + MAX_ARCHIVE_ITEMS);
+    const [activeItems, archivedItems] = await Promise.all([
+      Promise.all(activeIssues.map((issue) => mapQueueIssue(normalized, issue))),
+      Promise.all(visibleArchivedIssues.map((issue) => mapQueueIssue(normalized, issue)))
+    ]);
 
     const repoUrl = getRepoUrl(normalized);
-    const hasPreviousPage = page > 1;
-    const hasNextPage = issues.length > start + MAX_QUEUE_ITEMS;
+    const archiveHasPreviousPage = archivePage > 1;
+    const archiveHasNextPage = archivedIssues.length > start + MAX_ARCHIVE_ITEMS;
+    const archiveTotal = archivedIssues.length;
+    const items = [...activeItems, ...archivedItems];
     const etag = buildQueueEtag({
       items,
-      page,
-      hasPreviousPage,
-      hasNextPage
+      page: archivePage,
+      hasPreviousPage: archiveHasPreviousPage,
+      hasNextPage: archiveHasNextPage,
+      totalItems: archiveTotal
     });
 
     if (request.headers.get("if-none-match") === etag) {
@@ -213,11 +214,14 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
     return jsonResponse(
       {
         items,
+        activeItems,
+        archivedItems,
         repoUrl,
-        page,
-        pageSize: MAX_QUEUE_ITEMS,
-        hasPreviousPage,
-        hasNextPage
+        archivePage,
+        archivePageSize: MAX_ARCHIVE_ITEMS,
+        archiveTotal,
+        archiveHasPreviousPage,
+        archiveHasNextPage
       },
       200,
       {
@@ -246,7 +250,8 @@ export async function handleLeaderboard(env: Env): Promise<Response> {
 
   try {
     const pullRequests = await listMergedPullRequests(normalized);
-    const leaderboard = buildLeaderboard(pullRequests);
+    const issueUsernames = await getLeaderboardIssueUsernames(normalized, pullRequests);
+    const leaderboard = buildLeaderboard(pullRequests, issueUsernames);
 
     return jsonResponse({
       items: leaderboard.items,
@@ -553,7 +558,10 @@ async function listMergedPullRequests(env: Env): Promise<GitHubPullRequest[]> {
   return mergedPullRequests;
 }
 
-function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
+function buildLeaderboard(
+  pullRequests: GitHubPullRequest[],
+  issueUsernames: Map<number, string>
+): {
   items: LeaderboardContributor[];
   totals: {
     mergedPullRequests: number;
@@ -565,9 +573,15 @@ function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
   let latestMergedAt: string | null = null;
 
   for (const pullRequest of pullRequests) {
-    const login = pullRequest.user?.login?.trim();
-    const profileUrl = pullRequest.user?.html_url?.trim();
+    const issueNumber = parseIssueNumberFromBranch(pullRequest.head?.ref);
+    const issueUsername = issueNumber !== null ? issueUsernames.get(issueNumber) ?? null : null;
+    const login = issueUsername || pullRequest.user?.login?.trim();
+    const profileUrl = issueUsername
+      ? `https://github.com/${issueUsername}`
+      : pullRequest.user?.html_url?.trim();
     const mergedAt = pullRequest.merged_at ?? "";
+    const creditSource = issueUsername ? "issue-requester" : "pr-author";
+    const accountType = issueUsername ? "Requester" : pullRequest.user?.type ?? "User";
 
     if (!login || !profileUrl || !mergedAt) {
       continue;
@@ -579,7 +593,8 @@ function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
       contributors.set(login, {
         login,
         profileUrl,
-        accountType: pullRequest.user?.type ?? "User",
+        accountType,
+        creditSource,
         mergedCount: 1,
         latestMergedAt: mergedAt,
         latestPullRequest: {
@@ -658,6 +673,54 @@ async function getIssueStatusUpdate(
   }
 }
 
+async function getLeaderboardIssueUsernames(
+  env: Env,
+  pullRequests: GitHubPullRequest[]
+): Promise<Map<number, string>> {
+  const issueNumbers = new Set<number>();
+
+  for (const pullRequest of pullRequests) {
+    const issueNumber = parseIssueNumberFromBranch(pullRequest.head?.ref);
+    if (issueNumber !== null) {
+      issueNumbers.add(issueNumber);
+    }
+  }
+
+  const issueNumberList = [...issueNumbers];
+  const entries: Array<readonly [number, string | null]> = [];
+
+  for (let index = 0; index < issueNumberList.length; index += MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH) {
+    const batch = issueNumberList.slice(index, index + MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH);
+    const batchEntries = await Promise.all(
+      batch.map(async (issueNumber) => {
+        try {
+          const issue = await githubRequestWithFallback<GitHubIssue>(
+            env,
+            `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${issueNumber}`
+          );
+          return [issueNumber, getIssueGitHubUsername(issue)] as const;
+        } catch {
+          return [issueNumber, null] as const;
+        }
+      })
+    );
+
+    entries.push(...batchEntries);
+  }
+
+  return new Map(entries.filter((entry): entry is readonly [number, string] => Boolean(entry[1])));
+}
+
+function parseIssueNumberFromBranch(branchName?: string): number | null {
+  const normalized = clean(branchName);
+  if (!normalized.startsWith(ISSUE_BRANCH_PREFIX)) {
+    return null;
+  }
+
+  const issueNumber = Number.parseInt(normalized.slice(ISSUE_BRANCH_PREFIX.length), 10);
+  return Number.isInteger(issueNumber) && issueNumber > 0 ? issueNumber : null;
+}
+
 async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/vnd.github+json");
@@ -726,6 +789,11 @@ function getIssueStatus(issue: GitHubIssue): string {
   return "queued";
 }
 
+function isArchivedIssue(issue: GitHubIssue): boolean {
+  const status = getIssueStatus(issue);
+  return status === "complete" || status === "rejected";
+}
+
 function extractStatusField(body: string, label: string): string {
   const match = body.match(new RegExp(`^${label}:\\s*(.+)$`, "m"));
   return match?.[1]?.trim() ?? "";
@@ -753,8 +821,7 @@ function getIssueSectionValue(body: string | undefined, heading: string): string
   return clean(match?.[1]);
 }
 
-async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]> {
-  const targetCount = page * MAX_QUEUE_ITEMS + 1;
+async function listRequestIssues(env: Env): Promise<GitHubIssue[]> {
   const requestIssues: GitHubIssue[] = [];
   const normalized = normalizeEnv(env);
 
@@ -770,12 +837,29 @@ async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]>
         .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
     );
 
-    if (requestIssues.length >= targetCount || issues.length < GITHUB_ISSUES_PER_PAGE) {
+    if (issues.length < GITHUB_ISSUES_PER_PAGE) {
       break;
     }
   }
 
   return requestIssues;
+}
+
+async function mapQueueIssue(env: Env, issue: GitHubIssue) {
+  const statusUpdate = await getIssueStatusUpdate(env, issue.number);
+
+  return {
+    number: issue.number,
+    title: issue.title.replace(/^\[Request\]\s*/, ""),
+    url: issue.html_url,
+    commentUrl: issue.html_url,
+    commentCount: issue.comments ?? 0,
+    createdAt: issue.created_at,
+    status: getIssueStatus(issue),
+    githubUsername: getIssueGitHubUsername(issue),
+    statusDetail: statusUpdate?.detail ?? null,
+    statusUpdatedAt: statusUpdate?.updatedAt ?? null
+  };
 }
 
 function getQueuePage(request: Request): number {
@@ -997,7 +1081,8 @@ function buildQueueEtag({
   items,
   page,
   hasPreviousPage,
-  hasNextPage
+  hasNextPage,
+  totalItems
 }: {
   items: Array<{
     number: number;
@@ -1011,6 +1096,7 @@ function buildQueueEtag({
   page: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+  totalItems: number;
 }): string {
   const signature = items
     .map(
@@ -1018,7 +1104,7 @@ function buildQueueEtag({
         `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
     )
     .join("|");
-  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}:${totalItems}`;
   return `W/"${pageState}:${signature || "empty"}"`;
 }
 
