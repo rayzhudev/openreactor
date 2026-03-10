@@ -1,6 +1,7 @@
 import { createPrivateKey } from "node:crypto";
 
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
+const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
@@ -72,6 +73,11 @@ interface GitHubIssue {
   labels?: Array<{ name?: string }>;
 }
 
+interface GitHubIssueComment {
+  body?: string;
+  updated_at?: string;
+}
+
 export async function handleMeta(env: Env): Promise<Response> {
   return jsonResponse({
     configured: isRepoConfigured(env),
@@ -116,17 +122,23 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
     const issues = await listRequestIssues(normalized, page);
     const start = (page - 1) * MAX_QUEUE_ITEMS;
     const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
-    const items = visibleIssues
-      .map((issue) => ({
-        number: issue.number,
-        title: issue.title.replace(/^\[Request\]\s*/, ""),
-        url: issue.html_url,
-        commentUrl: issue.html_url,
-        commentCount: issue.comments ?? 0,
-        createdAt: issue.created_at,
-        status: getIssueStatus(issue),
-        githubUsername: getIssueGitHubUsername(issue)
-      }));
+    const items = await Promise.all(
+      visibleIssues.map(async (issue) => {
+        const statusUpdate = await getIssueStatusUpdate(normalized, issue.number);
+        return {
+          number: issue.number,
+          title: issue.title.replace(/^\[Request\]\s*/, ""),
+          url: issue.html_url,
+          commentUrl: issue.html_url,
+          commentCount: issue.comments ?? 0,
+          createdAt: issue.created_at,
+          status: getIssueStatus(issue),
+          githubUsername: getIssueGitHubUsername(issue),
+          statusDetail: statusUpdate?.detail ?? null,
+          statusUpdatedAt: statusUpdate?.updatedAt ?? null
+        };
+      })
+    );
 
     const repoUrl = getRepoUrl(normalized);
     const hasPreviousPage = page > 1;
@@ -397,6 +409,38 @@ async function getExistingLabels(env: Env): Promise<string[]> {
   }
 }
 
+async function getIssueStatusUpdate(
+  env: Env,
+  issueNumber: number
+): Promise<{ detail: string; updatedAt: string | null } | null> {
+  try {
+    const normalized = normalizeEnv(env);
+    const comments = await githubRequestWithFallback<GitHubIssueComment[]>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues/${issueNumber}/comments?per_page=100`
+    );
+    const statusComment = comments.find((comment) =>
+      (comment.body ?? "").includes(STATUS_COMMENT_MARKER)
+    );
+
+    if (!statusComment?.body) {
+      return null;
+    }
+
+    const detail = extractStatusField(statusComment.body, "Detail");
+    if (!detail) {
+      return null;
+    }
+
+    return {
+      detail,
+      updatedAt: extractStatusField(statusComment.body, "Updated") || statusComment.updated_at || null
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/vnd.github+json");
@@ -463,6 +507,11 @@ function getIssueStatus(issue: GitHubIssue): string {
   }
 
   return "queued";
+}
+
+function extractStatusField(body: string, label: string): string {
+  const match = body.match(new RegExp(`^${label}:\\s*(.+)$`, "m"));
+  return match?.[1]?.trim() ?? "";
 }
 
 function getIssueGitHubUsername(issue: GitHubIssue): string | null {
@@ -638,12 +687,25 @@ function buildQueueEtag({
   hasPreviousPage,
   hasNextPage
 }: {
-  items: Array<{ number: number; createdAt: string; status: string }>;
+  items: Array<{
+    number: number;
+    createdAt: string;
+    status: string;
+    commentCount?: number;
+    githubUsername?: string | null;
+    statusDetail?: string | null;
+    statusUpdatedAt?: string | null;
+  }>;
   page: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
 }): string {
-  const signature = items.map((item) => `${item.number}:${item.status}:${item.createdAt}`).join("|");
+  const signature = items
+    .map(
+      (item) =>
+        `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
+    )
+    .join("|");
   const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
   return `W/"${pageState}:${signature || "empty"}"`;
 }

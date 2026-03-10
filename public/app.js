@@ -640,12 +640,13 @@ function renderQueueTable(items) {
     statusCell.append(status);
 
     const submittedCell = document.createElement("td");
-    const submittedTime = document.createElement("time");
-    submittedTime.className = "queue-table-time";
-    submittedTime.dateTime = item.createdAt;
-    submittedTime.title = item.createdAt;
-    submittedTime.textContent = formatSubmissionTimestamp(item.createdAt);
-    submittedCell.append(submittedTime);
+  const submittedTime = document.createElement("time");
+  submittedTime.className = "queue-table-time";
+  submittedTime.dateTime = item.createdAt;
+  submittedTime.title = item.createdAt;
+  const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
+  submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
+  submittedCell.append(submittedTime);
 
     row.append(issueCell, titleCell, statusCell, submittedCell);
     fragment.append(row);
@@ -706,7 +707,10 @@ function createQueueCardLink(item) {
   const commentHint = document.createElement("span");
   commentHint.className = "queue-item-comment-hint";
   commentHint.textContent =
-    item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
+    formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
+    (item.commentCount > 0
+      ? "Discussion already started on GitHub."
+      : "Be the first to add context on GitHub.");
 
   discussion.append(commentCount, commentHint);
 
@@ -746,6 +750,32 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function formatQueueDetail(detail, updatedAt) {
+  if (!detail) {
+    return "";
+  }
+
+  const updatedLabel = updatedAt ? formatStatusTimestamp(updatedAt) : "Updated recently";
+  return `${detail} ${updatedLabel}`;
+}
+
+function formatStatusTimestamp(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Updated recently.";
+  }
+
+  const formatted = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+
+  return `Updated ${formatted}.`;
 }
 
 function formatCommentCount(value) {
