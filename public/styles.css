@@ -774,6 +774,15 @@ button {
   font-size: 0.9rem;
 }
 
+.queue-deck {
+  max-width: 46rem;
+  margin: 0.9rem 0 0;
+  color: var(--ink-soft);
+  font-family: var(--ui-font);
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
 .queue-archive {
   margin-top: 1rem;
   border: 1px solid var(--line);
@@ -839,14 +848,47 @@ button {
 }
 
 .queue-board {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(24, minmax(0, 1fr));
   gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(247, 239, 227, 0.08);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(247, 239, 227, 0.04), rgba(247, 239, 227, 0.02)),
+    linear-gradient(90deg, rgba(247, 239, 227, 0.08) 0 1px, transparent 1px);
+  background-repeat: no-repeat, repeat;
+  background-size: auto, calc(100% / 24) 100%;
+  overflow: hidden;
+}
+
+.queue-board::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 50%;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 210, 121, 0.14) 0 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 210, 121, 0.08), transparent 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: calc(100% / 12) 100%, auto;
+  pointer-events: none;
 }
 
 .queue-lane {
+  position: relative;
+  z-index: 1;
   display: grid;
+  grid-column: span 6;
   gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .queue-lane[data-status="queued"] {
@@ -1369,6 +1411,14 @@ button {
   text-transform: uppercase;
 }
 
+.queue-status {
+  min-height: 1.5rem;
+  margin-top: 1.15rem;
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
 .leaderboard-summary,
 .leaderboard-status,
 .leaderboard-stat-label,
@@ -1622,9 +1672,24 @@ button {
 }
 
 @media (max-width: 1080px) {
-  .queue-board,
   .product-explainer-rail {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .queue-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
+    border: 0;
+    background: none;
+    overflow: visible;
+  }
+
+  .queue-board::before {
+    display: none;
+  }
+
+  .queue-lane {
+    grid-column: auto;
   }
 }
 
@@ -1644,7 +1709,6 @@ button {
     max-width: none;
   }
 
-  .queue-board,
   .queue-archive-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
