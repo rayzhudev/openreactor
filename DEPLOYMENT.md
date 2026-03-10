@@ -120,5 +120,15 @@ Once deployed, verify:
 3. a form submission creates a GitHub issue directly through the GitHub App, or falls back to a prefilled GitHub issue URL
 4. the new issue appears in the public queue
 
+To verify the direct GitHub App path end to end on production, run:
+
+```bash
+bun run smoke:pages -- --base-url https://openreactor.net --cleanup
+```
+
+The smoke test fails unless `/api/health` reports `authMode: "app"` and the
+request API returns `mode: "created"` with a real issue number and URL. With
+`--cleanup`, it closes the generated issue after verification.
+
 If labels do not appear on new issues, create those labels in GitHub first or
 leave `GITHUB_LABELS` empty.
