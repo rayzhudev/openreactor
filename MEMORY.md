@@ -21,3 +21,6 @@
 
 - Decision: reject repetitive placeholder or gibberish intake text before it becomes a GitHub issue.
   Reason: queue quality is part of the MVP, and low-signal requests create noise without adding actionable product feedback.
+
+- Decision: treat a merged PR as valid completion evidence for an accepted issue branch, not just an open PR.
+  Reason: accepted work is often squash-merged before later retries or reconciliation runs inspect branch state.

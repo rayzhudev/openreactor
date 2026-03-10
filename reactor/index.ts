@@ -338,12 +338,25 @@ class Reactor {
       return { ok: false, reason: `remote branch ${branchName} was not found on origin` };
     }
 
-    const pullRequest = await this.github.findOpenPullRequestByBranch(branchName);
-    if (!pullRequest) {
-      return { ok: false, reason: `no open pull request found for branch ${branchName}` };
+    const openPullRequest = await this.github.findOpenPullRequestByBranch(branchName);
+    if (openPullRequest) {
+      return { ok: true, pullRequest: openPullRequest };
     }
 
-    return { ok: true, pullRequest };
+    const mergedPullRequest = await this.github.findPullRequestByBranch(branchName, "all");
+    if (!mergedPullRequest) {
+      return { ok: false, reason: `no pull request found for branch ${branchName}` };
+    }
+
+    const merged = await this.github.isPullRequestMerged(mergedPullRequest.number);
+    if (!merged) {
+      return {
+        ok: false,
+        reason: `branch ${branchName} does not have an open or merged pull request`
+      };
+    }
+
+    return { ok: true, pullRequest: mergedPullRequest };
   }
 }
 
