@@ -27,6 +27,9 @@ export interface GitHubPullRequest {
   html_url: string;
   state: string;
   merged_at?: string | null;
+  title?: string;
+  mergeable?: boolean | null;
+  mergeable_state?: string | null;
   head?: {
     ref?: string;
   };
@@ -38,6 +41,12 @@ export class GitHubClient {
   async listOpenIssues(): Promise<GitHubIssue[]> {
     return this.request<GitHubIssue[]>(
       `/repos/${this.config.owner}/${this.config.repo}/issues?state=open&sort=created&direction=asc&per_page=100`
+    );
+  }
+
+  async listOpenPullRequests(): Promise<GitHubPullRequest[]> {
+    return this.request<GitHubPullRequest[]>(
+      `/repos/${this.config.owner}/${this.config.repo}/pulls?state=open&sort=created&direction=asc&per_page=100`
     );
   }
 
@@ -133,6 +142,12 @@ export class GitHubClient {
 
   async findOpenPullRequestByBranch(branchName: string): Promise<GitHubPullRequest | null> {
     return this.findPullRequestByBranch(branchName, "open");
+  }
+
+  async getPullRequest(pullRequestNumber: number): Promise<GitHubPullRequest> {
+    return this.request<GitHubPullRequest>(
+      `/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}`
+    );
   }
 
   async findPullRequestByBranch(

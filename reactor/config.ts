@@ -7,6 +7,7 @@ export interface OrchestratorConfig {
   runsDir: string;
   worktreesDir: string;
   pollIntervalMs: number;
+  maxIterationRuntimeMs: number;
   maxConcurrentIssues: number;
   maxIterationsPerIssue: number;
   runningLabel: string;
@@ -33,6 +34,7 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     runsDir: path.join(stateRoot, "runs"),
     worktreesDir: path.join(stateRoot, "worktrees"),
     pollIntervalMs: numberFromEnv("OPENREACTOR_POLL_INTERVAL_MS", 60_000),
+    maxIterationRuntimeMs: numberFromEnv("OPENREACTOR_MAX_ITERATION_RUNTIME_MS", 20 * 60_000),
     maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 2),
     maxIterationsPerIssue: numberFromEnv("OPENREACTOR_MAX_ITERATIONS_PER_ISSUE", 8),
     runningLabel: clean(process.env.OPENREACTOR_RUNNING_LABEL) || "or:running",

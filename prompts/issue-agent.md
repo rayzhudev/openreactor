@@ -86,6 +86,9 @@ If accepted and fully complete:
 - ensure the branch is pushed
 - open or update a PR
 - enable auto-merge unless the PR needs human intervention or manual review
+- if the PR already exists and is blocked by merge conflicts, keep the same PR alive and update the branch until it is mergeable again
+- for merge-conflict repairs, fetch `origin/main`, merge or rebase it into the issue branch, resolve conflicts carefully, rerun the relevant checks, then push the same branch and update the same PR
+- do not recreate, reopen, or replace a PR that is already merged
 - add the `accepted` label
 - remove the `or:running` label
 - leave a concise issue comment linking the PR
