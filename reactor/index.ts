@@ -171,7 +171,7 @@ class Reactor {
       const tool = getAgentTool(toolName);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
-        phase: "implementation",
+        phase: toolName === "spawn_codex_planner_agent" ? "planning" : "implementation",
         detail:
           result.toolReason ??
           `Lightweight triage selected ${tool.label} for the next implementation attempt.`
@@ -465,6 +465,46 @@ class Reactor {
         return;
       }
 
+      if (result?.outcome === "decomposed") {
+        if (!result.decomposition?.childIssues?.length) {
+          activeRun.record.status = "retry";
+          activeRun.record.lastError = "decomposed result must include at least one child issue";
+          await writeRunRecord(paths, activeRun.record);
+        } else {
+          const createdIssues = [];
+          for (const child of result.decomposition.childIssues) {
+            const title = normalizeDecomposedIssueTitle(child.title);
+            const body = ensureParentLinkInDecomposedIssueBody(activeRun.issue, child.body);
+            const createdIssue = await this.github.createIssue({
+              title,
+              body
+            });
+            createdIssues.push(createdIssue);
+          }
+
+          await this.syncIssueStatusComment(issueNumber, {
+            status: "complete",
+            phase: "planned",
+            iteration: activeRun.record.iteration,
+            detail: `Decomposed into ${createdIssues.length} follow-up issues for execution.`
+          });
+          await this.github.createComment(
+            issueNumber,
+            [
+              result.issueComment || result.summary,
+              "",
+              result.decomposition.overview,
+              "",
+              "Created follow-up issues:",
+              ...createdIssues.map((child) => `- #${child.number} ${child.title}: ${child.html_url}`)
+            ].join("\n")
+          );
+          await this.github.removeLabel(issueNumber, this.config.runningLabel);
+          await this.github.closeIssue(issueNumber, "completed");
+          return;
+        }
+      }
+
       const nextIteration = activeRun.record.iteration;
       if (nextIteration >= this.config.maxIterationsPerIssue) {
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -648,6 +688,28 @@ function hasMergeConflict(pullRequest: GitHubPullRequest): boolean {
   }
 
   return false;
+}
+
+function normalizeDecomposedIssueTitle(title: string): string {
+  const cleaned = title.trim().replace(/^\[request\]\s*/i, "");
+  if (cleaned.toLowerCase().startsWith("[task]")) {
+    return cleaned;
+  }
+
+  return `[Task] ${cleaned}`;
+}
+
+function ensureParentLinkInDecomposedIssueBody(issue: GitHubIssue, body: string): string {
+  const trimmed = body.trim();
+  if (trimmed.includes(`Parent request: #${issue.number}`) || trimmed.includes(issue.html_url)) {
+    return trimmed;
+  }
+
+  return [
+    `Parent request: #${issue.number} ${issue.html_url}`,
+    "",
+    trimmed
+  ].join("\n");
 }
 
 function parseIssueNumberFromBranch(branchPrefix: string, branchName: string): number | null {
