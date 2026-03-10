@@ -133,12 +133,6 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
       })
     );
 
-<<<<<<< HEAD
-    return jsonResponse({
-      items: enrichedItems,
-      repoUrl: getRepoUrl(normalized)
-    });
-=======
     const repoUrl = getRepoUrl(normalized);
     const etag = buildQueueEtag(enrichedItems);
 
@@ -163,7 +157,6 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
         ETag: etag
       }
     );
->>>>>>> origin/main
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
   }
