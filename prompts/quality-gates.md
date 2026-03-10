@@ -23,4 +23,5 @@ Completion standards:
 For UI changes:
 
 - Use any browser or local verification tooling that exists in the repo.
+- Prefer `agent-browser` for local visual verification when the change affects rendered behavior.
 - If no browser test tooling exists, note that explicitly.

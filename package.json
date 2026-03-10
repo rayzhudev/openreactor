@@ -7,6 +7,7 @@
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public --project-name openreactor",
     "check": "tsc --noEmit",
+    "agent-browser:install": "agent-browser install",
     "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
+    "agent-browser": "0.17.1",
     "typescript": "^5.9.2",
     "wrangler": "^4.64.0"
   }
