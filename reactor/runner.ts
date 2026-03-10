@@ -16,11 +16,18 @@ export interface AgentTestResult {
   status: "passed" | "failed" | "not-run";
 }
 
+export type SurfaceSensitivity = "low" | "medium" | "high";
+export type EvidenceStrength = "weak" | "moderate" | "strong";
+
 export interface TriageResult {
   issueNumber: number;
-  outcome: "reject" | "dispatch";
+  outcome: "reject" | "dispatch" | "bank";
   summary: string;
   issueComment: string | null;
+  sensitivity: SurfaceSensitivity;
+  evidenceStrength: EvidenceStrength;
+  evidenceSummary: string;
+  bankReason: string | null;
   toolName: AgentToolName | null;
   toolReason: string | null;
 }
@@ -58,6 +65,9 @@ export interface RunRecord {
   issueTitle: string;
   branchName: string;
   agentTool?: AgentToolName;
+  sensitivity?: SurfaceSensitivity;
+  evidenceStrength?: EvidenceStrength;
+  evidenceSummary?: string;
   status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
   iteration: number;
   startFailureCount?: number;
@@ -143,7 +153,12 @@ export async function writeRunRecord(paths: IssueRuntimePaths, record: RunRecord
 export async function writeIssueContext(
   config: OrchestratorConfig,
   issue: GitHubIssue,
-  paths: IssueRuntimePaths
+  paths: IssueRuntimePaths,
+  governance?: {
+    sensitivity?: SurfaceSensitivity;
+    evidenceStrength?: EvidenceStrength;
+    evidenceSummary?: string;
+  }
 ): Promise<void> {
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
@@ -156,11 +171,14 @@ export async function writeIssueContext(
     `- URL: ${issue.html_url}`,
     `- Labels: ${labels}`,
     `- Branch: ${paths.branchName}`,
+    `- Surface sensitivity: ${governance?.sensitivity ?? "unknown"}`,
+    `- Evidence strength: ${governance?.evidenceStrength ?? "unknown"}`,
     `- Maintainer steering: ${
       maintainerSteering
         ? `yes (${maintainerSteering.username} matches repo owner ${config.owner})`
         : "no"
     }`,
+    governance?.evidenceSummary ? `- Evidence summary: ${governance.evidenceSummary}` : "",
     "",
     "## Issue Body",
     "",
@@ -186,7 +204,7 @@ export async function writeIssueContext(
     "- ROADMAP.md",
     "- MEMORY.md",
     "- README.md"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   await fs.mkdir(paths.runDir, { recursive: true });
   await fs.writeFile(paths.contextPath, `${content}\n`, "utf8");
@@ -488,85 +506,6 @@ async function spawnCodexPlannerAgent(input: {
   };
 }
 
-async function spawnCodexPlannerAgent(input: {
-  config: OrchestratorConfig;
-  issue: GitHubIssue;
-  paths: IssueRuntimePaths;
-  record: RunRecord;
-  githubToken: string;
-}): Promise<ActiveRun> {
-  const { config, issue, paths, githubToken } = input;
-  const iteration = input.record.iteration + 1;
-  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
-  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
-  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
-  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
-
-  await fs.writeFile(promptPath, prompt, "utf8");
-
-  const args = buildCodexArgs({
-    model: config.agentModel,
-    reasoningEffort: config.agentReasoningEffort,
-    serviceTier: config.agentServiceTier,
-    fullAccess: true,
-    outputSchemaPath: schemaPath,
-    outputPath: resultPath
-  });
-
-  const child = spawn("codex", args, {
-    cwd: paths.worktreePath,
-    env: {
-      ...process.env,
-      GH_TOKEN: githubToken,
-      GITHUB_TOKEN: githubToken,
-      OPENREACTOR_REPO_OWNER: config.owner,
-      OPENREACTOR_REPO_NAME: config.repo,
-      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
-      OPENREACTOR_ISSUE_URL: issue.html_url,
-      OPENREACTOR_RUN_DIR: paths.runDir,
-      OPENREACTOR_PLAN_PATH: paths.planPath,
-      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
-      OPENREACTOR_TASKS_PATH: paths.tasksPath,
-      OPENREACTOR_BRANCH_NAME: paths.branchName,
-      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
-    },
-    stdio: ["pipe", "pipe", "pipe"]
-  });
-
-  child.stdin.end(prompt);
-
-  await attachProcessLogging(child, logPath);
-
-  const record: RunRecord = {
-    ...input.record,
-    agentTool: "spawn_codex_planner_agent",
-    status: "running",
-    iteration,
-    updatedAt: new Date().toISOString(),
-    lastHeartbeatAt: new Date().toISOString(),
-    lastError: ""
-  };
-  await writeRunRecord(paths, record);
-
-  const heartbeatTimer = setInterval(() => {
-    record.updatedAt = new Date().toISOString();
-    record.lastHeartbeatAt = record.updatedAt;
-    void writeRunRecord(paths, record);
-  }, 10_000);
-
-  return {
-    issue,
-    record,
-    process: child,
-    heartbeatTimer,
-    resultPath,
-    logPath,
-    startedAt: Date.now(),
-    parseResult: () => parseAgentResult(resultPath)
-  };
-}
-
 async function spawnClaudeUiIssueAgent(input: {
   config: OrchestratorConfig;
   issue: GitHubIssue;
@@ -831,13 +770,20 @@ function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): stri
     issue.body?.trim() || "_No body provided._",
     "",
     "Your job:",
-    "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly too broad for one safe iteration.",
-    "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable to one of the available implementation tools.",
-    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage.",
+    "- Classify the likely surface sensitivity of the request as `low`, `medium`, or `high`.",
+    "- Classify the current evidence strength for making the change now as `weak`, `moderate`, or `strong`.",
+    "- Use `low` sensitivity for side pages, isolated experiments, and narrow reversible features.",
+    "- Use `medium` sensitivity for shared UI patterns, navigation, and important but non-defining flows.",
+    "- Use `high` sensitivity for homepage identity, brand voice, core UX framing, reactor behavior, deployment-critical surfaces, and privileged internal/admin capabilities.",
+    "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly unsafe.",
+    "- Bank for later when the direction seems potentially good but should not be acted on yet because evidence is weak for the sensitivity level, timing is wrong, or the request should accumulate more supporting feedback first.",
+    "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable when the evidence is strong enough for the likely sensitivity.",
+    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage, especially for low-sensitivity experiments.",
+    "- Treat admin or privileged internal changes as high sensitivity. Unless maintainer steering is explicit, do not dispatch those from random public feedback.",
     ...(maintainerSteering
       ? [
           "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
-          "- Do not reject it solely for roadmap fit, product-direction fit, or constitution-fit concerns. Dispatch an implementation tool unless a hard safety or feasibility blocker is obvious."
+          "- Do not reject or bank it solely for roadmap fit, product-direction fit, or constitution-fit concerns. Dispatch an implementation tool unless a hard safety or feasibility blocker is obvious."
         ]
       : []),
     "- Do not perform implementation work, open PRs, or mutate files.",

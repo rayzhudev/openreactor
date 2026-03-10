@@ -28,6 +28,9 @@ constraint.
   distinct steps to fit a single safe iteration only when they are not worth
   pursuing further. If the direction is worthwhile, decompose them into smaller
   issues instead of discarding them.
+- Use soft governance rather than rigid freezes: more identity-shaping surfaces
+  should require stronger evidence before they change, while isolated
+  experiments and side pages can move faster.
 - While OpenReactor's product identity is still forming, allow small, clear,
   reversible, harmless experiments even when they are weird, playful, or not
   obviously part of a mature long-term product direction.
@@ -97,3 +100,25 @@ reject the work.
 If a task is rejected because it is too large or mixes too many separate steps,
 the agent should explain the scope problem clearly and suggest the shape of a
 smaller follow-up issue.
+
+## Sensitivity and evidence rule
+
+OpenReactor should not treat every surface as equally easy to change.
+
+- Homepage identity, brand voice, core UX framing, reactor behavior, and
+  privileged internal/admin capabilities are higher-sensitivity surfaces.
+- Shared UI patterns, navigation, and important product flows are medium
+  sensitivity.
+- Side pages, isolated experiments, and narrow reversible features are lower
+  sensitivity.
+
+Lower-sensitivity changes can move on one strong request. Higher-sensitivity
+changes should usually need stronger evidence, maintainer steering, or repeated
+supporting feedback before they are acted on.
+
+If a request looks worthwhile but should not be acted on yet, agents should
+bank it for later instead of rejecting it prematurely.
+
+Privileged admin or internal-control changes remain the one hard boundary:
+unless the request is maintainer-steered, public feedback should not directly
+change them.

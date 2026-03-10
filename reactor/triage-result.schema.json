@@ -18,6 +18,21 @@
     "issueComment": {
       "type": ["string", "null"]
     },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "evidenceStrength": {
+      "type": "string",
+      "enum": ["weak", "moderate", "strong"]
+    },
+    "evidenceSummary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bankReason": {
+      "type": ["string", "null"]
+    },
     "toolName": {
       "type": ["string", "null"],
       "enum": [
@@ -31,5 +46,16 @@
       "type": ["string", "null"]
     }
   },
-  "required": ["issueNumber", "outcome", "summary", "issueComment", "toolName", "toolReason"]
+  "required": [
+    "issueNumber",
+    "outcome",
+    "summary",
+    "issueComment",
+    "sensitivity",
+    "evidenceStrength",
+    "evidenceSummary",
+    "bankReason",
+    "toolName",
+    "toolReason"
+  ]
 }

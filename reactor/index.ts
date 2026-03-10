@@ -26,10 +26,22 @@ import {
   writeIssueContext,
   writeRunRecord,
   type ActiveRun,
-  type RunRecord
+  type RunRecord,
+  type TriageResult
 } from "./runner";
 
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
+const FEEDBACK_BANK_LABEL = "feedback-bank";
+const SENSITIVITY_LABELS = {
+  low: "sensitivity:low",
+  medium: "sensitivity:medium",
+  high: "sensitivity:high"
+} as const;
+const EVIDENCE_LABELS = {
+  weak: "evidence:weak",
+  moderate: "evidence:moderate",
+  strong: "evidence:strong"
+} as const;
 
 class Reactor {
   private readonly config: OrchestratorConfig;
@@ -82,6 +94,11 @@ class Reactor {
       "OpenReactor paused automatic handling for this issue after repeated infrastructure failures."
     );
     await this.github.ensureLabel(
+      FEEDBACK_BANK_LABEL,
+      "c2e0c6",
+      "OpenReactor banked this feedback for later consideration instead of acting on it immediately."
+    );
+    await this.github.ensureLabel(
       this.config.acceptedLabel,
       "238636",
       "OpenReactor accepted this issue and should ship or is shipping a change."
@@ -90,6 +107,36 @@ class Reactor {
       this.config.rejectedLabel,
       "cf222e",
       "OpenReactor rejected this issue as not worth implementing."
+    );
+    await this.github.ensureLabel(
+      SENSITIVITY_LABELS.low,
+      "0e8a16",
+      "This request likely affects a low-sensitivity surface such as a side page or isolated experiment."
+    );
+    await this.github.ensureLabel(
+      SENSITIVITY_LABELS.medium,
+      "fbca04",
+      "This request likely affects a medium-sensitivity surface such as navigation or shared UI patterns."
+    );
+    await this.github.ensureLabel(
+      SENSITIVITY_LABELS.high,
+      "d73a4a",
+      "This request likely affects a high-sensitivity surface such as the homepage, engine, or privileged internals."
+    );
+    await this.github.ensureLabel(
+      EVIDENCE_LABELS.weak,
+      "8b949e",
+      "Current supporting evidence for acting on this request is weak."
+    );
+    await this.github.ensureLabel(
+      EVIDENCE_LABELS.moderate,
+      "1f6feb",
+      "Current supporting evidence for acting on this request is moderate."
+    );
+    await this.github.ensureLabel(
+      EVIDENCE_LABELS.strong,
+      "238636",
+      "Current supporting evidence for acting on this request is strong."
     );
   }
 
@@ -139,7 +186,7 @@ class Reactor {
         detail:
           "Claimed by the reactor. Starting lightweight triage before dispatching the request to the best implementation agent."
       });
-      let triageDecision: AgentToolName | null = null;
+      let triageDecision: TriageResult | null = null;
       try {
         triageDecision = await this.triageIssue(issue);
       } catch (error) {
@@ -157,7 +204,7 @@ class Reactor {
     }
   }
 
-  private async triageIssue(issue: GitHubIssue): Promise<AgentToolName | null> {
+  private async triageIssue(issue: GitHubIssue): Promise<TriageResult | null> {
     const paths = issueRuntimePaths(this.config, issue.number);
     const accessToken = await this.github.getAgentAccessToken();
     const { result } = await runIssueTriage({
@@ -166,34 +213,92 @@ class Reactor {
       paths,
       githubToken: accessToken
     });
+    const maintainerSteering = Boolean(getMaintainerSteeringSignal(this.config, issue));
+    const normalizedResult = normalizeTriageResult(result, maintainerSteering);
 
-    if (result?.outcome === "reject") {
+    if (normalizedResult) {
+      await this.syncGovernanceLabels(issue.number, normalizedResult);
+    }
+
+    if (normalizedResult?.outcome === "reject") {
       await this.syncIssueStatusComment(issue.number, {
         status: "rejected",
         phase: "triage",
         detail: "Rejected during lightweight triage as not worth pursuing in the current product direction."
       });
-      await this.github.createComment(issue.number, result.issueComment || result.summary);
+      await this.github.createComment(
+        issue.number,
+        normalizedResult.issueComment || normalizedResult.summary
+      );
       await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
       await this.github.removeLabel(issue.number, this.config.runningLabel);
       await this.github.closeIssue(issue.number, "not_planned");
       return null;
     }
 
-    if (result?.outcome === "dispatch") {
-      const toolName = isAgentToolName(result.toolName) ? result.toolName : DEFAULT_AGENT_TOOL;
+    if (normalizedResult?.outcome === "bank") {
+      await this.github.addLabels(issue.number, [FEEDBACK_BANK_LABEL]);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "queued",
+        phase: "banked",
+        detail:
+          normalizedResult.bankReason ??
+          `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`
+      });
+      await this.github.createComment(
+        issue.number,
+        normalizedResult.issueComment ||
+          [
+            "OpenReactor banked this feedback for later consideration instead of acting on it immediately.",
+            "",
+            `Sensitivity: ${normalizedResult.sensitivity}`,
+            `Evidence strength: ${normalizedResult.evidenceStrength}`,
+            `Evidence summary: ${normalizedResult.evidenceSummary}`,
+            normalizedResult.bankReason ? `Reason: ${normalizedResult.bankReason}` : ""
+          ].filter(Boolean).join("\n")
+      );
+      await this.github.removeLabel(issue.number, this.config.runningLabel);
+      return null;
+    }
+
+    if (normalizedResult?.outcome === "dispatch") {
+      await this.github.removeLabel(issue.number, FEEDBACK_BANK_LABEL);
+      const toolName = isAgentToolName(normalizedResult.toolName)
+        ? normalizedResult.toolName
+        : DEFAULT_AGENT_TOOL;
       const tool = getAgentTool(toolName);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
         phase: toolName === "spawn_codex_planner_agent" ? "planning" : "implementation",
         detail:
-          result.toolReason ??
-          `Lightweight triage selected ${tool.label} for the next implementation attempt.`
+          [
+            normalizedResult.toolReason ??
+              `Lightweight triage selected ${tool.label} for the next implementation attempt.`,
+            `Sensitivity: ${normalizedResult.sensitivity}.`,
+            `Evidence: ${normalizedResult.evidenceStrength}.`,
+            normalizedResult.evidenceSummary
+          ].join(" ")
       });
-      return toolName;
+      return {
+        ...normalizedResult,
+        toolName
+      };
     }
 
-    return DEFAULT_AGENT_TOOL;
+    const fallbackResult: TriageResult = {
+      issueNumber: issue.number,
+      outcome: "dispatch",
+      summary: "Defaulted to dispatch because triage result was missing or incomplete.",
+      issueComment: null,
+      sensitivity: "medium",
+      evidenceStrength: "moderate",
+      evidenceSummary: "Fallback classification because the triage result was incomplete.",
+      bankReason: null,
+      toolName: DEFAULT_AGENT_TOOL,
+      toolReason: "Fallback dispatch to the default implementation tool."
+    };
+    await this.syncGovernanceLabels(issue.number, fallbackResult);
+    return fallbackResult;
   }
 
   private async reconcileStaleActiveRuns(): Promise<void> {
@@ -411,6 +516,10 @@ class Reactor {
       return false;
     }
 
+    if (labels.has(FEEDBACK_BANK_LABEL)) {
+      return false;
+    }
+
     if (labels.has(this.config.acceptedLabel) || labels.has(this.config.rejectedLabel)) {
       return false;
     }
@@ -421,16 +530,25 @@ class Reactor {
   private async startIssue(
     issue: GitHubIssue,
     existingRecord?: RunRecord,
-    selectedTool?: AgentToolName
+    selectedTriage?: TriageResult
   ): Promise<void> {
     const paths = issueRuntimePaths(this.config, issue.number);
-    const agentTool = selectedTool ?? existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
+    const agentTool = isAgentToolName(selectedTriage?.toolName)
+      ? selectedTriage.toolName
+      : existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
     const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
     record.agentTool = agentTool;
+    record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
+    record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
+    record.evidenceSummary = selectedTriage?.evidenceSummary ?? record.evidenceSummary;
 
     try {
       await ensureIssueWorktree(this.config, paths);
-      await writeIssueContext(this.config, issue, paths);
+      await writeIssueContext(this.config, issue, paths, {
+        sensitivity: record.sensitivity,
+        evidenceStrength: record.evidenceStrength,
+        evidenceSummary: record.evidenceSummary
+      });
       await writeRunRecord(paths, record);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
@@ -460,6 +578,24 @@ class Reactor {
         selectedTool: agentTool
       });
     }
+  }
+
+  private async syncGovernanceLabels(issueNumber: number, triage: TriageResult): Promise<void> {
+    const labelsToClear = [
+      FEEDBACK_BANK_LABEL,
+      ...Object.values(SENSITIVITY_LABELS),
+      ...Object.values(EVIDENCE_LABELS)
+    ];
+
+    for (const label of labelsToClear) {
+      await this.github.removeLabel(issueNumber, label);
+    }
+
+    await this.github.addLabels(issueNumber, [
+      SENSITIVITY_LABELS[triage.sensitivity],
+      EVIDENCE_LABELS[triage.evidenceStrength],
+      ...(triage.outcome === "bank" ? [FEEDBACK_BANK_LABEL] : [])
+    ]);
   }
 
   private async handleStartFailure(
@@ -641,7 +777,7 @@ class Reactor {
           status: "retry",
           lastResult: result,
           lastError: result ? "" : `codex exited with code ${exitCode ?? "unknown"}`
-        }, activeRun.record.agentTool ?? DEFAULT_AGENT_TOOL);
+        });
       }
     } catch (error) {
       await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -855,6 +991,76 @@ function getLabelNames(issue: GitHubIssue): Set<string> {
   return new Set(
     issue.labels.map((label) => (label.name ?? "").trim().toLowerCase()).filter(Boolean)
   );
+}
+
+function getMaintainerSteeringSignal(
+  config: Pick<OrchestratorConfig, "owner">,
+  issue: Pick<GitHubIssue, "body">
+): { username: string } | null {
+  const username = normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
+  if (!username) {
+    return null;
+  }
+
+  return username.toLowerCase() === config.owner.toLowerCase() ? { username } : null;
+}
+
+function readStructuredIssueField(body: string | null | undefined, field: string): string | null {
+  if (!body) {
+    return null;
+  }
+
+  const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`^## ${escapedField}\\s*\\n([\\s\\S]*?)(?=\\n## \\S|$)`, "m"));
+  return match?.[1]?.trim() ?? null;
+}
+
+function normalizeGitHubUsername(value: string | null): string | null {
+  const cleaned = (value ?? "")
+    .trim()
+    .replace(/^_+|_+$/g, "")
+    .replace(/^@/, "")
+    .trim();
+
+  if (!cleaned || /^not provided$/i.test(cleaned) || /^anonymous$/i.test(cleaned)) {
+    return null;
+  }
+
+  return cleaned;
+}
+
+function normalizeTriageResult(
+  result: TriageResult | null,
+  maintainerSteering: boolean
+): TriageResult | null {
+  if (!result) {
+    return null;
+  }
+
+  if (!maintainerSteering && result.outcome === "dispatch") {
+    if (result.sensitivity === "high" && result.evidenceStrength === "weak") {
+      return {
+        ...result,
+        outcome: "bank",
+        toolName: null,
+        toolReason: null,
+        summary: "Banked because a high-sensitivity change should not move on weak evidence alone.",
+        bankReason:
+          result.bankReason ||
+          "This looks like a high-sensitivity surface, and the current evidence is too weak to act on it yet without maintainer steering or more supporting feedback.",
+        issueComment:
+          result.issueComment ||
+          [
+            "OpenReactor banked this request instead of implementing it immediately.",
+            "",
+            "Reason: it appears to affect a high-sensitivity surface, but the current evidence is still weak.",
+            "If more similar feedback accumulates or the maintainer explicitly steers this direction, it can be promoted later."
+          ].join("\n")
+      };
+    }
+  }
+
+  return result;
 }
 
 function formatError(error: unknown): string {
