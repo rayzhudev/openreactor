@@ -1,6 +1,8 @@
 const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
-const requestField = document.querySelector("#request");
+const summaryField = document.querySelector("#summary");
+const problemField = document.querySelector("#problem");
+const outcomeField = document.querySelector("#outcome");
 const submitButton = document.querySelector("#submit-button");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
@@ -22,9 +24,20 @@ async function onSubmit(event) {
   submitButton.textContent = "Sending...";
 
   const formData = new FormData(form);
-  const request = `${formData.get("request") ?? ""}`.trim();
+  const summary = `${formData.get("summary") ?? ""}`.trim();
+  const problem = `${formData.get("problem") ?? ""}`.trim();
+  const outcome = `${formData.get("outcome") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
-  const payload = buildPayload(request, website);
+  const payload = buildPayload(summary, problem, outcome, website);
+  const validationError = validatePayload(payload);
+
+  if (validationError) {
+    setStatus(validationError, "error");
+    focusFirstInvalidField(payload);
+    submitButton.disabled = false;
+    submitButton.innerHTML = "<span aria-hidden=\"true\">+</span>";
+    return;
+  }
 
   try {
     const response = await fetch("/api/requests", {
@@ -49,7 +62,7 @@ async function onSubmit(event) {
 
     form.reset();
     setStatus(`Request queued as issue #${data.number}.`, "success");
-    requestField.focus();
+    summaryField.focus();
     await loadQueue();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
@@ -59,38 +72,53 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website) {
-  const summary = summarizeRequest(request);
-
+function buildPayload(summary, problem, outcome, website) {
   return {
     website,
     summary,
-    problem: request,
-    outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
+    problem,
+    outcome,
     constraints: "",
     successCriteria: "",
     notes: ""
   };
 }
 
-function summarizeRequest(request) {
-  const normalized = request.replace(/\s+/g, " ").trim();
-  const sentence = normalized.split(/[.!?](?:\s|$)/)[0] || normalized;
-
-  if (sentence.length >= 8 && sentence.length <= 120) {
-    return sentence;
-  }
-
-  if (normalized.length <= 120) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 117).trimEnd()}...`;
-}
-
 function setStatus(message, tone) {
   statusNode.textContent = message;
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
+}
+
+function validatePayload(payload) {
+  if (payload.summary.length < 8 || payload.summary.length > 120) {
+    return "Summary must be between 8 and 120 characters.";
+  }
+
+  if (payload.problem.length < 20 || payload.problem.length > 1200) {
+    return "Problem must be between 20 and 1200 characters.";
+  }
+
+  if (payload.outcome.length < 20 || payload.outcome.length > 1200) {
+    return "Desired outcome must be between 20 and 1200 characters.";
+  }
+
+  return "";
+}
+
+function focusFirstInvalidField(payload) {
+  if (payload.summary.length < 8 || payload.summary.length > 120) {
+    summaryField.focus();
+    return;
+  }
+
+  if (payload.problem.length < 20 || payload.problem.length > 1200) {
+    problemField.focus();
+    return;
+  }
+
+  if (payload.outcome.length < 20 || payload.outcome.length > 1200) {
+    outcomeField.focus();
+  }
 }
 
 async function loadQueue() {

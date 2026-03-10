@@ -43,19 +43,51 @@
           </a>
         </div>
         <p class="page-copy">
-          Submit a request, then watch the public queue track it from queued to in progress, complete, or rejected.
+          Submit one concrete product request, then watch the public queue track it from queued to in progress, complete, or rejected.
         </p>
 
         <form id="request-form" class="request-form" novalidate>
-          <label class="request-label" for="request">
-            <span class="sr-only">Request</span>
+          <p class="request-guidance">
+            Use the three fields below so OpenReactor can turn your request into a clear public GitHub issue. Unrelated bundles are usually rejected.
+          </p>
+
+          <label class="field-group" for="summary">
+            <span class="field-label">Summary</span>
+            <input
+              id="summary"
+              name="summary"
+              type="text"
+              maxlength="120"
+              minlength="8"
+              placeholder="One sentence naming the product change"
+              autocomplete="off"
+              required
+            />
+            <span class="field-hint">One request per submission.</span>
+          </label>
+
+          <label class="field-group" for="problem">
+            <span class="field-label">Problem</span>
             <textarea
-              id="request"
-              name="request"
+              id="problem"
+              name="problem"
               rows="6"
-              maxlength="2000"
+              maxlength="1200"
               minlength="20"
-              placeholder="Enter your feature request for OpenReactor. The only website that builds itself"
+              placeholder="What is broken, missing, confusing, or too manual today?"
+              required
+            ></textarea>
+          </label>
+
+          <label class="field-group" for="outcome">
+            <span class="field-label">Desired outcome</span>
+            <textarea
+              id="outcome"
+              name="outcome"
+              rows="5"
+              maxlength="1200"
+              minlength="20"
+              placeholder="What should change if this request is successful?"
               required
             ></textarea>
           </label>

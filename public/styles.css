@@ -103,38 +103,43 @@ p {
   line-height: 1.6;
 }
 
-.request-form {
-  margin-top: 1.5rem;
-}
-
-.request-label {
-  display: block;
-}
-
+input,
 textarea,
 .submit-button {
   font: inherit;
 }
 
+input,
 textarea {
   width: 100%;
-  min-height: 15rem;
   padding: 1.4rem 1.5rem;
   border: 1px solid var(--line);
   border-radius: 28px;
   background: var(--panel);
   box-shadow: var(--shadow);
   color: var(--ink);
-  font-size: clamp(1.2rem, 2.1vw, 1.6rem);
-  line-height: 1.45;
-  resize: vertical;
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
+input {
+  min-height: 4.1rem;
+  font-size: clamp(1.05rem, 1.7vw, 1.2rem);
+  line-height: 1.35;
+}
+
+textarea {
+  min-height: 13rem;
+  font-size: clamp(1.2rem, 2.1vw, 1.6rem);
+  line-height: 1.45;
+  resize: vertical;
+}
+
+input::placeholder,
 textarea::placeholder {
   color: rgba(17, 17, 17, 0.42);
 }
 
+input:focus,
 textarea:focus {
   outline: none;
   border-color: var(--line-strong);
@@ -144,11 +149,49 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+.request-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+
+.request-guidance {
+  max-width: 38rem;
+  color: var(--ink-soft);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.field-group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.field-label,
+.field-hint {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.field-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.field-hint {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .form-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  margin-top: 1rem;
+  margin-top: 0.25rem;
 }
 
 .status-message {
@@ -365,10 +408,18 @@ textarea:focus {
     align-self: flex-start;
   }
 
+  input,
   textarea {
-    min-height: 12rem;
     padding: 1.15rem 1.2rem;
     border-radius: 24px;
+  }
+
+  input {
+    min-height: 3.6rem;
+  }
+
+  textarea {
+    min-height: 11rem;
   }
 
   .queue {
