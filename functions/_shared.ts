@@ -7,8 +7,10 @@ const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_ARCHIVE_ITEMS = 12;
 const MAX_LEADERBOARD_ITEMS = 8;
 const MAX_LEADERBOARD_PAGES = 10;
+const MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH = 20;
 const GITHUB_ISSUES_PER_PAGE = 100;
 const MAX_GITHUB_REQUEST_PAGES = 10;
+const ISSUE_BRANCH_PREFIX = "openreactor/issue-";
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
@@ -84,6 +86,9 @@ interface GitHubPullRequest {
   html_url: string;
   title: string;
   merged_at?: string | null;
+  head?: {
+    ref?: string;
+  };
   user?: {
     login?: string;
     html_url?: string;
@@ -116,6 +121,7 @@ interface LeaderboardContributor {
   login: string;
   profileUrl: string;
   accountType: string;
+  creditSource: "pr-author" | "issue-requester";
   mergedCount: number;
   latestMergedAt: string;
   latestPullRequest: {
@@ -242,7 +248,8 @@ export async function handleLeaderboard(env: Env): Promise<Response> {
 
   try {
     const pullRequests = await listMergedPullRequests(normalized);
-    const leaderboard = buildLeaderboard(pullRequests);
+    const issueUsernames = await getLeaderboardIssueUsernames(normalized, pullRequests);
+    const leaderboard = buildLeaderboard(pullRequests, issueUsernames);
 
     return jsonResponse({
       items: leaderboard.items,
@@ -532,7 +539,10 @@ async function listMergedPullRequests(env: Env): Promise<GitHubPullRequest[]> {
   return mergedPullRequests;
 }
 
-function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
+function buildLeaderboard(
+  pullRequests: GitHubPullRequest[],
+  issueUsernames: Map<number, string>
+): {
   items: LeaderboardContributor[];
   totals: {
     mergedPullRequests: number;
@@ -544,9 +554,15 @@ function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
   let latestMergedAt: string | null = null;
 
   for (const pullRequest of pullRequests) {
-    const login = pullRequest.user?.login?.trim();
-    const profileUrl = pullRequest.user?.html_url?.trim();
+    const issueNumber = parseIssueNumberFromBranch(pullRequest.head?.ref);
+    const issueUsername = issueNumber !== null ? issueUsernames.get(issueNumber) ?? null : null;
+    const login = issueUsername || pullRequest.user?.login?.trim();
+    const profileUrl = issueUsername
+      ? `https://github.com/${issueUsername}`
+      : pullRequest.user?.html_url?.trim();
     const mergedAt = pullRequest.merged_at ?? "";
+    const creditSource = issueUsername ? "issue-requester" : "pr-author";
+    const accountType = issueUsername ? "Requester" : pullRequest.user?.type ?? "User";
 
     if (!login || !profileUrl || !mergedAt) {
       continue;
@@ -558,7 +574,8 @@ function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
       contributors.set(login, {
         login,
         profileUrl,
-        accountType: pullRequest.user?.type ?? "User",
+        accountType,
+        creditSource,
         mergedCount: 1,
         latestMergedAt: mergedAt,
         latestPullRequest: {
@@ -635,6 +652,54 @@ async function getIssueStatusUpdate(
   } catch {
     return null;
   }
+}
+
+async function getLeaderboardIssueUsernames(
+  env: Env,
+  pullRequests: GitHubPullRequest[]
+): Promise<Map<number, string>> {
+  const issueNumbers = new Set<number>();
+
+  for (const pullRequest of pullRequests) {
+    const issueNumber = parseIssueNumberFromBranch(pullRequest.head?.ref);
+    if (issueNumber !== null) {
+      issueNumbers.add(issueNumber);
+    }
+  }
+
+  const issueNumberList = [...issueNumbers];
+  const entries: Array<readonly [number, string | null]> = [];
+
+  for (let index = 0; index < issueNumberList.length; index += MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH) {
+    const batch = issueNumberList.slice(index, index + MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH);
+    const batchEntries = await Promise.all(
+      batch.map(async (issueNumber) => {
+        try {
+          const issue = await githubRequestWithFallback<GitHubIssue>(
+            env,
+            `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${issueNumber}`
+          );
+          return [issueNumber, getIssueGitHubUsername(issue)] as const;
+        } catch {
+          return [issueNumber, null] as const;
+        }
+      })
+    );
+
+    entries.push(...batchEntries);
+  }
+
+  return new Map(entries.filter((entry): entry is readonly [number, string] => Boolean(entry[1])));
+}
+
+function parseIssueNumberFromBranch(branchName?: string): number | null {
+  const normalized = clean(branchName);
+  if (!normalized.startsWith(ISSUE_BRANCH_PREFIX)) {
+    return null;
+  }
+
+  const issueNumber = Number.parseInt(normalized.slice(ISSUE_BRANCH_PREFIX.length), 10);
+  return Number.isInteger(issueNumber) && issueNumber > 0 ? issueNumber : null;
 }
 
 async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Promise<T> {

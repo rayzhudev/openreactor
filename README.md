@@ -171,6 +171,10 @@ if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed.
 
+Each new issue now goes through a cheap lightweight triage agent first. Only
+issues that triage dispatches are handed off to an implementation tool. UI-heavy
+work can be routed to a Claude UI agent, while everything else goes to the
+standard Codex issue agent.
 Run files under `.openreactor/runs/issue-*` include:
 
 - `plan.json` for structured decision state

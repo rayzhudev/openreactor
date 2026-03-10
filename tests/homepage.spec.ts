@@ -98,7 +98,8 @@ test.beforeEach(async ({ page }) => {
           {
             login: "rayzhudev",
             profileUrl: "https://github.com/rayzhudev",
-            accountType: "User",
+            accountType: "Requester",
+            creditSource: "issue-requester",
             mergedCount: 3,
             latestPullRequest: {
               number: 99,
@@ -125,6 +126,7 @@ test("renders the redesign and submits a request through the mocked API", async 
   await expect(page.getByRole("heading", { level: 2, name: /requests in the open/i })).toBeVisible();
   await expect(page.getByText("Radically improve the homepage art direction").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /leaderboard/i })).toBeVisible();
+  await expect(page.getByText("Requester").first()).toBeVisible();
 
   await page.locator("#request").fill(
     "The landing page feels generic. Redesign it into a more editorial layout with stronger hierarchy while keeping the form and public queue on the same page."
