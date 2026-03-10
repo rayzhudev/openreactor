@@ -1261,6 +1261,11 @@ button {
   gap: 0.75rem;
 }
 
+.queue-archive-pagination {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
 .queue-pagination-button {
   min-height: 2.5rem;
   padding: 0 1rem;

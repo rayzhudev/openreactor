@@ -4,7 +4,7 @@ const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
-const MAX_QUEUE_ITEMS = 12;
+const MAX_ARCHIVE_ITEMS = 12;
 const MAX_LEADERBOARD_ITEMS = 8;
 const MAX_LEADERBOARD_PAGES = 10;
 const GITHUB_ISSUES_PER_PAGE = 100;
@@ -156,45 +156,40 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
   if (!isRepoConfigured(normalized)) {
     return jsonResponse({
       items: [],
+      activeItems: [],
+      archivedItems: [],
       repoUrl: null,
-      page: 1,
-      pageSize: MAX_QUEUE_ITEMS,
-      hasPreviousPage: false,
-      hasNextPage: false
+      archivePage: 1,
+      archivePageSize: MAX_ARCHIVE_ITEMS,
+      archiveTotal: 0,
+      archiveHasPreviousPage: false,
+      archiveHasNextPage: false
     });
   }
 
   try {
-    const page = getQueuePage(request);
-    const issues = await listRequestIssues(normalized, page);
-    const start = (page - 1) * MAX_QUEUE_ITEMS;
-    const visibleIssues = issues.slice(start, start + MAX_QUEUE_ITEMS);
-    const items = await Promise.all(
-      visibleIssues.map(async (issue) => {
-        const statusUpdate = await getIssueStatusUpdate(normalized, issue.number);
-        return {
-          number: issue.number,
-          title: issue.title.replace(/^\[Request\]\s*/, ""),
-          url: issue.html_url,
-          commentUrl: issue.html_url,
-          commentCount: issue.comments ?? 0,
-          createdAt: issue.created_at,
-          status: getIssueStatus(issue),
-          githubUsername: getIssueGitHubUsername(issue),
-          statusDetail: statusUpdate?.detail ?? null,
-          statusUpdatedAt: statusUpdate?.updatedAt ?? null
-        };
-      })
-    );
+    const archivePage = getQueuePage(request);
+    const issues = await listRequestIssues(normalized);
+    const activeIssues = issues.filter((issue) => !isArchivedIssue(issue));
+    const archivedIssues = issues.filter((issue) => isArchivedIssue(issue));
+    const start = (archivePage - 1) * MAX_ARCHIVE_ITEMS;
+    const visibleArchivedIssues = archivedIssues.slice(start, start + MAX_ARCHIVE_ITEMS);
+    const [activeItems, archivedItems] = await Promise.all([
+      Promise.all(activeIssues.map((issue) => mapQueueIssue(normalized, issue))),
+      Promise.all(visibleArchivedIssues.map((issue) => mapQueueIssue(normalized, issue)))
+    ]);
 
     const repoUrl = getRepoUrl(normalized);
-    const hasPreviousPage = page > 1;
-    const hasNextPage = issues.length > start + MAX_QUEUE_ITEMS;
+    const archiveHasPreviousPage = archivePage > 1;
+    const archiveHasNextPage = archivedIssues.length > start + MAX_ARCHIVE_ITEMS;
+    const archiveTotal = archivedIssues.length;
+    const items = [...activeItems, ...archivedItems];
     const etag = buildQueueEtag({
       items,
-      page,
-      hasPreviousPage,
-      hasNextPage
+      page: archivePage,
+      hasPreviousPage: archiveHasPreviousPage,
+      hasNextPage: archiveHasNextPage,
+      totalItems: archiveTotal
     });
 
     if (request.headers.get("if-none-match") === etag) {
@@ -211,11 +206,14 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
     return jsonResponse(
       {
         items,
+        activeItems,
+        archivedItems,
         repoUrl,
-        page,
-        pageSize: MAX_QUEUE_ITEMS,
-        hasPreviousPage,
-        hasNextPage
+        archivePage,
+        archivePageSize: MAX_ARCHIVE_ITEMS,
+        archiveTotal,
+        archiveHasPreviousPage,
+        archiveHasNextPage
       },
       200,
       {
@@ -707,6 +705,11 @@ function getIssueStatus(issue: GitHubIssue): string {
   return "queued";
 }
 
+function isArchivedIssue(issue: GitHubIssue): boolean {
+  const status = getIssueStatus(issue);
+  return status === "complete" || status === "rejected";
+}
+
 function extractStatusField(body: string, label: string): string {
   const match = body.match(new RegExp(`^${label}:\\s*(.+)$`, "m"));
   return match?.[1]?.trim() ?? "";
@@ -734,8 +737,7 @@ function getIssueSectionValue(body: string | undefined, heading: string): string
   return clean(match?.[1]);
 }
 
-async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]> {
-  const targetCount = page * MAX_QUEUE_ITEMS + 1;
+async function listRequestIssues(env: Env): Promise<GitHubIssue[]> {
   const requestIssues: GitHubIssue[] = [];
   const normalized = normalizeEnv(env);
 
@@ -751,12 +753,29 @@ async function listRequestIssues(env: Env, page: number): Promise<GitHubIssue[]>
         .filter((issue) => (issue.body ?? "").includes(REQUEST_MARKER) || issue.title.startsWith("[Request] "))
     );
 
-    if (requestIssues.length >= targetCount || issues.length < GITHUB_ISSUES_PER_PAGE) {
+    if (issues.length < GITHUB_ISSUES_PER_PAGE) {
       break;
     }
   }
 
   return requestIssues;
+}
+
+async function mapQueueIssue(env: Env, issue: GitHubIssue) {
+  const statusUpdate = await getIssueStatusUpdate(env, issue.number);
+
+  return {
+    number: issue.number,
+    title: issue.title.replace(/^\[Request\]\s*/, ""),
+    url: issue.html_url,
+    commentUrl: issue.html_url,
+    commentCount: issue.comments ?? 0,
+    createdAt: issue.created_at,
+    status: getIssueStatus(issue),
+    githubUsername: getIssueGitHubUsername(issue),
+    statusDetail: statusUpdate?.detail ?? null,
+    statusUpdatedAt: statusUpdate?.updatedAt ?? null
+  };
 }
 
 function getQueuePage(request: Request): number {
@@ -978,7 +997,8 @@ function buildQueueEtag({
   items,
   page,
   hasPreviousPage,
-  hasNextPage
+  hasNextPage,
+  totalItems
 }: {
   items: Array<{
     number: number;
@@ -992,6 +1012,7 @@ function buildQueueEtag({
   page: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+  totalItems: number;
 }): string {
   const signature = items
     .map(
@@ -999,7 +1020,7 @@ function buildQueueEtag({
         `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
     )
     .join("|");
-  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}`;
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}:${totalItems}`;
   return `W/"${pageState}:${signature || "empty"}"`;
 }
 
