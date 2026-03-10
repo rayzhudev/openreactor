@@ -75,6 +75,8 @@ class Reactor {
   }
 
   private async tick(): Promise<void> {
+    await this.reconcileStaleActiveRuns();
+
     const issues = await this.github.listOpenIssues();
     const candidates = issues.filter((issue) => this.isRelevantIssue(issue));
 
@@ -99,6 +101,7 @@ class Reactor {
     }
 
     await this.reconcileTerminalIssueState(candidates);
+    await this.reconcileOpenPullRequests();
     await this.resumeClaimedIssues(candidates);
 
     for (const issue of candidates) {
@@ -112,6 +115,36 @@ class Reactor {
 
       await this.github.addLabels(issue.number, [this.config.runningLabel]);
       await this.startIssue(issue);
+    }
+  }
+
+  private async reconcileStaleActiveRuns(): Promise<void> {
+    const now = Date.now();
+
+    for (const activeRun of this.activeRuns.values()) {
+      if (now - activeRun.startedAt < this.config.maxIterationRuntimeMs) {
+        continue;
+      }
+
+      const reason =
+        `OpenReactor stopped this iteration after ${Math.round(this.config.maxIterationRuntimeMs / 60_000)} minutes without completion so it can retry cleanly.`;
+      const shouldComment = activeRun.record.lastError !== reason;
+
+      activeRun.record.status = "retry";
+      activeRun.record.lastError = reason;
+      activeRun.record.updatedAt = new Date().toISOString();
+      activeRun.record.lastHeartbeatAt = activeRun.record.updatedAt;
+      await writeRunRecord(issueRuntimePaths(this.config, activeRun.issue.number), activeRun.record);
+
+      if (shouldComment) {
+        try {
+          await this.github.createComment(activeRun.issue.number, reason);
+        } catch {
+          // Retry orchestration should continue even if the status comment fails.
+        }
+      }
+
+      activeRun.process.kill("SIGTERM");
     }
   }
 
@@ -152,6 +185,73 @@ class Reactor {
       );
       await this.github.closeIssue(issue.number, "completed");
     }
+  }
+
+  private async reconcileOpenPullRequests(): Promise<void> {
+    if (this.activeRuns.size >= this.config.maxConcurrentIssues) {
+      return;
+    }
+
+    const pullRequests = await this.github.listOpenPullRequests();
+    for (const pullRequest of pullRequests) {
+      if (this.activeRuns.size >= this.config.maxConcurrentIssues) {
+        return;
+      }
+
+      const branchName = (pullRequest.head?.ref ?? "").trim();
+      const issueNumber = parseIssueNumberFromBranch(this.config.branchPrefix, branchName);
+      if (issueNumber === null) {
+        continue;
+      }
+
+      if (this.activeRuns.has(issueNumber) || this.pendingRetries.has(issueNumber)) {
+        continue;
+      }
+
+      const fullPullRequest = await this.github.getPullRequest(pullRequest.number);
+      if (!hasMergeConflict(fullPullRequest)) {
+        continue;
+      }
+
+      const issue = await this.github.getIssue(issueNumber);
+      await this.queueConflictRepair(issue, fullPullRequest);
+    }
+  }
+
+  private async queueConflictRepair(
+    issue: GitHubIssue,
+    pullRequest: GitHubPullRequest
+  ): Promise<void> {
+    if (pullRequest.state !== "open") {
+      return;
+    }
+
+    const reason =
+      `Open PR ${pullRequest.html_url} has merge conflicts and needs an autonomous refresh.`;
+    const paths = issueRuntimePaths(this.config, issue.number);
+    const existingRecord = await readRunRecord(paths);
+    const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
+    const shouldComment = record.lastError !== reason;
+
+    record.status = "retry";
+    record.lastError = reason;
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    await writeRunRecord(paths, record);
+
+    if (shouldComment) {
+      await this.github.createComment(
+        pullRequest.number,
+        [
+          "OpenReactor detected that this PR is blocked by merge conflicts with `main`.",
+          "",
+          `The reactor is reclaiming issue #${issue.number} on branch \`${paths.branchName}\` to refresh this PR instead of leaving it hanging.`
+        ].join("\n")
+      );
+    }
+
+    await this.github.addLabels(issue.number, [this.config.runningLabel]);
+    await this.startIssue(issue, record);
   }
 
   private async resumeClaimedIssues(issues: GitHubIssue[]): Promise<void> {
@@ -358,6 +458,47 @@ class Reactor {
 
     return { ok: true, pullRequest: mergedPullRequest };
   }
+}
+
+function hasConflictingMergeState(value?: string | null): boolean {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return normalized === "dirty" || normalized === "conflicting";
+}
+
+function hasKnownCleanMergeState(value?: string | null): boolean {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return ["clean", "behind", "blocked", "unstable", "has_hooks", "draft", "unknown"].includes(
+    normalized
+  );
+}
+
+function hasMergeConflict(pullRequest: GitHubPullRequest): boolean {
+  if (pullRequest.mergeable === false) {
+    return true;
+  }
+
+  if (hasConflictingMergeState(pullRequest.mergeable_state)) {
+    return true;
+  }
+
+  if (pullRequest.mergeable === true || hasKnownCleanMergeState(pullRequest.mergeable_state)) {
+    return false;
+  }
+
+  return false;
+}
+
+function parseIssueNumberFromBranch(branchPrefix: string, branchName: string): number | null {
+  if (!branchName.startsWith(branchPrefix)) {
+    return null;
+  }
+
+  const suffix = branchName.slice(branchPrefix.length).trim();
+  if (!/^\d+$/.test(suffix)) {
+    return null;
+  }
+
+  return Number.parseInt(suffix, 10);
 }
 
 async function main(): Promise<void> {
