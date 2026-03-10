@@ -7,16 +7,140 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const updateNotice = document.querySelector("#update-notice");
+const updateNoticeButton = document.querySelector("#update-notice-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const DEPLOY_CHECK_INTERVAL_MS = 60_000;
+const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
+
+let deployFingerprint = "";
+let deployCheckTimer = 0;
+let updateAvailable = false;
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  initDeployWatcher();
   updateRequestCount(requestField.value);
   await Promise.all([loadRepoMeta(), loadQueue()]);
+}
+
+function initDeployWatcher() {
+  if (!updateNotice || !updateNoticeButton) {
+    return;
+  }
+
+  updateNoticeButton.addEventListener("click", reloadForUpdate);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("focus", checkForDeployUpdate);
+  window.addEventListener("online", checkForDeployUpdate);
+
+  deployCheckTimer = window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      void checkForDeployUpdate();
+    }
+  }, DEPLOY_CHECK_INTERVAL_MS);
+
+  void primeDeployFingerprint();
+}
+
+async function primeDeployFingerprint() {
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (fingerprint) {
+    deployFingerprint = fingerprint;
+  }
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    void checkForDeployUpdate();
+  }
+}
+
+async function checkForDeployUpdate() {
+  if (updateAvailable) {
+    return;
+  }
+
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (!fingerprint) {
+    return;
+  }
+
+  if (!deployFingerprint) {
+    deployFingerprint = fingerprint;
+    return;
+  }
+
+  if (fingerprint !== deployFingerprint) {
+    showUpdateNotice();
+  }
+}
+
+async function fetchDeployFingerprint() {
+  try {
+    const resources = await Promise.all(DEPLOY_CHECK_PATHS.map((path) => fetchDeployResource(path)));
+    return hashString(resources.join("\n/* openreactor-deploy */\n"));
+  } catch {
+    return "";
+  }
+}
+
+async function fetchDeployResource(path) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("__openreactor", `${Date.now()}`);
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to check ${path}.`);
+  }
+
+  return response.text();
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `${hash >>> 0}`;
+}
+
+function showUpdateNotice() {
+  updateAvailable = true;
+  updateNotice.hidden = false;
+  updateNotice.dataset.visible = "true";
+  updateNoticeButton.focus({ preventScroll: true });
+  stopDeployWatcher();
+}
+
+function stopDeployWatcher() {
+  if (deployCheckTimer) {
+    window.clearInterval(deployCheckTimer);
+    deployCheckTimer = 0;
+  }
+
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("focus", checkForDeployUpdate);
+  window.removeEventListener("online", checkForDeployUpdate);
+}
+
+function reloadForUpdate() {
+  window.location.reload();
 }
 
 function onRequestInput(event) {
