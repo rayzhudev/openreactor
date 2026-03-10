@@ -31,6 +31,15 @@ async function onSubmit(event) {
   const formData = new FormData(form);
   const request = `${formData.get("request") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
+  const validationError = validateRequest(request);
+
+  if (validationError) {
+    setStatus(validationError, "error");
+    submitButton.disabled = false;
+    submitButton.innerHTML = "<span aria-hidden=\"true\">+</span>";
+    return;
+  }
+
   const payload = buildPayload(request, website);
 
   try {
@@ -93,6 +102,43 @@ function summarizeRequest(request) {
   }
 
   return `${normalized.slice(0, 117).trimEnd()}...`;
+}
+
+function validateRequest(request) {
+  if (isLowSignalText(request)) {
+    return "Describe the request in plain language instead of repeated or placeholder text.";
+  }
+
+  return "";
+}
+
+function isLowSignalText(value) {
+  const normalized = value.trim().toLowerCase();
+  const alphanumeric = normalized.replace(/[^a-z0-9]+/g, "");
+
+  if (alphanumeric.length < 12) {
+    return false;
+  }
+
+  if (new Set(alphanumeric).size <= 3) {
+    return true;
+  }
+
+  if (/([a-z0-9])\1{7,}/.test(alphanumeric)) {
+    return true;
+  }
+
+  const words = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+
+  if (words.length === 1 && alphanumeric.length >= 24) {
+    return true;
+  }
+
+  if (words.length >= 6 && new Set(words).size <= 2) {
+    return true;
+  }
+
+  return false;
 }
 
 function setStatus(message, tone) {
