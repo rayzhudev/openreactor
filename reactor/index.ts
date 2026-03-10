@@ -77,6 +77,11 @@ class Reactor {
       "OpenReactor currently has an autonomous agent running on this issue."
     );
     await this.github.ensureLabel(
+      this.config.pausedLabel,
+      "bf8700",
+      "OpenReactor paused automatic handling for this issue after repeated infrastructure failures."
+    );
+    await this.github.ensureLabel(
       this.config.acceptedLabel,
       "238636",
       "OpenReactor accepted this issue and should ship or is shipping a change."
@@ -134,7 +139,16 @@ class Reactor {
         detail:
           "Claimed by the reactor. Starting lightweight triage before dispatching the request to the best implementation agent."
       });
-      const triageDecision = await this.triageIssue(issue);
+      let triageDecision: AgentToolName | null = null;
+      try {
+        triageDecision = await this.triageIssue(issue);
+      } catch (error) {
+        await this.handleStartFailure(issue, {
+          phase: "triage",
+          error
+        });
+        continue;
+      }
       if (!triageDecision) {
         continue;
       }
@@ -345,7 +359,25 @@ class Reactor {
         continue;
       }
 
-      if (record.status === "accepted" || record.status === "rejected") {
+      if (record.status === "accepted" || record.status === "rejected" || record.status === "decomposed") {
+        continue;
+      }
+
+      if (!record.agentTool) {
+        try {
+          const triageDecision = await this.triageIssue(issue);
+          if (!triageDecision) {
+            continue;
+          }
+
+          await this.startIssue(issue, record, triageDecision);
+        } catch (error) {
+          await this.handleStartFailure(issue, {
+            phase: "triage",
+            error,
+            record
+          });
+        }
         continue;
       }
 
@@ -375,6 +407,10 @@ class Reactor {
       return false;
     }
 
+    if (labels.has(this.config.pausedLabel)) {
+      return false;
+    }
+
     if (labels.has(this.config.acceptedLabel) || labels.has(this.config.rejectedLabel)) {
       return false;
     }
@@ -388,33 +424,102 @@ class Reactor {
     selectedTool?: AgentToolName
   ): Promise<void> {
     const paths = issueRuntimePaths(this.config, issue.number);
-    await ensureIssueWorktree(this.config, paths);
-    await writeIssueContext(this.config, issue, paths);
-
     const agentTool = selectedTool ?? existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
     const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
     record.agentTool = agentTool;
+
+    try {
+      await ensureIssueWorktree(this.config, paths);
+      await writeIssueContext(this.config, issue, paths);
+      await writeRunRecord(paths, record);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "in-progress",
+        phase: existingRecord ? "retrying" : "reviewing",
+        iteration: record.iteration + 1,
+        detail: existingRecord
+          ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
+          : "Full issue agent is reviewing the request and deciding the best product change."
+      });
+
+      const accessToken = await this.github.getAgentAccessToken();
+      const activeRun = await spawnIssueAgent({
+        config: this.config,
+        issue,
+        paths,
+        record,
+        githubToken: accessToken
+      });
+
+      this.activeRuns.set(issue.number, activeRun);
+      void this.handleRunCompletion(activeRun);
+    } catch (error) {
+      await this.handleStartFailure(issue, {
+        phase: existingRecord ? "retry-startup" : "startup",
+        error,
+        record,
+        selectedTool: agentTool
+      });
+    }
+  }
+
+  private async handleStartFailure(
+    issue: GitHubIssue,
+    input: {
+      phase: "triage" | "startup" | "retry-startup";
+      error: unknown;
+      record?: RunRecord;
+      selectedTool?: AgentToolName;
+    }
+  ): Promise<void> {
+    const paths = issueRuntimePaths(this.config, issue.number);
+    const record =
+      input.record ??
+      (await readRunRecord(paths)) ??
+      (await createInitialRunRecord(issue, paths));
+    const nextStartFailureCount = (record.startFailureCount ?? 0) + 1;
+    const failureMessage = `${input.phase}: ${formatError(input.error)}`;
+
+    record.agentTool = input.selectedTool ?? record.agentTool;
+    record.startFailureCount = nextStartFailureCount;
+    record.status =
+      nextStartFailureCount >= this.config.maxStartFailuresPerIssue ? "failed" : "retry";
+    record.lastError = failureMessage;
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
     await writeRunRecord(paths, record);
+
+    if (nextStartFailureCount >= this.config.maxStartFailuresPerIssue) {
+      await this.github.removeLabel(issue.number, this.config.runningLabel);
+      await this.github.addLabels(issue.number, [this.config.pausedLabel]);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "queued",
+        phase: "paused",
+        detail:
+          `Automatic handling paused after ${nextStartFailureCount} ${input.phase} failures. ` +
+          `Remove ${this.config.pausedLabel} to retry after fixing the infrastructure problem.`
+      });
+      await this.github.createComment(
+        issue.number,
+        [
+          "OpenReactor paused automatic retries for this issue after repeated startup failures.",
+          "",
+          `Phase: ${input.phase}`,
+          `Failures: ${nextStartFailureCount}/${this.config.maxStartFailuresPerIssue}`,
+          `Last error: ${failureMessage}`,
+          "",
+          `To retry after fixing the underlying problem, remove the \`${this.config.pausedLabel}\` label and, if present, re-add \`${this.config.runningLabel}\` or leave the issue open for the reactor to reclaim.`
+        ].join("\n")
+      );
+      return;
+    }
+
     await this.syncIssueStatusComment(issue.number, {
-      status: "in-progress",
-      phase: existingRecord ? "retrying" : "reviewing",
-      iteration: record.iteration + 1,
-      detail: existingRecord
-        ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
-        : "Full issue agent is reviewing the request and deciding the best product change."
+      status: "queued",
+      phase: "retrying",
+      detail:
+        `The reactor hit a ${input.phase} error and will retry automatically ` +
+        `(${nextStartFailureCount}/${this.config.maxStartFailuresPerIssue}). ${failureMessage}`
     });
-
-    const accessToken = await this.github.getAgentAccessToken();
-    const activeRun = await spawnIssueAgent({
-      config: this.config,
-      issue,
-      paths,
-      record,
-      githubToken: accessToken
-    });
-
-    this.activeRuns.set(issue.number, activeRun);
-    void this.handleRunCompletion(activeRun);
   }
 
   private async handleRunCompletion(activeRun: ActiveRun): Promise<void> {

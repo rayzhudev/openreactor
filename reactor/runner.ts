@@ -60,6 +60,7 @@ export interface RunRecord {
   agentTool?: AgentToolName;
   status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
   iteration: number;
+  startFailureCount?: number;
   createdAt: string;
   updatedAt: string;
   lastHeartbeatAt: string;
@@ -238,6 +239,7 @@ export async function createInitialRunRecord(
     branchName: paths.branchName,
     status: "running",
     iteration: 0,
+    startFailureCount: 0,
     createdAt: now,
     updatedAt: now,
     lastHeartbeatAt: now,
@@ -381,6 +383,7 @@ async function spawnCodexIssueAgent(input: {
     agentTool: "spawn_codex_issue_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
@@ -460,6 +463,7 @@ async function spawnCodexPlannerAgent(input: {
     agentTool: "spawn_codex_planner_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
@@ -509,7 +513,7 @@ async function spawnClaudeUiIssueAgent(input: {
     runDir: paths.runDir
   });
 
-  const child = spawn("claude", args, {
+  const child = spawn(config.claudeUiBin, args, {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
@@ -538,6 +542,7 @@ async function spawnClaudeUiIssueAgent(input: {
     agentTool: "spawn_claude_ui_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
