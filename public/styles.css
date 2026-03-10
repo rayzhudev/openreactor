@@ -269,6 +269,7 @@ textarea:focus {
 }
 
 .queue-item-title,
+.queue-item-status,
 .queue-item-meta {
   display: block;
 }
@@ -276,6 +277,38 @@ textarea:focus {
 .queue-item-title {
   font-size: 1.05rem;
   line-height: 1.45;
+}
+
+.queue-item-status {
+  width: fit-content;
+  margin-top: 0.7rem;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.queue-item-status[data-status="queued"] {
+  background: rgba(17, 17, 17, 0.08);
+  color: var(--ink);
+}
+
+.queue-item-status[data-status="in-progress"] {
+  background: rgba(186, 132, 34, 0.14);
+  color: #825b00;
+}
+
+.queue-item-status[data-status="complete"] {
+  background: rgba(23, 95, 74, 0.12);
+  color: var(--success);
+}
+
+.queue-item-status[data-status="rejected"] {
+  background: rgba(156, 46, 30, 0.12);
+  color: var(--error);
 }
 
 .queue-item-meta {

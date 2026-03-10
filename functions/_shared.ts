@@ -62,6 +62,7 @@ interface GitHubIssue {
   title: string;
   body?: string;
   created_at: string;
+  state: "open" | "closed";
   pull_request?: Record<string, unknown>;
   labels?: Array<{ name?: string }>;
 }
@@ -101,7 +102,7 @@ export async function handleListRequests(env: Env): Promise<Response> {
   try {
     const issues = await githubRequestWithFallback<GitHubIssue[]>(
       normalized,
-      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=open&sort=created&direction=desc&per_page=30`
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/issues?state=all&sort=created&direction=desc&per_page=100`
     );
 
     const items = issues
@@ -381,19 +382,19 @@ async function githubRequestWithFallback<T>(env: Env, path: string, init?: Reque
 function getIssueStatus(issue: GitHubIssue): string {
   const labelNames = new Set((issue.labels ?? []).map((label) => (label.name ?? "").toLowerCase()));
 
-  if (labelNames.has("accepted")) {
-    return "accepted";
-  }
-
-  if (labelNames.has("needs-refinement") || labelNames.has("needs refinement")) {
-    return "needs-refinement";
-  }
-
   if (labelNames.has("rejected")) {
     return "rejected";
   }
 
-  return "submitted";
+  if (issue.state === "closed") {
+    return "complete";
+  }
+
+  if (labelNames.has("or:running") || labelNames.has("accepted")) {
+    return "in-progress";
+  }
+
+  return "queued";
 }
 
 function getRepoUrl(env: Env): string | null {
