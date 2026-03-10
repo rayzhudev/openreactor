@@ -144,24 +144,64 @@
 
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
-          <h2 id="queue-title">Queue</h2>
-          <a
-            id="queue-repo-link"
-            class="queue-link"
-            href="#"
-            target="_blank"
-            rel="noreferrer"
-            hidden
-          >
-            View on GitHub
-          </a>
+          <div class="queue-heading">
+            <h2 id="queue-title">Queue</h2>
+            <p class="queue-subcopy">Watch requests move from intake to shipped or rejected.</p>
+          </div>
+
+          <div class="queue-actions">
+            <div class="queue-view-toggle" role="group" aria-label="Queue layout">
+              <button
+                id="queue-view-board"
+                class="queue-view-button"
+                type="button"
+                data-view="board"
+                aria-pressed="true"
+              >
+                Board
+              </button>
+              <button
+                id="queue-view-list"
+                class="queue-view-button"
+                type="button"
+                data-view="list"
+                aria-pressed="false"
+              >
+                List
+              </button>
+            </div>
+
+            <a
+              id="queue-repo-link"
+              class="queue-link"
+              href="#"
+              target="_blank"
+              rel="noreferrer"
+              hidden
+            >
+              View on GitHub
+            </a>
+          </div>
         </div>
 
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
           Loading queue...
         </p>
         <p id="queue-refresh-note" class="queue-refresh-note" aria-live="polite"></p>
-        <ul id="queue-list" class="queue-list"></ul>
+        <div id="queue-board" class="queue-board" aria-label="Queue board"></div>
+        <div id="queue-table-wrap" class="queue-table-wrap" hidden>
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th scope="col">Issue</th>
+                <th scope="col">Title</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="queue-table-body"></tbody>
+          </table>
+        </div>
       </section>
     </main>
 
