@@ -11,6 +11,12 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const leaderboardList = document.querySelector("#leaderboard-list");
+const leaderboardStatusNode = document.querySelector("#leaderboard-status");
+const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
+const leaderboardTotalPrsNode = document.querySelector("#leaderboard-total-prs");
+const leaderboardTotalAuthorsNode = document.querySelector("#leaderboard-total-authors");
+const leaderboardLatestMergeNode = document.querySelector("#leaderboard-latest-merge");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 
@@ -20,7 +26,7 @@ async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
   updateRequestSignal(requestField.value);
-  await Promise.all([loadRepoMeta(), loadQueue()]);
+  await Promise.all([loadRepoMeta(), loadQueue(), loadLeaderboard()]);
 }
 
 function onRequestInput(event) {
@@ -253,6 +259,26 @@ async function loadQueue() {
   }
 }
 
+async function loadLeaderboard() {
+  setLeaderboardStatus("Loading leaderboard...");
+  leaderboardList.innerHTML = "";
+
+  try {
+    const response = await fetch("/api/leaderboard");
+    const data = await readJsonResponse(response, "leaderboard");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load the contributor leaderboard.");
+    }
+
+    renderLeaderboard(data.items || [], data.totals || {});
+  } catch (error) {
+    renderLeaderboardError(
+      error instanceof Error ? error.message : "Unable to load the contributor leaderboard."
+    );
+  }
+}
+
 async function loadRepoMeta() {
   try {
     const response = await fetch("/api/meta");
@@ -352,9 +378,90 @@ function renderQueueError(message) {
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
 }
 
+function renderLeaderboard(items, totals) {
+  leaderboardList.innerHTML = "";
+  leaderboardTotalPrsNode.textContent = `${totals.mergedPullRequests || 0}`;
+  leaderboardTotalAuthorsNode.textContent = `${totals.contributors || 0}`;
+  leaderboardLatestMergeNode.textContent = totals.latestMergedAt
+    ? formatShortDate(totals.latestMergedAt)
+    : "No merges yet";
+
+  if (!items.length) {
+    leaderboardSummaryNode.textContent = "No merged pull requests yet.";
+    setLeaderboardStatus("Leaderboard will appear after the first merged pull request.");
+    return;
+  }
+
+  leaderboardSummaryNode.textContent =
+    "Ranks GitHub accounts by merged pull requests authored in this repository.";
+  const fragment = document.createDocumentFragment();
+
+  for (const [index, item] of items.entries()) {
+    const row = document.createElement("li");
+    row.className = "leaderboard-item";
+
+    const rank = document.createElement("span");
+    rank.className = "leaderboard-rank";
+    rank.textContent = `#${index + 1}`;
+
+    const body = document.createElement("div");
+    body.className = "leaderboard-item-body";
+
+    const top = document.createElement("div");
+    top.className = "leaderboard-item-top";
+
+    const profile = document.createElement("a");
+    profile.className = "leaderboard-profile";
+    profile.href = item.profileUrl;
+    profile.target = "_blank";
+    profile.rel = "noreferrer";
+    profile.textContent = `@${item.login}`;
+
+    const badge = document.createElement("span");
+    badge.className = "leaderboard-badge";
+    badge.textContent = item.accountType === "Bot" ? "Bot" : "Account";
+
+    top.append(profile, badge);
+
+    const count = document.createElement("p");
+    count.className = "leaderboard-count";
+    count.textContent = `${item.mergedCount} merged PR${item.mergedCount === 1 ? "" : "s"}`;
+
+    const latest = document.createElement("a");
+    latest.className = "leaderboard-latest";
+    latest.href = item.latestPullRequest.url;
+    latest.target = "_blank";
+    latest.rel = "noreferrer";
+    latest.textContent = `Latest: #${item.latestPullRequest.number} ${item.latestPullRequest.title}`;
+
+    body.append(top, count, latest);
+    row.append(rank, body);
+    fragment.append(row);
+  }
+
+  leaderboardList.append(fragment);
+  setLeaderboardStatus(`${items.length} ranked account${items.length === 1 ? "" : "s"} shown.`);
+}
+
+function renderLeaderboardError(message) {
+  leaderboardList.innerHTML = "";
+  leaderboardSummaryNode.textContent = "Contributor data unavailable right now.";
+  leaderboardTotalPrsNode.textContent = "0";
+  leaderboardTotalAuthorsNode.textContent = "0";
+  leaderboardLatestMergeNode.textContent = "Unavailable";
+  setLeaderboardStatus(`${message} Try again later.`, "error");
+}
+
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+}
+
+function setLeaderboardStatus(message, tone) {
+  leaderboardStatusNode.textContent = message;
+  leaderboardStatusNode.className = tone
+    ? `leaderboard-status ${tone}`
+    : "leaderboard-status";
 }
 
 function formatStatus(status) {
@@ -381,6 +488,20 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function formatShortDate(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
 }
 
 async function readJsonResponse(response, context) {

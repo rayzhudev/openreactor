@@ -4,6 +4,8 @@ const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_QUEUE_ITEMS = 12;
+const MAX_LEADERBOARD_ITEMS = 8;
+const MAX_LEADERBOARD_PAGES = 10;
 const APP_JWT_LIFETIME_SECONDS = 9 * 60;
 const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
@@ -69,6 +71,31 @@ interface GitHubIssue {
   labels?: Array<{ name?: string }>;
 }
 
+interface GitHubPullRequest {
+  number: number;
+  html_url: string;
+  title: string;
+  merged_at?: string | null;
+  user?: {
+    login?: string;
+    html_url?: string;
+    type?: string;
+  };
+}
+
+interface LeaderboardContributor {
+  login: string;
+  profileUrl: string;
+  accountType: string;
+  mergedCount: number;
+  latestMergedAt: string;
+  latestPullRequest: {
+    number: number;
+    title: string;
+    url: string;
+  };
+}
+
 export async function handleMeta(env: Env): Promise<Response> {
   return jsonResponse({
     configured: isRepoConfigured(env),
@@ -125,6 +152,35 @@ export async function handleListRequests(env: Env): Promise<Response> {
     });
   } catch (error) {
     return errorResponse("Unable to load the request queue.", 502, error);
+  }
+}
+
+export async function handleLeaderboard(env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
+    return jsonResponse({
+      items: [],
+      repoUrl: null,
+      totals: {
+        mergedPullRequests: 0,
+        contributors: 0,
+        latestMergedAt: null
+      }
+    });
+  }
+
+  try {
+    const pullRequests = await listMergedPullRequests(normalized);
+    const leaderboard = buildLeaderboard(pullRequests);
+
+    return jsonResponse({
+      items: leaderboard.items,
+      repoUrl: getRepoUrl(normalized),
+      totals: leaderboard.totals
+    });
+  } catch (error) {
+    return errorResponse("Unable to load the contributor leaderboard.", 502, error);
   }
 }
 
@@ -355,6 +411,102 @@ async function getExistingLabels(env: Env): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+async function listMergedPullRequests(env: Env): Promise<GitHubPullRequest[]> {
+  const mergedPullRequests: GitHubPullRequest[] = [];
+
+  for (let page = 1; page <= MAX_LEADERBOARD_PAGES; page += 1) {
+    const pullRequests = await githubRequestWithFallback<GitHubPullRequest[]>(
+      env,
+      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=${page}`
+    );
+
+    if (!pullRequests.length) {
+      break;
+    }
+
+    mergedPullRequests.push(...pullRequests.filter((pullRequest) => Boolean(pullRequest.merged_at)));
+
+    if (pullRequests.length < 100) {
+      break;
+    }
+  }
+
+  return mergedPullRequests;
+}
+
+function buildLeaderboard(pullRequests: GitHubPullRequest[]): {
+  items: LeaderboardContributor[];
+  totals: {
+    mergedPullRequests: number;
+    contributors: number;
+    latestMergedAt: string | null;
+  };
+} {
+  const contributors = new Map<string, LeaderboardContributor>();
+  let latestMergedAt: string | null = null;
+
+  for (const pullRequest of pullRequests) {
+    const login = pullRequest.user?.login?.trim();
+    const profileUrl = pullRequest.user?.html_url?.trim();
+    const mergedAt = pullRequest.merged_at ?? "";
+
+    if (!login || !profileUrl || !mergedAt) {
+      continue;
+    }
+
+    const current = contributors.get(login);
+
+    if (!current) {
+      contributors.set(login, {
+        login,
+        profileUrl,
+        accountType: pullRequest.user?.type ?? "User",
+        mergedCount: 1,
+        latestMergedAt: mergedAt,
+        latestPullRequest: {
+          number: pullRequest.number,
+          title: pullRequest.title,
+          url: pullRequest.html_url
+        }
+      });
+    } else {
+      current.mergedCount += 1;
+
+      if (Date.parse(mergedAt) > Date.parse(current.latestMergedAt)) {
+        current.latestMergedAt = mergedAt;
+        current.latestPullRequest = {
+          number: pullRequest.number,
+          title: pullRequest.title,
+          url: pullRequest.html_url
+        };
+      }
+    }
+
+    if (!latestMergedAt || Date.parse(mergedAt) > Date.parse(latestMergedAt)) {
+      latestMergedAt = mergedAt;
+    }
+  }
+
+  const items = [...contributors.values()]
+    .sort((left, right) => {
+      if (right.mergedCount !== left.mergedCount) {
+        return right.mergedCount - left.mergedCount;
+      }
+
+      return Date.parse(right.latestMergedAt) - Date.parse(left.latestMergedAt);
+    })
+    .slice(0, MAX_LEADERBOARD_ITEMS);
+
+  return {
+    items,
+    totals: {
+      mergedPullRequests: pullRequests.length,
+      contributors: contributors.size,
+      latestMergedAt
+    }
+  };
 }
 
 async function githubRequest<T>(env: Env, path: string, init?: RequestInit): Promise<T> {
