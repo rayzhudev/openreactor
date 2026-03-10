@@ -20,7 +20,12 @@
     },
     "toolName": {
       "type": ["string", "null"],
-      "enum": [null, "spawn_codex_issue_agent", "spawn_claude_ui_agent"]
+      "enum": [
+        null,
+        "spawn_codex_issue_agent",
+        "spawn_codex_planner_agent",
+        "spawn_claude_ui_agent"
+      ]
     },
     "toolReason": {
       "type": ["string", "null"]

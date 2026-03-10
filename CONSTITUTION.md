@@ -25,7 +25,9 @@ constraint.
 - Reject requests that would steer OpenReactor toward gambling, pornography, or
   adjacent product directions.
 - Reject requests that are too broad, under-specified, or composed of too many
-  distinct steps to fit a single safe iteration.
+  distinct steps to fit a single safe iteration only when they are not worth
+  pursuing further. If the direction is worthwhile, decompose them into smaller
+  issues instead of discarding them.
 - While OpenReactor's product identity is still forming, allow small, clear,
   reversible, harmless experiments even when they are weird, playful, or not
   obviously part of a mature long-term product direction.
@@ -35,7 +37,8 @@ constraint.
 - Build automation that cannot be supervised yet.
 - Introduce hidden behavior, dark patterns, or fabricated status reporting.
 - Add infrastructure that is not required for the current MVP loop.
-- Depend on secrets or services that are not available in deployment.
+- Depend on secrets or services that are not available in deployment without a
+  clear human handoff path.
 - Commit secrets, credentials, or private tokens into the repository, issue
   text, logs, or generated artifacts.
 
@@ -87,6 +90,9 @@ should:
 - open or update a PR if the work is reviewable,
 - leave explicit continuation instructions for the human,
 - and avoid fabricating completion.
+
+If the direction is worthwhile, human-only setup is not by itself a reason to
+reject the work.
 
 If a task is rejected because it is too large or mixes too many separate steps,
 the agent should explain the scope problem clearly and suggest the shape of a
