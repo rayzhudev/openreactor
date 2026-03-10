@@ -14,6 +14,9 @@
     <main class="page-shell">
       <section class="intake" aria-labelledby="page-title">
         <h1 class="wordmark" id="page-title">OpenReactor</h1>
+        <p class="page-copy">
+          Submit a request, then watch the public queue update in GitHub.
+        </p>
 
         <form id="request-form" class="request-form" novalidate>
           <label class="request-label" for="request">
@@ -42,6 +45,31 @@
 
           <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
         </form>
+      </section>
+
+      <section class="queue" aria-labelledby="queue-title">
+        <div class="queue-header">
+          <div>
+            <p class="queue-kicker">Live queue</p>
+            <h2 id="queue-title">Recent public requests</h2>
+          </div>
+
+          <a
+            id="queue-repo-link"
+            class="queue-link"
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            hidden
+          >
+            View on GitHub
+          </a>
+        </div>
+
+        <p id="queue-status" class="queue-status" role="status" aria-live="polite">
+          Loading recent requests...
+        </p>
+        <ul id="queue-list" class="queue-list"></ul>
       </section>
     </main>
 
