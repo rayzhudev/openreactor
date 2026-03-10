@@ -10,6 +10,7 @@ import {
   finalizeIssueAgentRun,
   issueRuntimePaths,
   readRunRecord,
+  runIssueTriage,
   spawnIssueAgent,
   writeIssueContext,
   writeRunRecord,
@@ -114,8 +115,38 @@ class Reactor {
       }
 
       await this.github.addLabels(issue.number, [this.config.runningLabel]);
+      const triaged = await this.triageIssue(issue);
+      if (!triaged) {
+        continue;
+      }
+
       await this.startIssue(issue);
     }
+  }
+
+  private async triageIssue(issue: GitHubIssue): Promise<boolean> {
+    const paths = issueRuntimePaths(this.config, issue.number);
+    const accessToken = await this.github.getAgentAccessToken();
+    const { result } = await runIssueTriage({
+      config: this.config,
+      issue,
+      paths,
+      githubToken: accessToken
+    });
+
+    if (result?.outcome === "reject") {
+      await this.github.createComment(issue.number, result.issueComment || result.summary);
+      await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
+      await this.github.removeLabel(issue.number, this.config.runningLabel);
+      await this.github.closeIssue(issue.number, "not_planned");
+      return false;
+    }
+
+    if (result?.outcome === "escalate") {
+      return true;
+    }
+
+    return true;
   }
 
   private async reconcileStaleActiveRuns(): Promise<void> {

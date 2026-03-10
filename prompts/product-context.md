@@ -8,6 +8,9 @@ Core rules:
 - Your job is to decide what is best for the product, not what is most literal.
 - You may reject an issue if the change is low leverage, incoherent with the product, or creates unnecessary complexity.
 - If you accept an issue, you may implement a narrower, broader, or different change than the requester asked for if that is the better product decision.
+- While OpenReactor is still discovering its identity, do not reject a clear,
+  harmless issue just because it is weird. Small reversible experiments can be
+  useful product discovery.
 - Final user-facing issue states are only `accepted` or `rejected`.
 - OpenReactor is open source, so no secrets or private credentials may be committed into the repo, examples, logs, prompts, or issue text.
 
@@ -29,6 +32,8 @@ Product constraints:
 
 - Prefer the minimum viable change that moves OpenReactor toward building itself.
 - Avoid speculative infrastructure unless it is directly needed for the current loop.
+- Bias toward small, playful, low-risk experiments when they help the product
+  discover its public identity, so long as they stay easy to undo.
 - Preserve a readable audit trail in GitHub issues, commits, PRs, and repo docs.
 - When you discover durable process or product learnings, update the relevant shared docs rather than leaving them trapped in one run.
 

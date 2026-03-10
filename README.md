@@ -58,7 +58,12 @@ Useful environment variables:
 - `OPENREACTOR_MAX_ITERATION_RUNTIME_MS`
 - `OPENREACTOR_MAX_CONCURRENT_ISSUES`
 - `OPENREACTOR_MAX_ITERATIONS_PER_ISSUE`
+- `OPENREACTOR_TRIAGE_MODEL`
+- `OPENREACTOR_TRIAGE_REASONING_EFFORT`
+- `OPENREACTOR_TRIAGE_SERVICE_TIER`
 - `OPENREACTOR_AGENT_MODEL`
+- `OPENREACTOR_AGENT_REASONING_EFFORT`
+- `OPENREACTOR_AGENT_SERVICE_TIER`
 
 Helper tooling for issue agents:
 
@@ -81,6 +86,9 @@ review or human intervention. Accepted issues are also re-queued automatically
 if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed.
+
+Each new issue now goes through a cheap lightweight triage agent first. Only
+issues that triage escalates are handed off to the heavier full issue agent.
 
 Run files under `.openreactor/runs/issue-*` include:
 

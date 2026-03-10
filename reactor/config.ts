@@ -22,7 +22,12 @@ export interface OrchestratorConfig {
   githubAppClientId: string;
   githubAppInstallationId: string;
   githubAppPrivateKey: string;
+  triageModel: string;
+  triageReasoningEffort: string;
+  triageServiceTier: string;
   agentModel: string;
+  agentReasoningEffort: string;
+  agentServiceTier: string;
 }
 
 export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
@@ -49,7 +54,14 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     githubAppClientId: clean(valueOf("GITHUB_APP_CLIENT_ID", localEnv)),
     githubAppInstallationId: clean(valueOf("GITHUB_APP_INSTALLATION_ID", localEnv)),
     githubAppPrivateKey: clean(valueOf("GITHUB_APP_PRIVATE_KEY", localEnv)).replace(/\\n/g, "\n"),
-    agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL)
+    triageModel: clean(process.env.OPENREACTOR_TRIAGE_MODEL) || "gpt-5-mini",
+    triageReasoningEffort:
+      clean(process.env.OPENREACTOR_TRIAGE_REASONING_EFFORT) || "minimal",
+    triageServiceTier: clean(process.env.OPENREACTOR_TRIAGE_SERVICE_TIER) || "default",
+    agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL) || "gpt-5.4",
+    agentReasoningEffort:
+      clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",
+    agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER) || "default"
   };
 }
 

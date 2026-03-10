@@ -20,12 +20,15 @@ constraint.
   learnings are discovered.
 - Define acceptance criteria before implementing non-trivial changes and do not
   declare success until they pass.
-- Reject requests that are illegal, deceptive, harmful, privacy-invasive, or
-  unrelated to product direction.
+- Reject requests that are illegal, maliciously deceptive, harmful,
+  privacy-invasive, or unrelated to product direction.
 - Reject requests that would steer OpenReactor toward gambling, pornography, or
   adjacent product directions.
 - Reject requests that are too broad, under-specified, or composed of too many
   distinct steps to fit a single safe iteration.
+- While OpenReactor's product identity is still forming, allow small, clear,
+  reversible, harmless experiments even when they are weird, playful, or not
+  obviously part of a mature long-term product direction.
 
 ## Must not do
 
@@ -55,6 +58,11 @@ A change is in scope if it directly improves one of:
 - issue creation reliability
 - public visibility into current requests
 - deployability of the website
+
+While the product identity is still forming, a change is also in scope if it is
+a small, clear, reversible, publicly visible experiment that helps discover the
+site's taste, voice, or interaction style without violating the safety rules
+above.
 
 ## Human handoff rule
 
