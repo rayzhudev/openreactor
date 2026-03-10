@@ -397,8 +397,13 @@ button {
 
 .frog-card-guide {
   background:
-    radial-gradient(circle at top left, rgba(141, 166, 107, 0.22), transparent 32%),
-    var(--card-bg);
+    radial-gradient(circle at top left, rgba(239, 186, 107, 0.18), transparent 32%),
+    linear-gradient(135deg, rgba(123, 49, 37, 0.86), rgba(198, 100, 63, 0.78));
+  color: #fff7ef;
+}
+
+.frog-card-guide .frog-card-kicker {
+  color: rgba(255, 247, 239, 0.76);
 }
 
 .frog-portrait {
@@ -1010,7 +1015,9 @@ button {
 .hero-copy,
 .queue,
 .reactorle,
-.leaderboard {
+.leaderboard,
+.guide-hero,
+.guide-card {
   border-radius: 34px;
 }
 
@@ -1677,7 +1684,6 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .update-notice {
   position: fixed;
   right: 1rem;
@@ -1877,6 +1883,7 @@ button {
   background:
     var(--guide-page-overlay),
     radial-gradient(circle at top right, var(--page-glow-1), transparent 24%),
+    radial-gradient(circle at bottom left, var(--page-glow-2), transparent 22%),
     var(--paper);
 }
 
@@ -1891,6 +1898,10 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
   gap: 1rem;
+  background:
+    radial-gradient(circle at top left, rgba(239, 186, 107, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(86, 112, 95, 0.12), transparent 26%),
+    var(--panel-bg);
   animation: rise 650ms ease-out both;
 }
 
@@ -1925,6 +1936,7 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1rem;
+  animation: rise 780ms ease-out 80ms both;
 }
 
 .guide-steps,
