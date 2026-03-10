@@ -1,4 +1,4 @@
-# OpenReactor — Product Spec (v0.1)
+# OpenReactor — Product Spec (v0.2)
 
 ## 1) Vision
 OpenReactor is a self-building software platform where users propose features, and autonomous coding agents evaluate, implement, and deploy accepted changes.
@@ -34,21 +34,28 @@ A request should be rejected/deferred if:
 ## 4) User Experience (MVP)
 1. User submits feature request in web form.
 2. System creates GitHub issue using structured template.
-3. Request enters triage queue.
-4. Agent marks: accepted / rejected / needs refinement.
-5. If accepted, implementation agent creates branch + PR.
-6. On merge, deployment runs automatically.
+3. Request enters the reactor queue and is claimed with a GitHub label.
+4. Issue agent decides whether the request should be `accepted` or `rejected`.
+5. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
+6. On merge to `main`, the website deploys automatically.
 
 ## 5) System Architecture (MVP)
-- Frontend: web app (issue submission + transparency dashboard)
-- Orchestrator backend: request intake, triage, queue control
-- Queue workers: triage, implementation, PR follow-up, deployment checks
-- Persistence: SQL DB for state and audit trail
-- GitHub integration: issues, branches, PRs, merge state
+- Frontend: public website for request intake and queue visibility
+- Website backend: API/backend for intake and future product features that require stored data
+- Reactor runtime: machine-local agent orchestration loop that polls GitHub, claims issues, spawns fresh agents, and retries until resolution
+- GitHub integration: issues, labels, comments, branches, PRs, merge state
+- Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state
+- Persistence (planned): application database for website/backend features that require stored data
 
 ## 6) Data Model (MVP)
+Current agent-workflow state lives in:
+- GitHub issues
+- GitHub labels and comments
+- GitHub pull requests
+- local `.openreactor/runs/*` state files
+
+Planned backend data model for product features that require stored data:
 - feature_requests
-- triage_decisions
 - agent_runs
 - pull_requests
 - deployments
@@ -60,25 +67,37 @@ Each run receives:
 - `CONSTITUTION.md`
 - `ROADMAP.md`
 - `MEMORY.md`
+- prompt files in `prompts/`
 - current issue body + labels + context
+- local run files such as `plan.json` and `progress.md`
 
-Agent must output one of:
-- REJECT (with reason)
-- DEFER (with required clarification)
-- IMPLEMENT (with scoped plan)
+Final issue outcomes are:
+- `accepted`
+- `rejected`
+
+Internal run outcomes may also include:
+- `retry`
+
+Agent behavior requirements:
+- treat the issue as product feedback, not a binding implementation spec
+- reject requests that are harmful, incoherent, or not worth building
+- if accepted, choose the best product change even if it differs from the literal request
+- maintain issue comments/labels, testing notes, and PR linkage as part of the run
 
 ## 8) Backend Strategy
-Target autonomous-friendly backend with built-in deploy and DB:
-- Cloudflare Workers (API/orchestrator)
-- Cloudflare D1 (database)
-- Cloudflare Queues (async jobs)
-- Cron triggers (polling/reconciliation)
-- GitHub Actions (CI/CD hooks)
+Split the product backend from the agent runtime:
+- Cloudflare Pages + Functions power the public website and its API surface today
+- a separate website backend remains planned for features that need durable stored data
+- the machine-local `reactor/` runtime handles autonomous issue processing
+- GitHub polling is the current trigger mechanism; webhooks are optional later
+- GitHub + local run files are sufficient for the first autonomous loop
+- richer backend storage remains planned when the product itself needs it
 
 ## 9) Deployment and CD
 - Main branch deploys automatically.
-- Post-deploy health check writes status to DB.
-- Failures open/append to incident issue.
+- Website deployment currently happens through Git-connected Cloudflare Pages.
+- Post-deploy health tracking is still to be implemented.
+- Failures should eventually open/append to an incident issue.
 
 ## 10) Security and Secrets
 - Start secret-light; avoid external APIs where possible.
@@ -93,6 +112,10 @@ Dashboard should show:
 - deployment success/failure
 - latest product memory updates
 
+Current state:
+- only the public request queue is implemented
+- the rest of the observability surface is still pending
+
 ## 12) Non-goals (MVP)
 - Full autonomy across infrastructure migrations
 - Complex paid billing system
@@ -102,10 +125,10 @@ Dashboard should show:
 ## 13) Initial Milestones
 1. Naming + constitution + docs baseline
 2. Intake form → GitHub issue creation
-3. Triage worker with policy gates
-4. Implementation worker creating PRs
-5. Auto deploy + health checks
-6. Transparency dashboard
+3. Public queue + GitHub App auth
+4. Local `reactor/` loop with issue claiming and fresh-context retries
+5. End-to-end accepted issue flow creating PRs
+6. Auto deploy health checks + transparency dashboard
 
 ## 14) Open Questions
 - Exact merge policy for high-risk file paths?
@@ -118,17 +141,18 @@ Dashboard should show:
 As of March 9, 2026, the implementation target is intentionally narrower than
 the full product vision.
 
-The current release goal is:
+What is already live:
 
 1. a live website,
 2. a structured feature request form,
 3. GitHub issue creation from that form,
-4. and a public queue view of submitted requests.
+4. a public queue view of submitted requests,
+5. and a first local `reactor/` loop for autonomous issue processing.
 
-The following are explicitly deferred until the intake loop is live:
+The following are still deferred:
 
-- autonomous triage workers,
-- implementation workers that open PRs,
-- SQL-backed internal state,
+- reliable end-to-end PR creation on real issues,
+- PR follow-up and merge-state handling,
 - deployment health tracking,
+- application-backed stored data features for the website/backend,
 - and a full transparency dashboard.

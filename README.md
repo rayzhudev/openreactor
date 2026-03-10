@@ -19,6 +19,62 @@ a prefilled GitHub issue creation flow so the intake loop still works.
 
 Everything else in the broader product spec is deferred until this loop is live.
 
+## Local reactor
+
+The repository now includes a machine-local orchestration loop under
+[`reactor/`](/home/ray/projects/openreactor/reactor). It is the first
+slice of the autonomous backend:
+
+- polls GitHub for open issues
+- claims work with the `or:running` label
+- creates a dedicated git worktree per issue
+- spawns a fresh Codex agent for that issue
+- persists per-issue run files under `.openreactor/`
+- keeps retrying the same issue until the agent returns `accepted` or `rejected`
+- verifies that accepted runs have a pushed branch, an open PR, and no failed reported checks
+
+Run it on this machine with the same GitHub environment variables already used
+for the Pages site:
+
+```bash
+bun run reactor
+```
+
+One-pass dry operation:
+
+```bash
+bun run reactor:once
+```
+
+Safe polling verification without claiming issues:
+
+```bash
+bun run reactor:dry-run
+```
+
+Useful environment variables:
+
+- `OPENREACTOR_POLL_INTERVAL_MS`
+- `OPENREACTOR_MAX_CONCURRENT_ISSUES`
+- `OPENREACTOR_MAX_ITERATIONS_PER_ISSUE`
+- `OPENREACTOR_AGENT_MODEL`
+
+Helper tooling for issue agents:
+
+```bash
+bun run reactor:tool --help
+```
+
+`reactor:tool ensure-pr` pushes branches over HTTPS with the short-lived GitHub
+App installation token already injected into the run. That avoids using the
+server's SSH identity for remote publication.
+
+Run files under `.openreactor/runs/issue-*` include:
+
+- `plan.json` for structured decision state
+- `tasks.md` for the working checklist
+- `progress.md` with a `Codebase Patterns` section for durable learnings
+
 ## Local development
 
 1. Install dependencies:

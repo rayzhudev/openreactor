@@ -11,6 +11,7 @@
     "skipLibCheck": true
   },
   "include": [
+    "reactor/**/*.ts",
     "functions/**/*.ts",
     "worker-configuration.d.ts"
   ]

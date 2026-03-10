@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "wrangler pages dev public --functions functions",
     "deploy": "wrangler pages deploy public --project-name openreactor",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "reactor": "bun run reactor/index.ts",
+    "reactor:once": "bun run reactor/index.ts --once",
+    "reactor:dry-run": "bun run reactor/index.ts --once --dry-run",
+    "reactor:tool": "bun run reactor/tool.ts"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",

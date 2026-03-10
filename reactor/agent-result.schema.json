@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "issueNumber": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["accepted", "rejected", "retry"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "branchName": {
+      "type": ["string", "null"]
+    },
+    "prUrl": {
+      "type": ["string", "null"]
+    },
+    "issueComment": {
+      "type": ["string", "null"]
+    },
+    "nextStep": {
+      "type": ["string", "null"]
+    },
+    "humanHandoff": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "instructions": {
+          "type": "string"
+        }
+      },
+      "required": ["required", "instructions"]
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "failed", "not-run"]
+          }
+        },
+        "required": ["command", "status"]
+      }
+    }
+  },
+  "required": ["issueNumber", "outcome", "summary", "tests"]
+}
