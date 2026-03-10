@@ -58,29 +58,13 @@
                   rows="6"
                   maxlength="2000"
                   minlength="20"
-                  aria-describedby="request-signal-hint request-count"
+                  aria-describedby="request-count"
                   placeholder="What should OpenReactor build next?"
                   required
                 ></textarea>
               </label>
 
-              <div class="request-signal" id="request-signal" data-tone="draft" aria-live="polite">
-                <div class="request-signal-head">
-                  <div>
-                    <p class="request-signal-title">Signal meter</p>
-                    <p id="request-signal-label" class="request-signal-label">Start with the problem and the product move you want.</p>
-                  </div>
-                  <p id="request-count" class="request-count">0 / 2000</p>
-                </div>
-
-                <div class="request-signal-bar" aria-hidden="true">
-                  <span id="request-signal-fill" class="request-signal-fill"></span>
-                </div>
-
-                <p id="request-signal-hint" class="request-signal-hint">
-                  High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
-                </p>
-              </div>
+              <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
 
               <details class="request-guide" id="request-guide">
                 <summary class="request-guide-toggle">
