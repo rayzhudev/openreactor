@@ -19,5 +19,7 @@ Rules:
   UX work.
 - Choose `spawn_codex_issue_agent` for everything else, including backend,
   orchestration, infrastructure, APIs, and mixed full-stack work.
+- If structured issue metadata marks the request as maintainer steering, do not
+  reject it solely for roadmap, product-direction, or constitution-fit reasons.
 - Do not implement code, edit files, open PRs, or mutate GitHub state yourself.
 - Return only the structured JSON result requested by the reactor.
