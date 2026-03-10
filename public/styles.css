@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --paper: #ede5da;
   --paper-strong: rgba(255, 251, 245, 0.96);
   --paper-soft: rgba(255, 251, 245, 0.76);
@@ -21,9 +22,124 @@
   --error: #a33b31;
   --shadow: 0 24px 60px rgba(47, 34, 24, 0.12);
   --shadow-soft: 0 18px 40px rgba(47, 34, 24, 0.09);
+  --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0));
+  --page-glow-1: rgba(184, 92, 56, 0.12);
+  --page-glow-2: rgba(221, 139, 87, 0.1);
+  --grid-line: rgba(23, 33, 37, 0.03);
+  --panel-bg: linear-gradient(180deg, var(--paper-strong), rgba(255, 255, 255, 0.68));
+  --control-bg: rgba(255, 255, 255, 0.56);
+  --control-bg-strong: rgba(255, 255, 255, 0.72);
+  --control-bg-hover: rgba(255, 255, 255, 0.9);
+  --card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.64));
+  --card-flat-bg: rgba(255, 255, 255, 0.78);
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --field-focus-shadow:
+    0 0 0 4px rgba(184, 92, 56, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --placeholder: rgba(23, 33, 37, 0.38);
+  --accent-muted: rgba(184, 92, 56, 0.12);
+  --accent-surface: rgba(184, 92, 56, 0.08);
+  --accent-surface-strong: rgba(184, 92, 56, 0.14);
+  --queue-count-bg: rgba(23, 33, 37, 0.08);
+  --table-hover-bg: rgba(255, 255, 255, 0.48);
+  --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0));
   --display-font: "Avenir Next Condensed", "Franklin Gothic Medium", "Arial Narrow", sans-serif;
   --body-font: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
   --ui-font: "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #07111a;
+    --paper-strong: rgba(12, 22, 32, 0.96);
+    --paper-soft: rgba(18, 30, 42, 0.84);
+    --surface: #111f2d;
+    --surface-soft: rgba(18, 30, 42, 0.9);
+    --ink: #f4ede2;
+    --ink-soft: rgba(244, 237, 226, 0.78);
+    --ink-faint: rgba(244, 237, 226, 0.54);
+    --line: rgba(244, 237, 226, 0.12);
+    --line-strong: rgba(244, 237, 226, 0.2);
+    --accent: #ff8d63;
+    --accent-dark: #ffd8b0;
+    --accent-soft: #5f7894;
+    --accent-bright: #ffd279;
+    --queue-queued: #b7c4cf;
+    --queue-progress: #ffd279;
+    --queue-complete: #8aefc5;
+    --queue-rejected: #ff9d89;
+    --success: #8aefc5;
+    --error: #ff9d89;
+    --shadow: 0 28px 72px rgba(0, 0, 0, 0.36);
+    --shadow-soft: 0 20px 48px rgba(0, 0, 0, 0.3);
+    --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+    --page-glow-1: rgba(255, 141, 99, 0.18);
+    --page-glow-2: rgba(95, 120, 148, 0.16);
+    --grid-line: rgba(244, 237, 226, 0.04);
+    --panel-bg: linear-gradient(180deg, rgba(16, 28, 40, 0.96), rgba(7, 13, 20, 0.92));
+    --control-bg: rgba(244, 237, 226, 0.08);
+    --control-bg-strong: rgba(244, 237, 226, 0.12);
+    --control-bg-hover: rgba(244, 237, 226, 0.16);
+    --card-bg: linear-gradient(180deg, rgba(22, 37, 52, 0.94), rgba(12, 21, 31, 0.92));
+    --card-flat-bg: rgba(16, 28, 40, 0.9);
+    --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --field-focus-shadow:
+      0 0 0 4px rgba(255, 141, 99, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --placeholder: rgba(244, 237, 226, 0.34);
+    --accent-muted: rgba(255, 141, 99, 0.14);
+    --accent-surface: rgba(255, 141, 99, 0.1);
+    --accent-surface-strong: rgba(255, 141, 99, 0.16);
+    --queue-count-bg: rgba(244, 237, 226, 0.08);
+    --table-hover-bg: rgba(244, 237, 226, 0.06);
+    --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #07111a;
+  --paper-strong: rgba(12, 22, 32, 0.96);
+  --paper-soft: rgba(18, 30, 42, 0.84);
+  --surface: #111f2d;
+  --surface-soft: rgba(18, 30, 42, 0.9);
+  --ink: #f4ede2;
+  --ink-soft: rgba(244, 237, 226, 0.78);
+  --ink-faint: rgba(244, 237, 226, 0.54);
+  --line: rgba(244, 237, 226, 0.12);
+  --line-strong: rgba(244, 237, 226, 0.2);
+  --accent: #ff8d63;
+  --accent-dark: #ffd8b0;
+  --accent-soft: #5f7894;
+  --accent-bright: #ffd279;
+  --queue-queued: #b7c4cf;
+  --queue-progress: #ffd279;
+  --queue-complete: #8aefc5;
+  --queue-rejected: #ff9d89;
+  --success: #8aefc5;
+  --error: #ff9d89;
+  --shadow: 0 28px 72px rgba(0, 0, 0, 0.36);
+  --shadow-soft: 0 20px 48px rgba(0, 0, 0, 0.3);
+  --page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+  --page-glow-1: rgba(255, 141, 99, 0.18);
+  --page-glow-2: rgba(95, 120, 148, 0.16);
+  --grid-line: rgba(244, 237, 226, 0.04);
+  --panel-bg: linear-gradient(180deg, rgba(16, 28, 40, 0.96), rgba(7, 13, 20, 0.92));
+  --control-bg: rgba(244, 237, 226, 0.08);
+  --control-bg-strong: rgba(244, 237, 226, 0.12);
+  --control-bg-hover: rgba(244, 237, 226, 0.16);
+  --card-bg: linear-gradient(180deg, rgba(22, 37, 52, 0.94), rgba(12, 21, 31, 0.92));
+  --card-flat-bg: rgba(16, 28, 40, 0.9);
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --field-focus-shadow:
+    0 0 0 4px rgba(255, 141, 99, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --placeholder: rgba(244, 237, 226, 0.34);
+  --accent-muted: rgba(255, 141, 99, 0.14);
+  --accent-surface: rgba(255, 141, 99, 0.1);
+  --accent-surface-strong: rgba(255, 141, 99, 0.16);
+  --queue-count-bg: rgba(244, 237, 226, 0.08);
+  --table-hover-bg: rgba(244, 237, 226, 0.06);
+  --guide-page-overlay: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
 }
 
 * {
@@ -40,9 +156,9 @@ body {
   color: var(--ink);
   font-family: var(--body-font);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at top right, rgba(184, 92, 56, 0.12), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(221, 139, 87, 0.1), transparent 22%),
+    var(--page-overlay),
+    radial-gradient(circle at top right, var(--page-glow-1), transparent 28%),
+    radial-gradient(circle at bottom left, var(--page-glow-2), transparent 22%),
     var(--paper);
 }
 
@@ -52,8 +168,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(23, 33, 37, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(23, 33, 37, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 88%);
 }
@@ -86,7 +202,7 @@ button {
 .panel {
   border: 1px solid var(--line);
   border-radius: 28px;
-  background: linear-gradient(180deg, var(--paper-strong), rgba(255, 255, 255, 0.68));
+  background: var(--panel-bg);
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
 }
@@ -122,6 +238,14 @@ button {
   margin-bottom: 1rem;
 }
 
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .brand-mark {
   font-family: var(--display-font);
   font-size: 1.35rem;
@@ -134,7 +258,8 @@ button {
 .top-nav-link,
 .product-explainer-link,
 .submit-button,
-.update-notice-button {
+.update-notice-button,
+.theme-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -160,7 +285,7 @@ button {
 .product-explainer-link,
 .update-notice-button {
   border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--control-bg);
   color: var(--ink);
 }
 
@@ -176,8 +301,56 @@ button {
 .update-notice-button:focus-visible {
   transform: translateY(-1px);
   border-color: rgba(184, 92, 56, 0.34);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--control-bg-hover);
   box-shadow: var(--shadow-soft);
+}
+
+.theme-picker {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.theme-picker-label {
+  color: var(--ink-faint);
+  font-family: var(--ui-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.theme-picker-options {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--control-bg);
+}
+
+.theme-option {
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.theme-option:hover,
+.theme-option:focus-visible {
+  outline: none;
+  border-color: rgba(184, 92, 56, 0.22);
+  background: var(--control-bg-hover);
+  color: var(--ink);
+}
+
+.theme-option[data-active="true"] {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-bright) 100%);
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(184, 92, 56, 0.18);
+  color: #fff9f2;
 }
 
 .repo-star-icon {
@@ -283,7 +456,7 @@ button {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.54));
+  background: linear-gradient(180deg, var(--control-bg-strong), var(--control-bg));
 }
 
 .product-explainer-rail {
@@ -300,7 +473,7 @@ button {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.64));
+  background: var(--card-bg);
 }
 
 .product-explainer-step {
@@ -315,7 +488,7 @@ button {
   width: 1.85rem;
   min-height: 1.85rem;
   border-radius: 50%;
-  background: rgba(184, 92, 56, 0.12);
+  background: var(--accent-muted);
   color: var(--accent-dark);
   font-family: var(--ui-font);
   font-size: 0.8rem;
@@ -336,7 +509,7 @@ button {
   gap: 1rem;
   padding: 1rem 1.05rem;
   border-left: 3px solid rgba(184, 92, 56, 0.2);
-  background: linear-gradient(90deg, rgba(184, 92, 56, 0.08), rgba(184, 92, 56, 0));
+  background: linear-gradient(90deg, var(--accent-surface), rgba(184, 92, 56, 0));
 }
 
 .product-explainer-link {
@@ -367,7 +540,7 @@ button {
   border-radius: 22px;
   background: var(--surface);
   color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: var(--field-shadow);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -375,15 +548,13 @@ button {
 }
 
 .request-field-control::placeholder {
-  color: rgba(23, 33, 37, 0.38);
+  color: var(--placeholder);
 }
 
 .request-field-control:focus {
   outline: none;
   border-color: rgba(184, 92, 56, 0.5);
-  box-shadow:
-    0 0 0 4px rgba(184, 92, 56, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: var(--field-focus-shadow);
   transform: translateY(-1px);
 }
 
@@ -401,12 +572,12 @@ button {
 .request-guide {
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.74);
+  background: var(--control-bg-strong);
   overflow: hidden;
 }
 
 .request-guide[open] {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--control-bg-hover);
   box-shadow: var(--shadow-soft);
 }
 
@@ -448,7 +619,7 @@ button {
   flex: none;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--control-bg);
 }
 
 .request-guide-icon::before,
@@ -564,7 +735,7 @@ button {
   padding: 0.25rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.56);
+  background: var(--control-bg);
 }
 
 .queue-view-button,
@@ -585,7 +756,7 @@ button {
 }
 
 .queue-view-button[aria-pressed="true"] {
-  background: rgba(184, 92, 56, 0.12);
+  background: var(--accent-muted);
   color: var(--accent-dark);
 }
 
@@ -595,7 +766,7 @@ button {
 .queue-pagination-button:focus-visible {
   outline: none;
   border-color: rgba(184, 92, 56, 0.22);
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--control-bg-hover);
 }
 
 .queue-refresh-note {
@@ -657,7 +828,7 @@ button {
   min-height: 2rem;
   padding: 0 0.5rem;
   border-radius: 999px;
-  background: rgba(23, 33, 37, 0.08);
+  background: var(--queue-count-bg);
   color: var(--ink);
   font-family: var(--ui-font);
   font-size: 0.9rem;
@@ -683,7 +854,7 @@ button {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--card-flat-bg);
   color: inherit;
   text-decoration: none;
   transition:
@@ -701,7 +872,7 @@ button {
 .queue-table-link:focus-visible {
   transform: translateY(-1px);
   border-color: rgba(184, 92, 56, 0.28);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--control-bg-hover);
   box-shadow: var(--shadow-soft);
 }
 
@@ -772,7 +943,7 @@ button {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--control-bg-strong);
 }
 
 .queue-table {
@@ -801,7 +972,7 @@ button {
 }
 
 .queue-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.48);
+  background: var(--table-hover-bg);
 }
 
 .queue-table-time {
@@ -821,7 +992,7 @@ button {
   padding: 0 1rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--control-bg);
 }
 
 .queue-pagination-button:disabled {
@@ -840,7 +1011,7 @@ button {
   min-height: 2rem;
   padding: 0 0.75rem;
   border-radius: 999px;
-  background: rgba(184, 92, 56, 0.12);
+  background: var(--accent-muted);
   color: var(--accent-dark);
 }
 
@@ -867,7 +1038,7 @@ button {
   aspect-ratio: 1 / 1;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.66);
+  background: var(--control-bg);
   font-family: var(--display-font);
   font-size: 1.6rem;
   letter-spacing: 0.06em;
@@ -908,7 +1079,7 @@ button {
   min-height: 2.9rem;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--control-bg);
   color: var(--ink);
   font-family: var(--ui-font);
   font-size: 0.92rem;
@@ -920,7 +1091,7 @@ button {
 .reactorle-key:focus-visible {
   outline: none;
   border-color: rgba(184, 92, 56, 0.24);
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--control-bg-hover);
 }
 
 .reactorle-key[data-state="wide"] {
@@ -983,7 +1154,7 @@ button {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.64));
+  background: var(--card-bg);
 }
 
 .leaderboard-stat-label {
@@ -1022,7 +1193,7 @@ button {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--card-flat-bg);
 }
 
 .leaderboard-rank {
@@ -1032,7 +1203,7 @@ button {
   min-width: 3rem;
   height: 3rem;
   border-radius: 16px;
-  background: rgba(184, 92, 56, 0.12);
+  background: var(--accent-muted);
   color: var(--accent-dark);
   font-family: var(--display-font);
   font-size: 1.15rem;
@@ -1076,7 +1247,7 @@ button {
   width: fit-content;
   padding: 0.28rem 0.65rem;
   border-radius: 999px;
-  background: rgba(23, 33, 37, 0.08);
+  background: var(--queue-count-bg);
   color: var(--ink-faint);
   font-size: 0.7rem;
   font-weight: 700;
@@ -1164,7 +1335,7 @@ button {
   padding: 1rem 1.05rem;
   border: 1px solid var(--line);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(247, 239, 227, 0.06), rgba(247, 239, 227, 0.02));
+  background: var(--card-bg);
 }
 
 .leaderboard-stat-label {
@@ -1210,7 +1381,7 @@ button {
   padding: 1rem 1.1rem;
   border: 1px solid var(--line);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(247, 239, 227, 0.06), rgba(247, 239, 227, 0.02));
+  background: var(--card-bg);
 }
 
 .leaderboard-rank {
@@ -1220,7 +1391,7 @@ button {
   min-width: 3rem;
   height: 3rem;
   border-radius: 18px;
-  background: rgba(255, 210, 121, 0.12);
+  background: var(--accent-muted);
   color: var(--accent-soft);
   font-family: var(--display-font);
   font-size: 1.15rem;
@@ -1263,7 +1434,7 @@ button {
   width: fit-content;
   padding: 0.28rem 0.65rem;
   border-radius: 999px;
-  background: rgba(247, 239, 227, 0.09);
+  background: var(--queue-count-bg);
   color: var(--ink-faint);
   font-size: 0.7rem;
   font-weight: 700;
@@ -1290,8 +1461,8 @@ button {
 
 .guide-page {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)),
-    radial-gradient(circle at top right, rgba(184, 92, 56, 0.1), transparent 24%),
+    var(--guide-page-overlay),
+    radial-gradient(circle at top right, var(--page-glow-1), transparent 24%),
     var(--paper);
 }
 
@@ -1421,6 +1592,7 @@ button {
   }
 
   .topbar,
+  .topbar-actions,
   .form-footer,
   .queue-header,
   .queue-actions,
@@ -1457,8 +1629,17 @@ button {
   .top-nav-link,
   .product-explainer-link,
   .submit-button,
-  .update-notice-button {
+  .update-notice-button,
+  .theme-picker-options {
     width: 100%;
+  }
+
+  .theme-picker-options {
+    justify-content: stretch;
+  }
+
+  .theme-option {
+    flex: 1 1 0;
   }
 
   .request-guide-toggle,
