@@ -10,7 +10,9 @@ export interface OrchestratorConfig {
   maxIterationRuntimeMs: number;
   maxConcurrentIssues: number;
   maxIterationsPerIssue: number;
+  maxStartFailuresPerIssue: number;
   runningLabel: string;
+  pausedLabel: string;
   acceptedLabel: string;
   rejectedLabel: string;
   featureRequestMarker: string;
@@ -30,6 +32,7 @@ export interface OrchestratorConfig {
   agentServiceTier: string;
   claudeUiModel: string;
   claudeUiEffort: string;
+  claudeUiBin: string;
 }
 
 export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
@@ -44,7 +47,9 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     maxIterationRuntimeMs: numberFromEnv("OPENREACTOR_MAX_ITERATION_RUNTIME_MS", 20 * 60_000),
     maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 3),
     maxIterationsPerIssue: numberFromEnv("OPENREACTOR_MAX_ITERATIONS_PER_ISSUE", 8),
+    maxStartFailuresPerIssue: numberFromEnv("OPENREACTOR_MAX_START_FAILURES_PER_ISSUE", 3),
     runningLabel: clean(process.env.OPENREACTOR_RUNNING_LABEL) || "or:running",
+    pausedLabel: clean(process.env.OPENREACTOR_PAUSED_LABEL) || "or:paused",
     acceptedLabel: clean(process.env.OPENREACTOR_ACCEPTED_LABEL) || "accepted",
     rejectedLabel: clean(process.env.OPENREACTOR_REJECTED_LABEL) || "rejected",
     featureRequestMarker: "<!-- openreactor:feature-request -->",
@@ -65,7 +70,8 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
       clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",
     agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
     claudeUiModel: clean(process.env.OPENREACTOR_CLAUDE_UI_MODEL) || "sonnet",
-    claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium"
+    claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium",
+    claudeUiBin: clean(process.env.OPENREACTOR_CLAUDE_UI_BIN) || "claude"
   };
 }
 
