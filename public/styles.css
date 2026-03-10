@@ -66,6 +66,7 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.55rem;
   min-height: 2.75rem;
   padding: 0.7rem 1.1rem;
   border: 1px solid var(--line-strong);
@@ -78,6 +79,13 @@ p {
   font-weight: 600;
   text-decoration: none;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.repo-star-icon {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+  flex: none;
 }
 
 .repo-star-link:hover,
