@@ -35,6 +35,15 @@ export interface GitHubPullRequest {
   };
 }
 
+export interface GitHubIssueComment {
+  id: number;
+  body: string;
+  updated_at: string;
+  user?: {
+    login?: string;
+  };
+}
+
 export class GitHubClient {
   constructor(private readonly config: OrchestratorConfig) {}
 
@@ -119,6 +128,22 @@ export class GitHubClient {
       `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}/comments`,
       {
         method: "POST",
+        body: JSON.stringify({ body })
+      }
+    );
+  }
+
+  async listIssueComments(issueNumber: number): Promise<GitHubIssueComment[]> {
+    return this.request<GitHubIssueComment[]>(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}/comments?per_page=100`
+    );
+  }
+
+  async updateComment(commentId: number, body: string): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/comments/${commentId}`,
+      {
+        method: "PATCH",
         body: JSON.stringify({ body })
       }
     );
