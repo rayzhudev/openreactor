@@ -11,8 +11,16 @@ const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
 const queueViewButtons = Array.from(document.querySelectorAll(".queue-view-button"));
+const queueNewerButton = document.querySelector("#queue-newer");
+const queueOlderButton = document.querySelector("#queue-older");
+const queuePageLabelNode = document.querySelector("#queue-page-label");
+const updateNotice = document.querySelector("#update-notice");
+const updateNoticeButton = document.querySelector("#update-notice-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
+const DEPLOY_CHECK_INTERVAL_MS = 60_000;
+const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
 const QUEUE_POLL_INTERVAL_MS = 30_000;
 const BOARD_COLUMNS = [
   { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
@@ -26,22 +34,147 @@ let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
 let queueItems = [];
 let activeQueueView = "board";
+const queueState = {
+  page: DEFAULT_QUEUE_PAGE,
+  isLoading: false,
+  hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
+  hasNextPage: false
+};
+let deployFingerprint = "";
+let deployCheckTimer = 0;
+let updateAvailable = false;
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
   for (const button of queueViewButtons) {
     button.addEventListener("click", onQueueViewChange);
   }
 
+  queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
+  queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
+
   updateRequestCount(requestField.value);
   renderQueueView();
-  await Promise.all([loadRepoMeta(), loadQueue()]);
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
+  await Promise.all([loadRepoMeta(), loadQueue(queueState.page)]);
   startQueuePolling();
+}
+
+function initDeployWatcher() {
+  if (!updateNotice || !updateNoticeButton) {
+    return;
+  }
+
+  updateNoticeButton.addEventListener("click", reloadForUpdate);
+  window.addEventListener("focus", checkForDeployUpdate);
+  window.addEventListener("online", checkForDeployUpdate);
+
+  deployCheckTimer = window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      void checkForDeployUpdate();
+    }
+  }, DEPLOY_CHECK_INTERVAL_MS);
+
+  void primeDeployFingerprint();
+}
+
+async function primeDeployFingerprint() {
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (fingerprint) {
+    deployFingerprint = fingerprint;
+  }
+}
+
+async function checkForDeployUpdate() {
+  if (updateAvailable) {
+    return;
+  }
+
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (!fingerprint) {
+    return;
+  }
+
+  if (!deployFingerprint) {
+    deployFingerprint = fingerprint;
+    return;
+  }
+
+  if (fingerprint !== deployFingerprint) {
+    showUpdateNotice();
+  }
+}
+
+async function fetchDeployFingerprint() {
+  try {
+    const resources = await Promise.all(DEPLOY_CHECK_PATHS.map((path) => fetchDeployResource(path)));
+    return hashString(resources.join("\n/* openreactor-deploy */\n"));
+  } catch {
+    return "";
+  }
+}
+
+async function fetchDeployResource(path) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("__openreactor", `${Date.now()}`);
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to check ${path}.`);
+  }
+
+  return response.text();
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `${hash >>> 0}`;
+}
+
+function showUpdateNotice() {
+  updateAvailable = true;
+  updateNotice.hidden = false;
+  updateNotice.dataset.visible = "true";
+  updateNoticeButton.focus({ preventScroll: true });
+  stopDeployWatcher();
+}
+
+function stopDeployWatcher() {
+  if (deployCheckTimer) {
+    window.clearInterval(deployCheckTimer);
+    deployCheckTimer = 0;
+  }
+
+  window.removeEventListener("focus", checkForDeployUpdate);
+  window.removeEventListener("online", checkForDeployUpdate);
+}
+
+function reloadForUpdate() {
+  window.location.reload();
 }
 
 function onRequestInput(event) {
@@ -95,7 +228,7 @@ async function onSubmit(event) {
     updateRequestCount("");
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
-    await loadQueue();
+    await loadQueue(1);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Submission failed.", "error");
   } finally {
@@ -193,8 +326,10 @@ function setStatus(message, tone) {
   statusNode.className = tone ? `status-message ${tone}` : "status-message";
 }
 
-async function loadQueue(options = {}) {
+async function loadQueue(page = 1, options = {}) {
   const { silent = false } = options;
+  queueState.isLoading = true;
+  queueState.page = page;
 
   if (!silent) {
     setQueueStatus("Loading queue...");
@@ -203,16 +338,22 @@ async function loadQueue(options = {}) {
     renderQueueView();
   }
 
+  syncQueueControls({
+    page,
+    hasPreviousPage: page > 1,
+    hasNextPage: false
+  });
+
   try {
     const headers = queueEtag ? { "If-None-Match": queueEtag } : {};
-    const response = await fetch("/api/requests", {
+    const response = await fetch(`/api/requests?page=${page}`, {
       headers,
       cache: "no-store"
     });
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy();
+      refreshQueueStatusCopy(queueItems.length, page);
       return;
     }
 
@@ -223,10 +364,13 @@ async function loadQueue(options = {}) {
     }
 
     queueEtag = response.headers.get("etag") || "";
-    renderQueue(data.items || [], data.repoUrl || "");
+    renderQueue(data);
   } catch (error) {
     queueEtag = "";
     renderQueueError(error instanceof Error ? error.message : "Unable to load the public queue.");
+  } finally {
+    queueState.isLoading = false;
+    syncQueueControls(queueState);
   }
 }
 
@@ -256,9 +400,20 @@ function renderRepoStarLink(repoUrl) {
   repoStarLink.removeAttribute("href");
 }
 
-function renderQueue(items, repoUrl) {
+function renderQueue(data) {
+  const items = data.items || [];
+  const page = Number.isInteger(data.page) ? data.page : 1;
+  const hasPreviousPage = Boolean(data.hasPreviousPage);
+  const hasNextPage = Boolean(data.hasNextPage);
+  const repoUrl = data.repoUrl || "";
+
   markQueueRefresh();
   queueItems = items;
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  updateQueueLocation(page);
+  syncQueueControls({ page, hasPreviousPage, hasNextPage });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -272,12 +427,16 @@ function renderQueue(items, repoUrl) {
   renderQueueView();
 
   if (!items.length) {
-    setQueueStatus(`No requests yet. Auto-refreshes every ${formatPollInterval()}.`);
-    setQueueRefreshNote(`Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`);
+    setQueueStatus(page === 1 ? "No requests yet." : `Page ${page} has no requests.`);
+    setQueueRefreshNote(
+      page === 1
+        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
+        : `Page ${page} is empty.`
+    );
     return;
   }
 
-  refreshQueueStatusCopy(items.length);
+  refreshQueueStatusCopy(items.length, page);
 }
 
 function renderQueueError(message) {
@@ -285,6 +444,11 @@ function renderQueueError(message) {
   renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
+  syncQueueControls({
+    page: queueState.page,
+    hasPreviousPage: queueState.hasPreviousPage,
+    hasNextPage: queueState.hasNextPage
+  });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
@@ -305,7 +469,7 @@ function startQueuePolling() {
       return;
     }
 
-    loadQueue({ silent: true });
+    void loadQueue(queueState.page, { silent: true });
   }, QUEUE_POLL_INTERVAL_MS);
 }
 
@@ -323,17 +487,19 @@ function onVisibilityChange() {
     return;
   }
 
+  void checkForDeployUpdate();
+
   if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
-    loadQueue({ silent: true });
+    void loadQueue(queueState.page, { silent: true });
   }
 }
 
-function refreshQueueStatusCopy(itemCount = queueItems.length) {
+function refreshQueueStatusCopy(itemCount = queueItems.length, page = queueState.page) {
   const countLabel = `${itemCount} request${itemCount === 1 ? "" : "s"}.`;
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
-  setQueueStatus(`${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
   setQueueRefreshNote(freshnessLabel);
 }
 
@@ -460,7 +626,7 @@ function renderQueueTable(items) {
     const titleCell = document.createElement("td");
     const titleLink = document.createElement("a");
     titleLink.className = "queue-table-link";
-    titleLink.href = item.url;
+    titleLink.href = item.commentUrl || item.url;
     titleLink.target = "_blank";
     titleLink.rel = "noreferrer";
     titleLink.textContent = item.title;
@@ -491,7 +657,7 @@ function renderQueueTable(items) {
 function createQueueCardLink(item) {
   const link = document.createElement("a");
   link.className = "queue-card-link";
-  link.href = item.url;
+  link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";
 
@@ -519,11 +685,25 @@ function createQueueCardLink(item) {
   meta.title = item.createdAt;
   meta.textContent = formatSubmissionTimestamp(item.createdAt);
 
+  const discussion = document.createElement("div");
+  discussion.className = "queue-item-discussion";
+
+  const commentCount = document.createElement("span");
+  commentCount.className = "queue-item-comment-count";
+  commentCount.textContent = formatCommentCount(item.commentCount);
+
+  const commentHint = document.createElement("span");
+  commentHint.className = "queue-item-comment-hint";
+  commentHint.textContent =
+    item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
+
+  discussion.append(commentCount, commentHint);
+
   const cta = document.createElement("span");
   cta.className = "queue-item-cta";
-  cta.textContent = "Open on GitHub";
+  cta.textContent = "Open issue and comment on GitHub";
 
-  link.append(top, title, meta, cta);
+  link.append(top, title, meta, discussion, cta);
   return link;
 }
 
@@ -553,6 +733,11 @@ function formatSubmissionTimestamp(value) {
   return `Submitted ${formatted} at ${formattedTime}`;
 }
 
+function formatCommentCount(value) {
+  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${count} comment${count === 1 ? "" : "s"}`;
+}
+
 async function readJsonResponse(response, context) {
   const contentType = response.headers.get("content-type") || "";
 
@@ -572,4 +757,44 @@ async function readJsonResponse(response, context) {
   }
 
   throw new Error(`The ${context} API returned an unexpected response.`);
+}
+
+function changeQueuePage(page) {
+  if (queueState.isLoading || page < 1 || page === queueState.page) {
+    return;
+  }
+
+  void loadQueue(page);
+}
+
+function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+  queueState.page = page;
+  queueState.hasPreviousPage = hasPreviousPage;
+  queueState.hasNextPage = hasNextPage;
+  queuePageLabelNode.textContent = `Page ${page}`;
+  queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
+  queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+}
+
+function updateQueueLocation(page) {
+  const url = new URL(window.location.href);
+
+  if (page <= 1) {
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("page", `${page}`);
+  }
+
+  window.history.replaceState({}, "", url);
+}
+
+function getQueuePageFromLocation() {
+  const value = new URL(window.location.href).searchParams.get("page");
+  const page = Number.parseInt(value ?? "1", 10);
+
+  if (!Number.isFinite(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
 }

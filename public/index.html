@@ -202,8 +202,30 @@
             <tbody id="queue-table-body"></tbody>
           </table>
         </div>
+        <nav class="queue-pagination" aria-label="Queue pages">
+          <button id="queue-newer" class="queue-pagination-button" type="button">
+            Newer
+          </button>
+          <p id="queue-page-label" class="queue-page-label" aria-live="polite">Page 1</p>
+          <button id="queue-older" class="queue-pagination-button" type="button">
+            Older
+          </button>
+        </nav>
       </section>
     </main>
+
+    <div
+      id="update-notice"
+      class="update-notice"
+      role="status"
+      aria-live="polite"
+      data-visible="false"
+      hidden
+    >
+      <button id="update-notice-button" class="update-notice-button" type="button">
+        Changes available. Reload page?
+      </button>
+    </div>
 
     <script type="module" src="/app.js"></script>
   </body>
