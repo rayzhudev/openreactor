@@ -306,7 +306,13 @@ export async function spawnIssueAgent(input: {
       OPENREACTOR_PLAN_PATH: paths.planPath,
       OPENREACTOR_PROGRESS_PATH: paths.progressPath,
       OPENREACTOR_TASKS_PATH: paths.tasksPath,
-      OPENREACTOR_BRANCH_NAME: paths.branchName
+      OPENREACTOR_BRANCH_NAME: paths.branchName,
+      AGENT_BROWSER_SESSION: `openreactor-issue-${issue.number}`,
+      AGENT_BROWSER_PROFILE: path.join(paths.runDir, "agent-browser-profile"),
+      AGENT_BROWSER_DOWNLOAD_PATH: path.join(paths.runDir, "agent-browser-downloads"),
+      AGENT_BROWSER_CONTENT_BOUNDARIES: "1",
+      AGENT_BROWSER_MAX_OUTPUT: "50000",
+      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
     },
     stdio: ["pipe", "pipe", "pipe"]
   });

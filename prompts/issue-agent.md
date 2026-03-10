@@ -137,6 +137,9 @@ If more work is needed after this iteration:
 - Update docs when they are part of the change.
 - Update shared memory docs when the learning is durable and future agents need it.
 - Use the repo’s existing stack and commands.
+- For UI work, prefer real browser verification over static inspection alone.
+- `agent-browser` is available in the repo. Install Chromium with `bun run agent-browser:install` when needed, then use commands such as `agent-browser open <url>`, `agent-browser snapshot -i`, and `agent-browser screenshot <path>`.
+- When you need to inspect local changes, start the appropriate local server first and use `agent-browser` against that local URL. Re-snapshot after each meaningful UI change.
 - Do not declare success unless the quality gates passed.
 - If you return `accepted`, your JSON must include the real branch name and the PR URL.
 - Never commit secrets or sensitive credentials.
