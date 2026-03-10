@@ -11,17 +11,12 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
-const queueTotalNode = document.querySelector("#queue-total");
-const queueActiveNode = document.querySelector("#queue-active");
-const queueCompleteNode = document.querySelector("#queue-complete");
-const queueSummaryNode = document.querySelector("#queue-summary");
 
-const SUBMIT_BUTTON_LABEL = "Launch issue";
+const SUBMIT_BUTTON_LABEL = "Submit";
 
 boot();
 
 async function boot() {
-  resetQueueSummary();
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
   updateRequestSignal(requestField.value);
@@ -69,7 +64,7 @@ async function onSubmit(event) {
     }
 
     if (data.mode === "github_redirect" && data.url) {
-      setStatus("Redirecting to GitHub to complete the issue submission...", "success");
+      setStatus("Redirecting to GitHub...", "success");
       window.location.assign(data.url);
       return;
     }
@@ -226,7 +221,7 @@ function setStatus(message, tone) {
 }
 
 async function loadQueue() {
-  setQueueStatus("Loading recent requests...");
+  setQueueStatus("Loading queue...");
   queueList.innerHTML = "";
 
   try {
@@ -271,7 +266,6 @@ function renderRepoStarLink(repoUrl) {
 
 function renderQueue(items, repoUrl) {
   queueList.innerHTML = "";
-  updateQueueSummary(items);
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -283,7 +277,7 @@ function renderQueue(items, repoUrl) {
   }
 
   if (!items.length) {
-    setQueueStatus("No public requests yet. New requests will appear here with their latest status.");
+    setQueueStatus("No requests yet.");
     return;
   }
 
@@ -331,55 +325,19 @@ function renderQueue(items, repoUrl) {
   }
 
   queueList.append(fragment);
-  setQueueStatus(`${items.length} public request${items.length === 1 ? "" : "s"} loaded.`);
+  setQueueStatus(`${items.length} request${items.length === 1 ? "" : "s"}.`);
 }
 
 function renderQueueError(message) {
   queueList.innerHTML = "";
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
-  setMetric(queueTotalNode, "--");
-  setMetric(queueActiveNode, "--");
-  setMetric(queueCompleteNode, "--");
-  queueSummaryNode.textContent = "Queue unavailable right now.";
-  setQueueStatus(`${message} Check GitHub directly if the queue API is unavailable.`, "error");
+  setQueueStatus(`${message} See GitHub directly if needed.`, "error");
 }
 
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
-}
-
-function resetQueueSummary() {
-  setMetric(queueTotalNode, "--");
-  setMetric(queueActiveNode, "--");
-  setMetric(queueCompleteNode, "--");
-  queueSummaryNode.textContent = "Connecting to GitHub...";
-}
-
-function updateQueueSummary(items) {
-  const activeCount = items.filter((item) => item.status === "in-progress").length;
-  const completeCount = items.filter((item) => item.status === "complete").length;
-
-  setMetric(queueTotalNode, items.length);
-  setMetric(queueActiveNode, activeCount);
-  setMetric(queueCompleteNode, completeCount);
-
-  if (!items.length) {
-    queueSummaryNode.textContent = "No public requests yet.";
-    return;
-  }
-
-  queueSummaryNode.textContent = summarizeLatestItem(items[0]);
-}
-
-function setMetric(node, value) {
-  node.textContent = `${value}`;
-}
-
-function summarizeLatestItem(item) {
-  const trimmedTitle = item.title.length > 48 ? `${item.title.slice(0, 45).trimEnd()}...` : item.title;
-  return `#${item.number} ${formatStatus(item.status)} - ${trimmedTitle}`;
 }
 
 function formatStatus(status) {
