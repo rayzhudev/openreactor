@@ -8,235 +8,406 @@
       name="description"
       content="OpenReactor turns clear product requests into public work."
     />
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("openreactor-theme");
+
+        if (savedTheme === "light" || savedTheme === "dark") {
+          document.documentElement.dataset.theme = savedTheme;
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+      } catch {}
+    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="page-shell">
-      <section class="hero" aria-labelledby="page-title">
-        <div class="hero-copy">
-          <div class="intake-panel panel">
-            <div class="masthead">
-              <h1 class="wordmark" id="page-title">
-                <span>Open</span>
-                <span class="wordmark-accent">Reactor</span>
-              </h1>
-              <a
-                id="repo-star-link"
-                class="repo-star-link"
-                href="#"
-                target="_blank"
-                rel="noreferrer"
-                hidden
-              >
-                <svg
-                  class="repo-star-icon"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-                    0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-                    -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
-                    .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
-                    -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
-                    2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
-                    2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
-                    2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
-                  ></path>
-                </svg>
-                <span>Star on GitHub</span>
-              </a>
+      <header class="topbar">
+        <p class="brand-mark">OpenReactor</p>
+        <div class="topbar-actions">
+          <div class="theme-picker" role="group" aria-label="Color theme">
+            <span class="theme-picker-label">Theme</span>
+            <div class="theme-picker-options">
+              <button class="theme-option" type="button" data-theme-value="system">System</button>
+              <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
+              <button class="theme-option" type="button" data-theme-value="light">Light</button>
             </div>
-
-            <figure class="hero-mascot" aria-label="Playful frog mascot">
-              <div class="hero-mascot-card">
-                <svg
-                  class="hero-frog"
-                  viewBox="0 0 320 220"
-                  role="img"
-                  aria-labelledby="hero-frog-title hero-frog-desc"
-                >
-                  <title id="hero-frog-title">OpenReactor frog mascot</title>
-                  <desc id="hero-frog-desc">
-                    A cheerful green frog sticker with a small crown and warm glow.
-                  </desc>
-                  <defs>
-                    <radialGradient id="frog-glow" cx="50%" cy="50%" r="60%">
-                      <stop offset="0%" stop-color="#ffe59b" stop-opacity="0.8" />
-                      <stop offset="100%" stop-color="#ffe59b" stop-opacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <ellipse cx="160" cy="112" rx="128" ry="88" fill="url(#frog-glow)" />
-                  <ellipse class="hero-frog-shadow" cx="160" cy="186" rx="78" ry="20" />
-                  <path
-                    class="hero-frog-leg"
-                    d="M74 158c-24 12-34 34-28 46 6 12 27 10 48-5 18-13 28-27 26-37-3-14-21-16-46-4Z"
-                  />
-                  <path
-                    class="hero-frog-leg"
-                    d="M246 158c24 12 34 34 28 46-6 12-27 10-48-5-18-13-28-27-26-37 3-14 21-16 46-4Z"
-                  />
-                  <rect class="hero-frog-body" x="72" y="74" width="176" height="94" rx="46" />
-                  <circle class="hero-frog-head" cx="160" cy="106" r="62" />
-                  <circle class="hero-frog-eye" cx="124" cy="58" r="26" />
-                  <circle class="hero-frog-eye" cx="196" cy="58" r="26" />
-                  <circle class="hero-frog-eye-white" cx="124" cy="58" r="16" />
-                  <circle class="hero-frog-eye-white" cx="196" cy="58" r="16" />
-                  <circle class="hero-frog-pupil hero-frog-pupil-left" cx="124" cy="60" r="7" />
-                  <circle class="hero-frog-pupil hero-frog-pupil-right" cx="196" cy="60" r="7" />
-                  <path
-                    class="hero-frog-mouth"
-                    d="M126 124c10 11 24 17 34 17s24-6 34-17"
-                  />
-                  <path
-                    class="hero-frog-belly"
-                    d="M118 140c10 11 26 18 42 18s32-7 42-18"
-                  />
-                  <path
-                    class="hero-frog-crown"
-                    d="M135 24 149 40l12-18 12 18 14-16 9 26h-70Z"
-                  />
-                  <circle class="hero-frog-crown-gem" cx="161" cy="31" r="5" />
-                  <circle class="hero-frog-cheek" cx="112" cy="120" r="8" />
-                  <circle class="hero-frog-cheek" cx="208" cy="120" r="8" />
-                </svg>
-              </div>
-              <figcaption class="hero-mascot-caption">
-                Frog upgraded from text to mascot duty.
-              </figcaption>
-            </figure>
-
-            <form id="request-form" class="request-form" novalidate>
-              <label class="request-label" for="request">
-                <span class="sr-only">Request</span>
-                <textarea
-                  id="request"
-                  name="request"
-                  class="request-field-control request-textarea"
-                  rows="6"
-                  maxlength="2000"
-                  minlength="20"
-                  aria-describedby="request-signal-hint request-count"
-                  placeholder="What should OpenReactor build next?"
-                  required
-                ></textarea>
-              </label>
-
-              <div class="request-signal" id="request-signal" data-tone="draft" aria-live="polite">
-                <div class="request-signal-head">
-                  <div>
-                    <p class="request-signal-title">Signal meter</p>
-                    <p id="request-signal-label" class="request-signal-label">Start with the problem and the product move you want.</p>
-                  </div>
-                  <p id="request-count" class="request-count">0 / 2000</p>
-                </div>
-
-                <div class="request-signal-bar" aria-hidden="true">
-                  <span id="request-signal-fill" class="request-signal-fill"></span>
-                </div>
-
-                <p id="request-signal-hint" class="request-signal-hint">
-                  High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.
-                </p>
-              </div>
-
-              <details class="request-guide" id="request-guide">
-                <summary class="request-guide-toggle">
-                  <span class="request-guide-heading">
-                    <span class="request-guide-kicker">Request guide</span>
-                    <span class="request-guide-title">Turn rough pressure into a clear issue.</span>
-                  </span>
-                  <span class="request-guide-icon" aria-hidden="true"></span>
-                </summary>
-
-                <div class="request-guide-content">
-                  <p class="request-guide-copy">
-                    Use the box above for one concrete request. The form will turn it into a GitHub issue, so the strongest submissions explain the ask, the problem, and the outcome in plain language.
-                  </p>
-
-                  <div class="request-guide-grid">
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">1</p>
-                      <h3>Name the move</h3>
-                      <p>Call out the feature, fix, or product change you want instead of describing a vague feeling.</p>
-                    </article>
-
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">2</p>
-                      <h3>Explain the friction</h3>
-                      <p>Say what feels broken, confusing, ugly, or slow so the agent can judge the real product problem.</p>
-                    </article>
-
-                    <article class="request-guide-card">
-                      <p class="request-guide-card-step">3</p>
-                      <h3>Point to the outcome</h3>
-                      <p>Describe what better looks like, including placement or constraints when they matter.</p>
-                    </article>
-                  </div>
-
-                  <div class="request-guide-example">
-                    <p class="request-guide-example-label">Example</p>
-                    <p class="request-guide-example-copy">
-                      Replace the plain request guide with a polished accordion below the entry box so the page stays clean by default but still teaches people how to write a strong request.
-                    </p>
-                  </div>
-                </div>
-              </details>
-
-              <label class="request-label" for="github-username">
-                <span class="request-meta-heading">GitHub username (optional)</span>
-                <input
-                  id="github-username"
-                  name="githubUsername"
-                  class="request-field-control request-input"
-                  type="text"
-                  inputmode="text"
-                  autocomplete="username"
-                  maxlength="40"
-                  placeholder="@octocat"
-                />
-                <span class="request-subcopy">
-                  If accepted work turns into a commit, OpenReactor can use this to credit your GitHub account as a co-author.
-                </span>
-              </label>
-
-              <label class="honeypot" aria-hidden="true">
-                <span>Website</span>
-                <input id="website" name="website" tabindex="-1" autocomplete="off" />
-              </label>
-
-              <div class="form-footer">
-                <p class="form-note">Keep it concrete. The issue agent will decide the best product move, not blindly follow the wording. Open the inline guide when the request needs more framing.</p>
-                <button class="submit-button" id="submit-button" type="submit">Submit</button>
-              </div>
-
-              <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
-            </form>
           </div>
-        </div>
-      </section>
 
-      <section class="queue panel" aria-labelledby="queue-title">
-        <div class="queue-header">
-          <h2 id="queue-title">Queue</h2>
           <a
-            id="queue-repo-link"
-            class="queue-link"
+            id="repo-star-link"
+            class="repo-star-link"
             href="#"
             target="_blank"
             rel="noreferrer"
             hidden
           >
-            View on GitHub
+            <svg class="repo-star-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
+                2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+                2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+                2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+              ></path>
+            </svg>
+            <span>Star on GitHub</span>
           </a>
         </div>
+      </header>
+
+      <section class="hero-grid" aria-labelledby="page-title">
+        <section class="hero-copy panel">
+          <div class="product-explainer-copy">
+            <p class="eyebrow">Editorial intake loop</p>
+            <h1 class="hero-title" id="page-title">
+              Pressure builds the brief.
+            </h1>
+            <p class="product-explainer-summary">
+              OpenReactor turns sharp product pressure into public GitHub issues,
+              agent judgment, and visible shipping motion. This is a taste-driven
+              front door for product work, not a polite suggestion box.
+            </p>
+          </div>
+
+          <aside class="frog-card" aria-label="OpenReactor mascot note">
+            <svg
+              class="frog-portrait"
+              viewBox="0 0 180 140"
+              role="img"
+              aria-labelledby="frog-portrait-title frog-portrait-desc"
+            >
+              <title id="frog-portrait-title">OpenReactor frog mascot</title>
+              <desc id="frog-portrait-desc">
+                A cheerful frog sticker with bright eyes and a slight bounce.
+              </desc>
+              <ellipse class="frog-shadow" cx="90" cy="121" rx="42" ry="10" />
+              <path
+                class="frog-leg"
+                d="M39 93c-14 7-20 19-16 27 5 8 17 6 31-4 12-8 18-17 16-24-2-8-13-8-31 1Z"
+              />
+              <path
+                class="frog-leg"
+                d="M141 93c14 7 20 19 16 27-5 8-17 6-31-4-12-8-18-17-16-24 2-8 13-8 31 1Z"
+              />
+              <rect class="frog-body" x="48" y="48" width="84" height="44" rx="22" />
+              <circle class="frog-head" cx="90" cy="65" r="30" />
+              <circle class="frog-eye" cx="71" cy="40" r="13" />
+              <circle class="frog-eye" cx="109" cy="40" r="13" />
+              <circle class="frog-eye-white" cx="71" cy="40" r="8" />
+              <circle class="frog-eye-white" cx="109" cy="40" r="8" />
+              <circle class="frog-pupil" cx="71" cy="41" r="3.5" />
+              <circle class="frog-pupil" cx="109" cy="41" r="3.5" />
+              <path class="frog-mouth" d="M76 74c4 5 9 7 14 7s10-2 14-7" />
+              <path class="frog-belly" d="M66 84c7 6 15 10 24 10s17-4 24-10" />
+              <circle class="frog-cheek" cx="61" cy="72" r="4.5" />
+              <circle class="frog-cheek" cx="119" cy="72" r="4.5" />
+            </svg>
+            <div class="frog-copy">
+              <p class="frog-card-kicker">Taste filter</p>
+              <p class="frog-card-title">The frog is finally a mascot, not just a line of text.</p>
+            </div>
+          </aside>
+
+          <section class="product-explainer" aria-labelledby="product-explainer-title">
+            <h2 class="sr-only" id="product-explainer-title">How OpenReactor works</h2>
+            <div class="product-explainer-rail" aria-label="How OpenReactor works">
+              <article class="product-explainer-step">
+                <p class="product-explainer-step-number">1</p>
+                <h3>Pressure enters the queue</h3>
+                <p>Your request becomes a structured public issue instead of disappearing into a form inbox.</p>
+              </article>
+
+              <article class="product-explainer-step">
+                <p class="product-explainer-step-number">2</p>
+                <h3>Agents judge the move</h3>
+                <p>Scope, safety, and product coherence are evaluated before anything ships.</p>
+              </article>
+
+              <article class="product-explainer-step">
+                <p class="product-explainer-step-number">3</p>
+                <h3>The branch stays public</h3>
+                <p>Accepted changes turn into visible branches and PRs. Rejections stay visible too.</p>
+              </article>
+            </div>
+
+            <div class="product-explainer-footer">
+              <p class="product-explainer-note">
+                Expect judgment, not literal execution. Strong requests explain
+                the friction and the desired shift, then leave room for the
+                best implementation.
+              </p>
+              <a class="product-explainer-link" href="/request-guide/">
+                Read the full request guide
+              </a>
+            </div>
+          </section>
+        </section>
+
+        <section class="intake-panel panel" aria-labelledby="intake-title">
+          <div class="section-head">
+            <p class="panel-kicker">Request intake</p>
+            <h2 id="intake-title">Write the next pressure point.</h2>
+            <p class="section-copy">
+              Keep the scope narrow. Name what feels bland, broken, or off, and
+              say what better should feel like after the change ships.
+            </p>
+          </div>
+
+          <form id="request-form" class="request-form" novalidate>
+            <label class="request-label" for="request">
+              <span class="request-meta-heading">Request</span>
+              <textarea
+                id="request"
+                name="request"
+                class="request-field-control request-textarea"
+                rows="7"
+                maxlength="2000"
+                minlength="20"
+                aria-describedby="request-count"
+                placeholder="Example: redesign the homepage into a more editorial layout with stronger hierarchy while keeping the intake and queue on one page."
+                required
+              ></textarea>
+            </label>
+
+            <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
+
+            <details class="request-guide" id="request-guide">
+              <summary class="request-guide-toggle">
+                <span class="request-guide-heading">
+                  <span class="request-guide-kicker">Quick framing</span>
+                  <span class="request-guide-title">Make the issue easy to judge.</span>
+                </span>
+                <span class="request-guide-icon" aria-hidden="true"></span>
+              </summary>
+
+              <div class="request-guide-content">
+                <p class="request-guide-copy">
+                  The best submissions read like a compact product note. Keep
+                  them sharp enough that an agent can translate them into one
+                  clear GitHub issue without guessing the real problem.
+                </p>
+
+                <div class="request-guide-grid">
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">Name</p>
+                    <p>Point to the actual feature, fix, or interface move.</p>
+                  </article>
+
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">Friction</p>
+                    <p>Explain what currently feels confusing, ugly, or broken.</p>
+                  </article>
+
+                  <article class="request-guide-card">
+                    <p class="request-guide-card-step">Outcome</p>
+                    <p>Describe what better looks like once the change ships.</p>
+                  </article>
+                </div>
+              </div>
+            </details>
+
+            <label class="request-label" for="github-username">
+              <span class="request-meta-heading">GitHub username (optional)</span>
+              <input
+                id="github-username"
+                name="githubUsername"
+                class="request-field-control request-input"
+                type="text"
+                inputmode="text"
+                autocomplete="username"
+                maxlength="40"
+                placeholder="@octocat"
+              />
+              <span class="request-subcopy">
+                If accepted work becomes a commit, OpenReactor can credit your
+                GitHub account as a co-author.
+              </span>
+            </label>
+
+            <label class="honeypot" aria-hidden="true">
+              <span>Website</span>
+              <input id="website" name="website" tabindex="-1" autocomplete="off" />
+            </label>
+
+            <div class="form-footer">
+              <p class="form-note">
+                The issue agent may reinterpret your wording into the best small
+                product move. Argue for the outcome, not the implementation.
+              </p>
+              <button class="submit-button" id="submit-button" type="submit">Submit</button>
+            </div>
+
+            <p id="form-status" class="status-message" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </section>
+
+      <section class="queue panel" aria-labelledby="queue-title">
+        <div class="queue-header">
+          <div class="queue-heading">
+            <h2 id="queue-title">Requests in the open</h2>
+            <p class="queue-subcopy">Watch pressure move from intake to shipping, rejection, or active review.</p>
+          </div>
+
+          <div class="queue-actions">
+            <div class="queue-view-toggle" role="group" aria-label="Queue layout">
+              <button
+                id="queue-view-board"
+                class="queue-view-button"
+                type="button"
+                data-view="board"
+                aria-pressed="true"
+              >
+                Board
+              </button>
+              <button
+                id="queue-view-list"
+                class="queue-view-button"
+                type="button"
+                data-view="list"
+                aria-pressed="false"
+              >
+                List
+              </button>
+            </div>
+
+            <a
+              id="queue-repo-link"
+              class="queue-link"
+              href="#"
+              target="_blank"
+              rel="noreferrer"
+              hidden
+            >
+              View on GitHub
+            </a>
+          </div>
+        </div>
+        <p class="queue-deck">
+          The queue is the product's visible memory: active requests stay in the working field, while completed and rejected work drops into the archive instead of disappearing.
+        </p>
 
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
           Loading queue...
         </p>
-        <ul id="queue-list" class="queue-list"></ul>
+        <p id="queue-refresh-note" class="queue-refresh-note" aria-live="polite"></p>
+        <div id="queue-board" class="queue-board" aria-label="Queue board"></div>
+        <div id="queue-table-wrap" class="queue-table-wrap" hidden>
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th scope="col">Issue</th>
+                <th scope="col">Title</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="queue-table-body"></tbody>
+          </table>
+        </div>
+        <details id="queue-archive" class="queue-archive" hidden>
+          <summary class="queue-archive-toggle">
+            <span class="queue-archive-heading">
+              <span class="queue-archive-kicker">Archive</span>
+              <span class="queue-archive-title">Completed and rejected requests</span>
+            </span>
+            <span id="queue-archive-count" class="queue-archive-count">0 requests</span>
+          </summary>
+          <ul id="queue-archive-list" class="queue-archive-list"></ul>
+        </details>
+        <nav class="queue-pagination" aria-label="Queue pages">
+          <button id="queue-newer" class="queue-pagination-button" type="button">
+            Newer
+          </button>
+          <p id="queue-page-label" class="queue-page-label" aria-live="polite">Page 1</p>
+          <button id="queue-older" class="queue-pagination-button" type="button">
+            Older
+          </button>
+        </nav>
+      </section>
+
+      <section class="reactorle panel" aria-labelledby="reactorle-title">
+        <div class="reactorle-header">
+          <div>
+            <p class="panel-kicker">Daily mini puzzle</p>
+            <h2 id="reactorle-title">Reactorle</h2>
+          </div>
+          <p class="reactorle-badge">6 guesses</p>
+        </div>
+
+        <p class="reactorle-copy">
+          A Wordle-style five-letter puzzle for the homepage. Type anywhere outside the form or use the on-screen keys.
+        </p>
+
+        <div
+          id="reactorle-status"
+          class="reactorle-status"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <div
+          id="reactorle-board"
+          class="reactorle-board"
+          role="grid"
+          aria-label="Daily five-letter puzzle board"
+        ></div>
+        <div
+          id="reactorle-keyboard"
+          class="reactorle-keyboard"
+          aria-label="Puzzle keyboard"
+        ></div>
+      </section>
+
+      <section class="leaderboard panel" aria-labelledby="leaderboard-title">
+        <div class="leaderboard-header">
+          <div>
+            <p class="panel-kicker">Merged PR authors</p>
+            <h2 id="leaderboard-title">Leaderboard</h2>
+          </div>
+          <p id="leaderboard-summary" class="leaderboard-summary">Loading leaderboard...</p>
+        </div>
+
+        <div class="leaderboard-stats" aria-label="Leaderboard statistics">
+          <article class="leaderboard-stat">
+            <span class="leaderboard-stat-label">Merged PRs</span>
+            <strong id="leaderboard-total-prs" class="leaderboard-stat-value">0</strong>
+          </article>
+
+          <article class="leaderboard-stat">
+            <span class="leaderboard-stat-label">Accounts</span>
+            <strong id="leaderboard-total-authors" class="leaderboard-stat-value">0</strong>
+          </article>
+
+          <article class="leaderboard-stat">
+            <span class="leaderboard-stat-label">Latest merge</span>
+            <strong id="leaderboard-latest-merge" class="leaderboard-stat-value">Unknown</strong>
+          </article>
+        </div>
+
+        <p id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">
+          Loading leaderboard...
+        </p>
+        <ol id="leaderboard-list" class="leaderboard-list"></ol>
       </section>
     </main>
+
+    <div
+      id="update-notice"
+      class="update-notice"
+      role="status"
+      aria-live="polite"
+      data-visible="false"
+      hidden
+    >
+      <button id="update-notice-button" class="update-notice-button" type="button">
+        Changes available. Reload page?
+      </button>
+    </div>
 
     <script type="module" src="/app.js"></script>
   </body>
