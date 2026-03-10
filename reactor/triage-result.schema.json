@@ -9,7 +9,7 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["reject", "dispatch"]
+      "enum": ["reject", "dispatch", "bank"]
     },
     "summary": {
       "type": "string",

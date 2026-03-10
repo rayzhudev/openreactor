@@ -3,6 +3,8 @@ const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
+const effortLevelField = document.querySelector("#effort-level");
+const scopeValueLabelNode = document.querySelector("#scope-value-label");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueBoard = document.querySelector("#queue-board");
 const queueTableWrap = document.querySelector("#queue-table-wrap");
@@ -94,6 +96,10 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  if (effortLevelField) {
+    effortLevelField.addEventListener("input", onEffortInput);
+    updateScopeLabel(Number(effortLevelField.value));
+  }
   setupReactorle();
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
@@ -298,6 +304,7 @@ async function onSubmit(event) {
   const request = `${formData.get("request") ?? ""}`.trim();
   const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
+  const effortLevel = Math.min(100, Math.max(0, Number(formData.get("effortLevel") ?? 50)));
   const validationError = validateRequest(request, githubUsername);
 
   if (validationError) {
@@ -307,7 +314,7 @@ async function onSubmit(event) {
     return;
   }
 
-  const payload = buildPayload(request, website, githubUsername);
+  const payload = buildPayload(request, website, githubUsername, effortLevel);
 
   try {
     const response = await fetch("/api/requests", {
@@ -332,6 +339,10 @@ async function onSubmit(event) {
 
     form.reset();
     updateRequestCount("");
+    if (effortLevelField) {
+      effortLevelField.value = "50";
+      updateScopeLabel(50);
+    }
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
     await loadQueue(1);
@@ -343,7 +354,7 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, githubUsername) {
+function buildPayload(request, website, githubUsername, effortLevel = 50) {
   const summary = summarizeRequest(request);
 
   return {
@@ -354,8 +365,28 @@ function buildPayload(request, website, githubUsername) {
     outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
     constraints: "",
     successCriteria: "",
-    notes: ""
+    notes: "",
+    effortLevel: Math.min(100, Math.max(0, Math.round(effortLevel)))
   };
+}
+
+function scopeLabelFromValue(value) {
+  if (value <= 25) return "Minimal change";
+  if (value <= 65) return "Moderate change";
+  return "Significant change";
+}
+
+function updateScopeLabel(value) {
+  if (!scopeValueLabelNode) return;
+  const label = scopeLabelFromValue(value);
+  scopeValueLabelNode.textContent = label;
+  if (effortLevelField) {
+    effortLevelField.setAttribute("aria-valuetext", label);
+  }
+}
+
+function onEffortInput(event) {
+  updateScopeLabel(Number(event.currentTarget.value));
 }
 
 function summarizeRequest(request) {

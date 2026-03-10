@@ -51,6 +51,7 @@ interface FeatureRequestInput {
   successCriteria?: string;
   notes?: string;
   website?: string;
+  effortLevel?: number;
 }
 
 interface ValidatedFeatureRequest {
@@ -63,6 +64,7 @@ interface ValidatedFeatureRequest {
   constraints: string;
   successCriteria: string;
   notes: string;
+  effortLevel: number;
 }
 
 interface GitHubIssue {
@@ -424,6 +426,12 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     };
   }
 
+  const rawEffortLevel = input.effortLevel ?? 50;
+  const effortLevel = Math.round(Number(rawEffortLevel));
+  if (!Number.isFinite(effortLevel) || effortLevel < 0 || effortLevel > 100) {
+    return { error: "Scope must be a number between 0 and 100." };
+  }
+
   const lowSignalFields: Array<[label: string, value: string]> = [
     ["Summary", summary],
     ["Problem", problem],
@@ -447,14 +455,22 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     outcome,
     constraints,
     successCriteria,
-    notes
+    notes,
+    effortLevel
   };
+}
+
+function scopeLabelFromValue(value: number): string {
+  if (value <= 25) return "Minimal change";
+  if (value <= 65) return "Moderate change";
+  return "Significant change";
 }
 
 function buildIssueBody(input: ValidatedFeatureRequest, request: Request): string {
   const url = new URL(request.url);
   const submittedAt = new Date().toISOString();
   const origin = `${url.protocol}//${url.host}`;
+  const scopeLabel = scopeLabelFromValue(input.effortLevel);
 
   return [
     REQUEST_MARKER,
@@ -467,6 +483,9 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     "",
     "## Desired Outcome",
     input.outcome,
+    "",
+    "## Desired Scope",
+    `${input.effortLevel} / 100 — ${scopeLabel}`,
     "",
     "## Constraints",
     input.constraints || "_None provided._",

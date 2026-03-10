@@ -175,6 +175,7 @@ Each new issue now goes through a cheap lightweight triage agent first. Only
 issues that triage dispatches are handed off to an implementation tool. UI-heavy
 work can be routed to a Claude UI agent, while everything else goes to the
 standard Codex issue agent.
+
 Run files under `.openreactor/runs/issue-*` include:
 
 - `plan.json` for structured decision state
