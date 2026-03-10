@@ -30,3 +30,6 @@
 
 - Decision: include `agent-browser` in the issue-agent environment and prompt agents to use it for UI verification.
   Reason: the local reactor loop needs a cheap way to validate rendered changes, not just file diffs, when agents modify the site.
+
+- Decision: use native GitHub issue comments as the public discussion layer for queued requests until the product has an application-backed backend.
+  Reason: it adds visible feedback and acceptance signal without introducing new persistence or moderation infrastructure during the MVP intake loop.

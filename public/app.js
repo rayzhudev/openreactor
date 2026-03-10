@@ -265,7 +265,7 @@ function renderQueue(items, repoUrl) {
 
     const link = document.createElement("a");
     link.className = "queue-item-link";
-    link.href = item.url;
+    link.href = item.commentUrl || item.url;
     link.target = "_blank";
     link.rel = "noreferrer";
 
@@ -293,11 +293,25 @@ function renderQueue(items, repoUrl) {
     meta.title = item.createdAt;
     meta.textContent = formatSubmissionTimestamp(item.createdAt);
 
+    const discussion = document.createElement("div");
+    discussion.className = "queue-item-discussion";
+
+    const commentCount = document.createElement("span");
+    commentCount.className = "queue-item-comment-count";
+    commentCount.textContent = formatCommentCount(item.commentCount);
+
+    const commentHint = document.createElement("span");
+    commentHint.className = "queue-item-comment-hint";
+    commentHint.textContent =
+      item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
+
+    discussion.append(commentCount, commentHint);
+
     const cta = document.createElement("span");
     cta.className = "queue-item-cta";
-    cta.textContent = "Open on GitHub";
+    cta.textContent = "Open issue and comment on GitHub";
 
-    link.append(top, title, meta, cta);
+    link.append(top, title, meta, discussion, cta);
     row.append(link);
     fragment.append(row);
   }
@@ -404,6 +418,11 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function formatCommentCount(value) {
+  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${count} comment${count === 1 ? "" : "s"}`;
 }
 
 async function readJsonResponse(response, context) {
