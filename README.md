@@ -70,6 +70,7 @@ What is live now:
 - structured request form
 - GitHub issue creation
 - public queue view backed by GitHub issues
+- GitHub-backed support counts and signed-in support actions when website OAuth is configured
 - local reactor loop for autonomous issue handling
 
 The website/backend and the reactor are separate:
