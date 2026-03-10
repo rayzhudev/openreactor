@@ -11,9 +11,13 @@ const queueRepoLink = document.querySelector("#queue-repo-link");
 const queueNewerButton = document.querySelector("#queue-newer");
 const queueOlderButton = document.querySelector("#queue-older");
 const queuePageLabelNode = document.querySelector("#queue-page-label");
-
 const SUBMIT_BUTTON_LABEL = "Submit";
 const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
+const updateNotice = document.querySelector("#update-notice");
+const updateNoticeButton = document.querySelector("#update-notice-button");
+
+const DEPLOY_CHECK_INTERVAL_MS = 60_000;
+const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
 const QUEUE_POLL_INTERVAL_MS = 30_000;
 
 let queueEtag = "";
@@ -25,12 +29,16 @@ const queueState = {
   hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
   hasNextPage: false
 };
+let deployFingerprint = "";
+let deployCheckTimer = 0;
+let updateAvailable = false;
 
 boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
   updateRequestCount(requestField.value);
   queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
@@ -42,6 +50,113 @@ async function boot() {
   });
   await Promise.all([loadRepoMeta(), loadQueue(queueState.page)]);
   startQueuePolling();
+}
+
+function initDeployWatcher() {
+  if (!updateNotice || !updateNoticeButton) {
+    return;
+  }
+
+  updateNoticeButton.addEventListener("click", reloadForUpdate);
+  window.addEventListener("focus", checkForDeployUpdate);
+  window.addEventListener("online", checkForDeployUpdate);
+
+  deployCheckTimer = window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      void checkForDeployUpdate();
+    }
+  }, DEPLOY_CHECK_INTERVAL_MS);
+
+  void primeDeployFingerprint();
+}
+
+async function primeDeployFingerprint() {
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (fingerprint) {
+    deployFingerprint = fingerprint;
+  }
+}
+
+async function checkForDeployUpdate() {
+  if (updateAvailable) {
+    return;
+  }
+
+  const fingerprint = await fetchDeployFingerprint();
+
+  if (!fingerprint) {
+    return;
+  }
+
+  if (!deployFingerprint) {
+    deployFingerprint = fingerprint;
+    return;
+  }
+
+  if (fingerprint !== deployFingerprint) {
+    showUpdateNotice();
+  }
+}
+
+async function fetchDeployFingerprint() {
+  try {
+    const resources = await Promise.all(DEPLOY_CHECK_PATHS.map((path) => fetchDeployResource(path)));
+    return hashString(resources.join("\n/* openreactor-deploy */\n"));
+  } catch {
+    return "";
+  }
+}
+
+async function fetchDeployResource(path) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("__openreactor", `${Date.now()}`);
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to check ${path}.`);
+  }
+
+  return response.text();
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `${hash >>> 0}`;
+}
+
+function showUpdateNotice() {
+  updateAvailable = true;
+  updateNotice.hidden = false;
+  updateNotice.dataset.visible = "true";
+  updateNoticeButton.focus({ preventScroll: true });
+  stopDeployWatcher();
+}
+
+function stopDeployWatcher() {
+  if (deployCheckTimer) {
+    window.clearInterval(deployCheckTimer);
+    deployCheckTimer = 0;
+  }
+
+  window.removeEventListener("focus", checkForDeployUpdate);
+  window.removeEventListener("online", checkForDeployUpdate);
+}
+
+function reloadForUpdate() {
+  window.location.reload();
 }
 
 function onRequestInput(event) {
@@ -304,7 +419,7 @@ function renderQueue(data) {
 
     const link = document.createElement("a");
     link.className = "queue-item-link";
-    link.href = item.url;
+    link.href = item.commentUrl || item.url;
     link.target = "_blank";
     link.rel = "noreferrer";
 
@@ -332,11 +447,25 @@ function renderQueue(data) {
     meta.title = item.createdAt;
     meta.textContent = formatSubmissionTimestamp(item.createdAt);
 
+    const discussion = document.createElement("div");
+    discussion.className = "queue-item-discussion";
+
+    const commentCount = document.createElement("span");
+    commentCount.className = "queue-item-comment-count";
+    commentCount.textContent = formatCommentCount(item.commentCount);
+
+    const commentHint = document.createElement("span");
+    commentHint.className = "queue-item-comment-hint";
+    commentHint.textContent =
+      item.commentCount > 0 ? "Discussion already started on GitHub." : "Be the first to add context on GitHub.";
+
+    discussion.append(commentCount, commentHint);
+
     const cta = document.createElement("span");
     cta.className = "queue-item-cta";
-    cta.textContent = "Open on GitHub";
+    cta.textContent = "Open issue and comment on GitHub";
 
-    link.append(top, title, meta, cta);
+    link.append(top, title, meta, discussion, cta);
     row.append(link);
     fragment.append(row);
   }
@@ -392,8 +521,10 @@ function onVisibilityChange() {
     return;
   }
 
+  void checkForDeployUpdate();
+
   if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
-    loadQueue(queueState.page, { silent: true });
+    void loadQueue(queueState.page, { silent: true });
   }
 }
 
@@ -448,6 +579,11 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function formatCommentCount(value) {
+  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${count} comment${count === 1 ? "" : "s"}`;
 }
 
 async function readJsonResponse(response, context) {
