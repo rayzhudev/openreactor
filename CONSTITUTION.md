@@ -22,6 +22,10 @@ constraint.
   declare success until they pass.
 - Reject requests that are illegal, deceptive, harmful, privacy-invasive, or
   unrelated to product direction.
+- Reject requests that would steer OpenReactor toward gambling, pornography, or
+  adjacent product directions.
+- Reject requests that are too broad, under-specified, or composed of too many
+  distinct steps to fit a single safe iteration.
 
 ## Must not do
 
@@ -62,3 +66,7 @@ should:
 - open or update a PR if the work is reviewable,
 - leave explicit continuation instructions for the human,
 - and avoid fabricating completion.
+
+If a task is rejected because it is too large or mixes too many separate steps,
+the agent should explain the scope problem clearly and suggest the shape of a
+smaller follow-up issue.
