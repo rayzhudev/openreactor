@@ -73,6 +73,8 @@ async function ensurePr(args: string[]): Promise<void> {
   const bodyFile = requireStringArg(args, "--body-file");
   const base = optionalStringArg(args, "--base") || "main";
   const cwd = optionalStringArg(args, "--cwd") || process.cwd();
+  const autoMerge = !hasFlag(args, "--no-auto-merge");
+  const mergeMethod = optionalStringArg(args, "--merge-method") || "squash";
   const token = resolveGitHubToken();
 
   await pushBranchWithToken({
@@ -104,11 +106,21 @@ async function ensurePr(args: string[]): Promise<void> {
 
   const existing = JSON.parse(existingJson) as Array<{ number: number; url: string }>;
   if (existing[0]) {
+    if (autoMerge) {
+      await enableAutoMerge({
+        owner: config.owner,
+        repo: config.repo,
+        prNumber: existing[0].number,
+        mergeMethod
+      });
+    }
+
     console.log(
       JSON.stringify(
         {
           issueNumber,
           branchName,
+          autoMergeEnabled: autoMerge,
           prNumber: existing[0].number,
           prUrl: existing[0].url
         },
@@ -140,17 +152,99 @@ async function ensurePr(args: string[]): Promise<void> {
     }
   );
 
+  const prNumber = await resolvePullRequestNumber(config.owner, config.repo, branchName);
+  if (autoMerge) {
+    await enableAutoMerge({
+      owner: config.owner,
+      repo: config.repo,
+      prNumber,
+      mergeMethod
+    });
+  }
+
   console.log(
     JSON.stringify(
       {
         issueNumber,
         branchName,
+        autoMergeEnabled: autoMerge,
+        prNumber,
         prUrl: createdStdout.trim()
       },
       null,
       2
     )
   );
+}
+
+async function resolvePullRequestNumber(
+  owner: string,
+  repo: string,
+  branchName: string
+): Promise<number> {
+  const { stdout } = await execFileAsync(
+    "gh",
+    [
+      "pr",
+      "list",
+      "--repo",
+      `${owner}/${repo}`,
+      "--head",
+      branchName,
+      "--state",
+      "open",
+      "--json",
+      "number"
+    ],
+    {
+      env: process.env
+    }
+  );
+
+  const pullRequests = JSON.parse(stdout) as Array<{ number: number }>;
+  if (!pullRequests[0]?.number) {
+    throw new Error(`Unable to resolve PR number for branch ${branchName}.`);
+  }
+
+  return pullRequests[0].number;
+}
+
+async function enableAutoMerge(input: {
+  owner: string;
+  repo: string;
+  prNumber: number;
+  mergeMethod: string;
+}): Promise<void> {
+  const mergeMethodFlag = toMergeMethodFlag(input.mergeMethod);
+  await execFileAsync(
+    "gh",
+    [
+      "pr",
+      "merge",
+      "--repo",
+      `${input.owner}/${input.repo}`,
+      "--auto",
+      mergeMethodFlag,
+      String(input.prNumber)
+    ],
+    {
+      env: process.env
+    }
+  );
+}
+
+function toMergeMethodFlag(mergeMethod: string): "--merge" | "--rebase" | "--squash" {
+  switch (mergeMethod.trim().toLowerCase()) {
+    case "merge":
+      return "--merge";
+    case "rebase":
+      return "--rebase";
+    case "squash":
+    case "":
+      return "--squash";
+    default:
+      throw new Error(`Unsupported merge method: ${mergeMethod}`);
+  }
 }
 
 async function pushBranchWithToken(input: {
@@ -227,6 +321,10 @@ function optionalStringArg(args: string[], name: string): string {
   return args[index + 1] ?? "";
 }
 
+function hasFlag(args: string[], name: string): boolean {
+  return args.includes(name);
+}
+
 function printHelp(): void {
   console.log(
     [
@@ -234,10 +332,11 @@ function printHelp(): void {
       "",
       "Commands:",
       "  ensure-plan --issue <number> --title <title> --branch <branch> [--run-dir <dir>]",
-      "  ensure-pr --issue <number> --branch <branch> --title <title> --body-file <file> [--base main] [--cwd <dir>]",
+      "  ensure-pr --issue <number> --branch <branch> --title <title> --body-file <file> [--base main] [--cwd <dir>] [--merge-method squash] [--no-auto-merge]",
       "",
       "Notes:",
-      "  ensure-pr pushes over HTTPS using GITHUB_TOKEN/GH_TOKEN, so reactor runs publish branches as the GitHub App rather than the machine's SSH identity."
+      "  ensure-pr pushes over HTTPS using GITHUB_TOKEN/GH_TOKEN, so reactor runs publish branches as the GitHub App rather than the machine's SSH identity.",
+      "  Auto-merge is enabled by default. Pass --no-auto-merge when the PR should wait for human or manual review."
     ].join("\n")
   );
 }

@@ -80,6 +80,7 @@ If accepted and fully complete:
 
 - ensure the branch is pushed
 - open or update a PR
+- enable auto-merge unless the PR needs human intervention or manual review
 - add the `accepted` label
 - remove the `or:running` label
 - leave a concise issue comment linking the PR
@@ -96,6 +97,12 @@ Use this to make PR creation idempotent:
 
 ```bash
 bun run reactor:tool ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md
+```
+
+If the PR needs human intervention or explicit manual review, opt out:
+
+```bash
+bun run reactor:tool ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md --no-auto-merge
 ```
 
 Do not use raw `git push origin ...` for the final publication step. The helper above pushes with the GitHub App token so the remote write is clearly automated.
