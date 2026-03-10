@@ -96,6 +96,15 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  const githubUsernameField = document.querySelector("#github-username");
+  if (githubUsernameField) {
+    githubUsernameField.addEventListener("input", () => {
+      if (githubUsernameField.getAttribute("aria-invalid") === "true") {
+        githubUsernameField.removeAttribute("aria-invalid");
+        setStatus("");
+      }
+    });
+  }
   if (effortLevelField) {
     effortLevelField.addEventListener("input", onEffortInput);
     updateScopeLabel(Number(effortLevelField.value));
@@ -291,6 +300,10 @@ function reloadForUpdate() {
 
 function onRequestInput(event) {
   updateRequestCount(event.currentTarget.value);
+  if (requestField.getAttribute("aria-invalid") === "true") {
+    requestField.removeAttribute("aria-invalid");
+    setStatus("");
+  }
 }
 
 async function onSubmit(event) {
@@ -309,6 +322,14 @@ async function onSubmit(event) {
 
   if (validationError) {
     setStatus(validationError, "error");
+    const isUsernameError = validationError.toLowerCase().includes("username");
+    const errorField = isUsernameError
+      ? document.querySelector("#github-username")
+      : requestField;
+    if (errorField) {
+      errorField.setAttribute("aria-invalid", "true");
+      errorField.focus();
+    }
     submitButton.disabled = false;
     submitButton.textContent = SUBMIT_BUTTON_LABEL;
     return;
@@ -339,6 +360,7 @@ async function onSubmit(event) {
 
     form.reset();
     updateRequestCount("");
+    requestField.removeAttribute("aria-invalid");
     if (effortLevelField) {
       effortLevelField.value = "50";
       updateScopeLabel(50);
@@ -456,6 +478,7 @@ function isLowSignalText(value) {
 
 function updateRequestCount(request) {
   requestCountNode.textContent = `${request.length} / 2000`;
+  requestCountNode.classList.toggle("request-count--near-limit", request.length > 1800);
 }
 
 function setStatus(message, tone) {
