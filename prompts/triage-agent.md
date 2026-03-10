@@ -33,6 +33,11 @@ Rules:
   core intake homepage. Dispatch these rather than rejecting them.
 - Bias toward escalation while OpenReactor's identity is still forming,
   especially for low-sensitivity experiments.
+- Treat the native GitHub `:+1:` reaction count on the root issue as support
+  evidence only; do not infer support from labels or comments.
+- Be stricter about letting support affect high-sensitivity requests than
+  low-sensitivity ones, and never let support override safety or feasibility
+  limits.
 - Choose `spawn_codex_planner_agent` when the issue seems directionally good but
   too large, too broad, or too multi-step for one safe implementation issue.
 - Choose `spawn_claude_ui_agent` for issues that are primarily about frontend
