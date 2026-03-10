@@ -89,6 +89,7 @@ boot();
 
 async function boot() {
   initThemePicker();
+  setupReactorle();
 
   if (!form || !requestField || !submitButton) {
     return;
@@ -109,7 +110,6 @@ async function boot() {
     effortLevelField.addEventListener("input", onEffortInput);
     updateScopeLabel(Number(effortLevelField.value));
   }
-  setupReactorle();
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -487,6 +487,10 @@ function setStatus(message, tone) {
 }
 
 function setupReactorle() {
+  if (!reactorleBoard || !reactorleKeyboard || !reactorleStatusNode) {
+    return;
+  }
+
   renderReactorleBoard();
   renderReactorleKeyboard();
   renderReactorleStatus();

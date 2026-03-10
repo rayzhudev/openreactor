@@ -27,6 +27,10 @@ Rules:
   is not ready for it yet, or the feedback should accumulate first.
 - Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially
   valuable when the evidence is strong enough for the likely sensitivity.
+- Small, fun, silly feature requests (mini-games, easter eggs, playful
+  experiments) are low-sensitivity. They belong on the `/playground/` page,
+  which exists to collect community-contributed experiments separate from the
+  core intake homepage. Dispatch these rather than rejecting them.
 - Bias toward escalation while OpenReactor's identity is still forming,
   especially for low-sensitivity experiments.
 - Choose `spawn_codex_planner_agent` when the issue seems directionally good but
