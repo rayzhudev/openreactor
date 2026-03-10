@@ -74,7 +74,6 @@ interface GitHubIssue {
   pull_request?: Record<string, unknown>;
   labels?: Array<{ name?: string }>;
 }
-
 interface GitHubIssueComment {
   body?: string;
   updated_at?: string;
@@ -89,6 +88,27 @@ interface GitHubPullRequest {
     login?: string;
     html_url?: string;
     type?: string;
+  };
+}
+
+interface GitHubRepo {
+  default_branch: string;
+  html_url: string;
+}
+
+interface GitHubCommit {
+  sha: string;
+  html_url: string;
+  commit: {
+    message: string;
+    author?: {
+      name?: string;
+      date?: string;
+    };
+    committer?: {
+      name?: string;
+      date?: string;
+    };
   };
 }
 
@@ -233,6 +253,32 @@ export async function handleLeaderboard(env: Env): Promise<Response> {
     });
   } catch (error) {
     return errorResponse("Unable to load the contributor leaderboard.", 502, error);
+  }
+}
+
+export async function handleUpdatesFeed(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
+    return xmlResponse(buildUpdatesFeed([], request, null), 503);
+  }
+
+  try {
+    const repo = await githubRequestWithFallback<GitHubRepo>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}`
+    );
+    const commits = await githubRequestWithFallback<GitHubCommit[]>(
+      normalized,
+      `/repos/${normalized.GITHUB_OWNER}/${normalized.GITHUB_REPO}/commits?sha=${encodeURIComponent(
+        repo.default_branch
+      )}&per_page=12`
+    );
+
+    return xmlResponse(buildUpdatesFeed(commits, request, repo.html_url));
+  } catch (error) {
+    console.error("Unable to build updates feed.", error);
+    return xmlResponse(buildUpdatesFeed([], request, getRepoUrl(normalized)), 502);
   }
 }
 
@@ -779,6 +825,16 @@ function jsonResponse(
   });
 }
 
+function xmlResponse(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "Content-Type": "application/rss+xml; charset=utf-8",
+      "Cache-Control": "public, max-age=300"
+    }
+  });
+}
+
 function errorResponse(message: string, status: number, error: unknown): Response {
   console.error(message, error);
   return jsonResponse({ error: message }, status);
@@ -790,6 +846,91 @@ function corsHeaders(): Record<string, string> {
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type"
   };
+}
+
+function buildUpdatesFeed(commits: GitHubCommit[], request: Request, repoUrl: string | null): string {
+  const siteUrl = new URL(request.url);
+  const homeUrl = `${siteUrl.protocol}//${siteUrl.host}/`;
+  const feedUrl = request.url;
+  const sourceUrl = repoUrl || homeUrl;
+  const latestDate = commits[0]?.commit.committer?.date || commits[0]?.commit.author?.date;
+
+  const items = commits
+    .map((commit) => {
+      const title = firstLine(commit.commit.message) || `Update ${commit.sha.slice(0, 7)}`;
+      const descriptionParts = [
+        `Commit ${commit.sha.slice(0, 7)}`,
+        commit.commit.author?.name || commit.commit.committer?.name || "OpenReactor"
+      ];
+      const detail = remainingLines(commit.commit.message);
+      if (detail) {
+        descriptionParts.push(detail);
+      }
+
+      return [
+        "<item>",
+        `<title>${escapeXml(title)}</title>`,
+        `<link>${escapeXml(commit.html_url)}</link>`,
+        `<guid>${escapeXml(commit.html_url)}</guid>`,
+        `<description>${escapeXml(descriptionParts.join(" \u2014 "))}</description>`,
+        `<pubDate>${escapeXml(
+          new Date(commit.commit.committer?.date || commit.commit.author?.date || Date.now()).toUTCString()
+        )}</pubDate>`,
+        "</item>"
+      ].join("");
+    })
+    .join("");
+
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0">',
+    "<channel>",
+    "<title>OpenReactor website updates</title>",
+    `<link>${escapeXml(homeUrl)}</link>`,
+    "<description>Subscribe to OpenReactor site updates sourced from the repository default branch.</description>",
+    `<atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />`,
+    `<docs>https://www.rssboard.org/rss-specification</docs>`,
+    `<generator>OpenReactor</generator>`,
+    `<language>en-us</language>`,
+    `<lastBuildDate>${escapeXml(new Date(latestDate || Date.now()).toUTCString())}</lastBuildDate>`,
+    `<managingEditor>noreply@openreactor.net (OpenReactor)</managingEditor>`,
+    `<webMaster>noreply@openreactor.net (OpenReactor)</webMaster>`,
+    `<ttl>5</ttl>`,
+    items ||
+      [
+        "<item>",
+        "<title>OpenReactor updates feed initialized</title>",
+        `<link>${escapeXml(sourceUrl)}</link>`,
+        `<guid>${escapeXml(feedUrl)}#initialized</guid>`,
+        "<description>The feed is live and will list new website updates as commits land on the default branch.</description>",
+        `<pubDate>${escapeXml(new Date().toUTCString())}</pubDate>`,
+        "</item>"
+      ].join(""),
+    "</channel>",
+    "</rss>"
+  ].join("");
+}
+
+function firstLine(value: string): string {
+  return value.split("\n")[0]?.trim() ?? "";
+}
+
+function remainingLines(value: string): string {
+  return value
+    .split("\n")
+    .slice(1)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function clean(value?: string): string {
