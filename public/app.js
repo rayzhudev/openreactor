@@ -1180,7 +1180,6 @@ function renderQueueBoard(items) {
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
     lane.className = "queue-lane";
-    lane.dataset.status = column.key;
 
     const header = document.createElement("div");
     header.className = "queue-lane-header";
@@ -1192,11 +1191,7 @@ function renderQueueBoard(items) {
     heading.className = "queue-lane-title";
     heading.textContent = column.label;
 
-    const description = document.createElement("p");
-    description.className = "queue-lane-description";
-    description.textContent = column.description;
-
-    titleBlock.append(heading, description);
+    titleBlock.append(heading);
 
     const count = document.createElement("span");
     count.className = "queue-lane-count";
@@ -1252,6 +1247,7 @@ function renderQueueTable(items) {
     titleCell.append(titleLink);
 
     const statusCell = document.createElement("td");
+    statusCell.className = "queue-table-status-cell";
     const status = document.createElement("span");
     status.className = "queue-item-status";
     status.dataset.status = item.status;
@@ -1259,13 +1255,13 @@ function renderQueueTable(items) {
     statusCell.append(status);
 
     const submittedCell = document.createElement("td");
-  const submittedTime = document.createElement("time");
-  submittedTime.className = "queue-table-time";
-  submittedTime.dateTime = item.createdAt;
-  submittedTime.title = item.createdAt;
-  const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
-  submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
-  submittedCell.append(submittedTime);
+    const submittedTime = document.createElement("time");
+    submittedTime.className = "queue-table-time";
+    submittedTime.dateTime = item.createdAt;
+    submittedTime.title = item.createdAt;
+    const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
+    submittedTime.textContent = queueDetail || formatShortDate(item.createdAt);
+    submittedCell.append(submittedTime);
 
     row.append(issueCell, titleCell, statusCell, submittedCell);
     fragment.append(row);
@@ -1289,8 +1285,36 @@ function renderQueueArchive(items, total = items.length) {
 
   for (const item of items) {
     const row = document.createElement("li");
-    row.className = "queue-card";
-    row.append(createQueueCardLink(item));
+    row.className = "queue-archive-item";
+
+    const link = document.createElement("a");
+    link.className = "queue-archive-link";
+    link.href = item.commentUrl || item.url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+
+    const issue = document.createElement("span");
+    issue.className = "queue-archive-issue";
+    issue.textContent = `#${item.number}`;
+
+    const title = document.createElement("span");
+    title.className = "queue-archive-title";
+    title.textContent = item.title;
+
+    const statusWrap = document.createElement("span");
+    statusWrap.className = "queue-archive-status";
+    statusWrap.dataset.status = item.status;
+
+    const dot = document.createElement("span");
+    dot.className = "queue-archive-dot";
+    dot.dataset.status = item.status;
+
+    const statusLabel = document.createElement("span");
+    statusLabel.textContent = formatStatus(item.status);
+
+    statusWrap.append(dot, statusLabel);
+    link.append(issue, title, statusWrap);
+    row.append(link);
     fragment.append(row);
   }
 
@@ -1306,24 +1330,11 @@ function renderQueueArchive(items, total = items.length) {
 
 function createQueueCardLink(item) {
   const link = document.createElement("a");
-  link.className = "queue-card-link";
+  link.className = "queue-item-link";
   link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";
-
-  const top = document.createElement("div");
-  top.className = "queue-item-top";
-
-  const issue = document.createElement("span");
-  issue.className = "queue-item-issue";
-  issue.textContent = `Issue #${item.number}`;
-
-  const status = document.createElement("span");
-  status.className = "queue-item-status";
-  status.dataset.status = item.status;
-  status.textContent = formatStatus(item.status);
-
-  top.append(issue, status);
+  link.dataset.status = item.status;
 
   const title = document.createElement("span");
   title.className = "queue-item-title";
@@ -1331,6 +1342,11 @@ function createQueueCardLink(item) {
 
   const meta = document.createElement("div");
   meta.className = "queue-item-meta";
+
+  const issue = document.createElement("span");
+  issue.className = "queue-item-issue";
+  issue.textContent = `#${item.number}`;
+  meta.append(issue);
 
   if (item.githubUsername) {
     const username = document.createElement("span");
@@ -1343,7 +1359,7 @@ function createQueueCardLink(item) {
   submittedAt.className = "queue-item-submitted-at";
   submittedAt.dateTime = item.createdAt;
   submittedAt.title = item.createdAt;
-  submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
+  submittedAt.textContent = formatShortDate(item.createdAt);
   meta.append(submittedAt);
 
   const discussion = document.createElement("div");
@@ -1358,16 +1374,12 @@ function createQueueCardLink(item) {
   commentHint.textContent =
     formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
     (item.commentCount > 0
-      ? "Discussion already started on GitHub."
-      : "Be the first to add context on GitHub.");
+      ? "Discussion started."
+      : "Be the first to comment.");
 
   discussion.append(commentCount, commentHint);
 
-  const cta = document.createElement("span");
-  cta.className = "queue-item-cta";
-  cta.textContent = "Open issue and comment on GitHub";
-
-  link.append(top, title, meta, discussion, cta);
+  link.append(title, meta, discussion);
   return link;
 }
 

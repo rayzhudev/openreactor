@@ -295,8 +295,8 @@
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
           <div class="queue-heading">
+            <p class="panel-kicker">Public queue</p>
             <h2 id="queue-title">Requests in the open</h2>
-            <p class="queue-subcopy">Watch pressure move from intake to shipping, rejection, or active review.</p>
           </div>
 
           <div class="queue-actions">
@@ -333,10 +333,6 @@
             </a>
           </div>
         </div>
-        <p class="queue-deck">
-          The queue is the product's visible memory: active requests stay in the working field, while completed and rejected work drops into the archive instead of disappearing.
-        </p>
-
         <p id="queue-status" class="queue-status" role="status" aria-live="polite">
           Loading queue...
         </p>
@@ -349,7 +345,7 @@
                 <th scope="col">Issue</th>
                 <th scope="col">Title</th>
                 <th scope="col">Status</th>
-                <th scope="col">Submitted</th>
+                <th scope="col">Updated</th>
               </tr>
             </thead>
             <tbody id="queue-table-body"></tbody>
@@ -359,7 +355,6 @@
           <summary class="queue-archive-toggle">
             <span class="queue-archive-heading">
               <span class="queue-archive-kicker">Archive</span>
-              <span class="queue-archive-title">Completed and rejected requests</span>
             </span>
             <span id="queue-archive-count" class="queue-archive-count">0 requests</span>
           </summary>
