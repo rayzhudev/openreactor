@@ -238,9 +238,11 @@ function renderQueue(items, repoUrl) {
     title.className = "queue-item-title";
     title.textContent = item.title;
 
-    const meta = document.createElement("span");
+    const meta = document.createElement("time");
     meta.className = "queue-item-meta";
-    meta.textContent = formatDate(item.createdAt);
+    meta.dateTime = item.createdAt;
+    meta.title = item.createdAt;
+    meta.textContent = formatSubmissionTimestamp(item.createdAt);
 
     const cta = document.createElement("span");
     cta.className = "queue-item-cta";
@@ -307,18 +309,26 @@ function formatStatus(status) {
   return status.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatDate(value) {
+function formatSubmissionTimestamp(value) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "Unknown date";
+    return "Submitted at an unknown time";
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  const formatted = new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric"
   }).format(date);
+  const formattedTime = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short"
+  }).format(date);
+
+  return `Submitted ${formatted} at ${formattedTime}`;
 }
 
 async function readJsonResponse(response, context) {
