@@ -9,6 +9,9 @@ const requestSignalFillNode = document.querySelector("#request-signal-fill");
 const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
+const queueArchive = document.querySelector("#queue-archive");
+const queueArchiveList = document.querySelector("#queue-archive-list");
+const queueArchiveCountNode = document.querySelector("#queue-archive-count");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRepoLink = document.querySelector("#queue-repo-link");
 
@@ -238,6 +241,8 @@ function setStatus(message, tone) {
 async function loadQueue() {
   setQueueStatus("Loading queue...");
   queueList.innerHTML = "";
+  queueArchiveList.innerHTML = "";
+  queueArchive.hidden = true;
 
   try {
     const response = await fetch("/api/requests");
@@ -281,6 +286,9 @@ function renderRepoStarLink(repoUrl) {
 
 function renderQueue(items, repoUrl) {
   queueList.innerHTML = "";
+  queueArchiveList.innerHTML = "";
+  queueArchive.hidden = true;
+  queueArchive.removeAttribute("open");
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -296,6 +304,21 @@ function renderQueue(items, repoUrl) {
     return;
   }
 
+  const activeItems = items.filter((item) => item.status !== "complete" && item.status !== "rejected");
+  const archivedItems = items.filter((item) => item.status === "complete" || item.status === "rejected");
+
+  queueList.append(renderQueueItems(activeItems));
+
+  if (archivedItems.length) {
+    queueArchive.hidden = false;
+    queueArchiveCountNode.textContent = `${archivedItems.length} request${archivedItems.length === 1 ? "" : "s"}`;
+    queueArchiveList.append(renderQueueItems(archivedItems));
+  }
+
+  setQueueStatus(formatQueueStatus(activeItems.length, archivedItems.length));
+}
+
+function renderQueueItems(items) {
   const fragment = document.createDocumentFragment();
 
   for (const item of items) {
@@ -341,12 +364,14 @@ function renderQueue(items, repoUrl) {
     fragment.append(row);
   }
 
-  queueList.append(fragment);
-  setQueueStatus(`${items.length} request${items.length === 1 ? "" : "s"}.`);
+  return fragment;
 }
 
 function renderQueueError(message) {
   queueList.innerHTML = "";
+  queueArchiveList.innerHTML = "";
+  queueArchive.hidden = true;
+  queueArchive.removeAttribute("open");
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
@@ -359,6 +384,16 @@ function setQueueStatus(message, tone) {
 
 function formatStatus(status) {
   return status.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatQueueStatus(activeCount, archivedCount) {
+  const activeLabel = `${activeCount} active request${activeCount === 1 ? "" : "s"}`;
+
+  if (!archivedCount) {
+    return `${activeLabel}.`;
+  }
+
+  return `${activeLabel}, ${archivedCount} archived.`;
 }
 
 function formatSubmissionTimestamp(value) {
