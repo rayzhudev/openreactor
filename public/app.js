@@ -923,7 +923,7 @@ function renderLeaderboard(items, totals) {
   }
 
   leaderboardSummaryNode.textContent =
-    "Ranks GitHub accounts by merged pull requests authored in this repository.";
+    "Ranks credited GitHub usernames for merged pull requests in this repository.";
   const fragment = document.createDocumentFragment();
 
   for (const [index, item] of items.entries()) {
@@ -949,7 +949,12 @@ function renderLeaderboard(items, totals) {
 
     const badge = document.createElement("span");
     badge.className = "leaderboard-badge";
-    badge.textContent = item.accountType === "Bot" ? "Bot" : "Account";
+    badge.textContent =
+      item.creditSource === "issue-requester"
+        ? "Requester"
+        : item.accountType === "Bot"
+          ? "Bot"
+          : "Account";
 
     top.append(profile, badge);
 

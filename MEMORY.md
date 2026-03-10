@@ -36,3 +36,6 @@
 
 - Decision: use native GitHub issue comments as the public discussion layer for queued requests until the product has an application-backed backend.
   Reason: it adds visible feedback and acceptance signal without introducing new persistence or moderation infrastructure during the MVP intake loop.
+
+- Decision: credit merged issue-loop PRs on the public leaderboard to the requester's optional GitHub username when the issue body provides one.
+  Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
