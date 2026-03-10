@@ -27,6 +27,7 @@ slice of the autonomous backend:
 
 - polls GitHub for open issues
 - claims work with the `or:running` label
+- moves issues to `or:paused` after repeated startup failures so broken tool/config states do not loop forever
 - creates a dedicated git worktree per issue
 - spawns a fresh Codex agent for that issue
 - persists per-issue run files under `.openreactor/`
@@ -58,6 +59,8 @@ Useful environment variables:
 - `OPENREACTOR_MAX_ITERATION_RUNTIME_MS`
 - `OPENREACTOR_MAX_CONCURRENT_ISSUES`
 - `OPENREACTOR_MAX_ITERATIONS_PER_ISSUE`
+- `OPENREACTOR_MAX_START_FAILURES_PER_ISSUE`
+- `OPENREACTOR_PAUSED_LABEL`
 - `OPENREACTOR_TRIAGE_MODEL`
 - `OPENREACTOR_TRIAGE_REASONING_EFFORT`
 - `OPENREACTOR_TRIAGE_SERVICE_TIER`
@@ -66,6 +69,7 @@ Useful environment variables:
 - `OPENREACTOR_AGENT_SERVICE_TIER`
 - `OPENREACTOR_CLAUDE_UI_MODEL`
 - `OPENREACTOR_CLAUDE_UI_EFFORT`
+- `OPENREACTOR_CLAUDE_UI_BIN`
 
 Leave the `*_SERVICE_TIER` variables unset unless you have a known-good tier for the installed Codex CLI and account. The default reactor behavior is to omit `service_tier` entirely.
 

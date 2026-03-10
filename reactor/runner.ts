@@ -60,6 +60,7 @@ export interface RunRecord {
   agentTool?: AgentToolName;
   status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
   iteration: number;
+  startFailureCount?: number;
   createdAt: string;
   updatedAt: string;
   lastHeartbeatAt: string;
@@ -238,6 +239,7 @@ export async function createInitialRunRecord(
     branchName: paths.branchName,
     status: "running",
     iteration: 0,
+    startFailureCount: 0,
     createdAt: now,
     updatedAt: now,
     lastHeartbeatAt: now,
@@ -381,6 +383,87 @@ async function spawnCodexIssueAgent(input: {
     agentTool: "spawn_codex_issue_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
+    updatedAt: new Date().toISOString(),
+    lastHeartbeatAt: new Date().toISOString(),
+    lastError: ""
+  };
+  await writeRunRecord(paths, record);
+
+  const heartbeatTimer = setInterval(() => {
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    void writeRunRecord(paths, record);
+  }, 10_000);
+
+  return {
+    issue,
+    record,
+    process: child,
+    heartbeatTimer,
+    resultPath,
+    logPath,
+    startedAt: Date.now(),
+    parseResult: () => parseAgentResult(resultPath)
+  };
+}
+
+async function spawnCodexPlannerAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  const { config, issue, paths, githubToken } = input;
+  const iteration = input.record.iteration + 1;
+  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
+  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
+  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
+  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
+
+  await fs.writeFile(promptPath, prompt, "utf8");
+
+  const args = buildCodexArgs({
+    model: config.agentModel,
+    reasoningEffort: config.agentReasoningEffort,
+    serviceTier: config.agentServiceTier,
+    fullAccess: true,
+    outputSchemaPath: schemaPath,
+    outputPath: resultPath
+  });
+
+  const child = spawn("codex", args, {
+    cwd: paths.worktreePath,
+    env: {
+      ...process.env,
+      GH_TOKEN: githubToken,
+      GITHUB_TOKEN: githubToken,
+      OPENREACTOR_REPO_OWNER: config.owner,
+      OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+      OPENREACTOR_ISSUE_URL: issue.html_url,
+      OPENREACTOR_RUN_DIR: paths.runDir,
+      OPENREACTOR_PLAN_PATH: paths.planPath,
+      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
+      OPENREACTOR_TASKS_PATH: paths.tasksPath,
+      OPENREACTOR_BRANCH_NAME: paths.branchName,
+      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+
+  await attachProcessLogging(child, logPath);
+
+  const record: RunRecord = {
+    ...input.record,
+    agentTool: "spawn_codex_planner_agent",
+    status: "running",
+    iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
@@ -509,7 +592,7 @@ async function spawnClaudeUiIssueAgent(input: {
     runDir: paths.runDir
   });
 
-  const child = spawn("claude", args, {
+  const child = spawn(config.claudeUiBin, args, {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
@@ -538,6 +621,7 @@ async function spawnClaudeUiIssueAgent(input: {
     agentTool: "spawn_claude_ui_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
