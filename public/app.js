@@ -2,6 +2,11 @@ const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
+const requestSignalNode = document.querySelector("#request-signal");
+const requestSignalLabelNode = document.querySelector("#request-signal-label");
+const requestSignalHintNode = document.querySelector("#request-signal-hint");
+const requestSignalFillNode = document.querySelector("#request-signal-fill");
+const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
 const queueList = document.querySelector("#queue-list");
 const queueStatusNode = document.querySelector("#queue-status");
@@ -13,7 +18,13 @@ boot();
 
 async function boot() {
   form.addEventListener("submit", onSubmit);
+  requestField.addEventListener("input", onRequestInput);
+  updateRequestSignal(requestField.value);
   await Promise.all([loadRepoMeta(), loadQueue()]);
+}
+
+function onRequestInput(event) {
+  updateRequestSignal(event.currentTarget.value);
 }
 
 async function onSubmit(event) {
@@ -59,6 +70,7 @@ async function onSubmit(event) {
     }
 
     form.reset();
+    updateRequestSignal("");
     setStatus(`Request queued as issue #${data.number}.`, "success");
     requestField.focus();
     await loadQueue();
@@ -134,6 +146,73 @@ function isLowSignalText(value) {
   }
 
   return false;
+}
+
+function updateRequestSignal(request) {
+  const signal = evaluateRequestSignal(request);
+
+  requestSignalNode.dataset.tone = signal.tone;
+  requestSignalLabelNode.textContent = signal.label;
+  requestSignalHintNode.textContent = signal.hint;
+  requestSignalFillNode.style.width = `${signal.percent}%`;
+  requestCountNode.textContent = `${request.length} / 2000`;
+}
+
+function evaluateRequestSignal(request) {
+  const normalized = request.trim();
+
+  if (!normalized) {
+    return {
+      tone: "draft",
+      label: "Start with the problem and the product move you want.",
+      hint: "High-signal requests name the current friction, the desired outcome, and any constraint the agent should respect.",
+      percent: 6
+    };
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const lower = normalized.toLowerCase();
+  const hasStructure = /[\n:;-]/.test(normalized);
+  const mentionsGoal = /\b(need|want|should|because|so that|outcome|problem|constraint|fix|build)\b/.test(lower);
+
+  let score = 0;
+  score += Math.min(normalized.length, 420) / 6;
+  score += Math.min(words.length, 45);
+
+  if (hasStructure) {
+    score += 10;
+  }
+
+  if (mentionsGoal) {
+    score += 15;
+  }
+
+  const percent = Math.max(8, Math.min(100, Math.round(score)));
+
+  if (normalized.length < 40 || words.length < 7) {
+    return {
+      tone: "rough",
+      label: "Needs more signal.",
+      hint: "Add the current friction and the concrete change you want so the issue reads like a product decision, not a slogan.",
+      percent
+    };
+  }
+
+  if (normalized.length < 110 || words.length < 18 || !mentionsGoal) {
+    return {
+      tone: "clear",
+      label: "Clear enough to review.",
+      hint: "A little more detail on the desired outcome or constraints would make the request easier to implement cleanly.",
+      percent
+    };
+  }
+
+  return {
+    tone: "strong",
+    label: "High-signal request.",
+    hint: "This has enough context to survive intake and translate into an actionable GitHub issue.",
+    percent
+  };
 }
 
 function setStatus(message, tone) {
