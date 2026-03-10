@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenReactor Request Guide</title>
+    <meta
+      name="description"
+      content="How OpenReactor reviews requests and how to write a clear, high-signal feature request."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="guide-page">
+    <main class="guide-shell">
+      <nav class="top-nav" aria-label="Guide navigation">
+        <a class="top-nav-link" href="/">Back to intake</a>
+        <a class="top-nav-link" href="/#queue-title">View public queue</a>
+      </nav>
+
+      <section class="guide-hero panel" aria-labelledby="guide-title">
+        <div class="guide-hero-copy">
+          <p class="eyebrow">Request guide</p>
+          <h1 class="guide-title" id="guide-title">Write for product clarity, not approval gaming.</h1>
+          <p class="guide-summary">
+            OpenReactor does not accept requests because they use magic words. It accepts requests that are safe, scoped, and useful for the product. This guide shows how the review loop works and how to submit something an agent can act on in one pass.
+          </p>
+        </div>
+
+        <div class="guide-hero-aside">
+          <div class="guide-stat">
+            <span class="guide-stat-label">Best default</span>
+            <strong class="guide-stat-value">One issue, one change</strong>
+          </div>
+          <div class="guide-stat">
+            <span class="guide-stat-label">What helps most</span>
+            <strong class="guide-stat-value">Specific problem + desired outcome</strong>
+          </div>
+          <div class="guide-stat">
+            <span class="guide-stat-label">What hurts most</span>
+            <strong class="guide-stat-value">Vague bundles of ideas</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="guide-grid" aria-label="Guide details">
+        <article class="guide-card panel">
+          <p class="panel-kicker">How review works</p>
+          <h2>What happens after you submit</h2>
+          <ol class="guide-steps">
+            <li>Your request becomes a public GitHub issue.</li>
+            <li>An issue agent decides whether the request fits the product and current scope.</li>
+            <li>If accepted, the agent may narrow or reinterpret the request into the best product change.</li>
+            <li>If rejected, the issue stays public with the reason, so the queue remains inspectable.</li>
+          </ol>
+          <p class="guide-note">
+            Acceptance is based on product fit, safety, and scope. It is not a promise that every well-written request ships exactly as written.
+          </p>
+        </article>
+
+        <article class="guide-card panel">
+          <p class="panel-kicker">What to include</p>
+          <h2>The ingredients of a strong request</h2>
+          <ul class="guide-list">
+            <li>Ask for one change only. Split separate ideas into separate issues.</li>
+            <li>Name the problem, not just the feature. Explain what is missing or frustrating today.</li>
+            <li>Describe the outcome you want users to see if the change ships.</li>
+            <li>Add constraints when they matter, such as mobile support, copy limits, or no new infrastructure.</li>
+            <li>Give a success test. State what would make you say the request is actually done.</li>
+          </ul>
+        </article>
+
+        <article class="guide-card panel">
+          <p class="panel-kicker">What to avoid</p>
+          <h2>Common reasons requests lose signal</h2>
+          <ul class="guide-list">
+            <li>Bundling a landing page redesign, onboarding changes, and analytics into one request.</li>
+            <li>Using broad prompts like "make it better" or "add more documentation" without saying where or why.</li>
+            <li>Dictating implementation details when the real need is a user outcome.</li>
+            <li>Depending on secrets, private services, or infrastructure the product does not have.</li>
+            <li>Repeating filler text instead of describing a real problem in plain language.</li>
+          </ul>
+        </article>
+
+        <article class="guide-card panel">
+          <p class="panel-kicker">Simple framing</p>
+          <h2>A format that works well</h2>
+          <div class="guide-template" aria-label="Request template">
+            <p><strong>Summary:</strong> One sentence on the change you want.</p>
+            <p><strong>Problem:</strong> What is broken, unclear, or missing right now?</p>
+            <p><strong>Desired outcome:</strong> What should be true after the change?</p>
+            <p><strong>Constraints:</strong> Any limits that matter?</p>
+            <p><strong>Success criteria:</strong> How should OpenReactor judge completion?</p>
+          </div>
+          <p class="guide-note">
+            The intake form uses one text field today. You do not need exact headings, but include these ingredients in the request body.
+          </p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
