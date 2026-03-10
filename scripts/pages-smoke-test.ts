@@ -24,6 +24,23 @@ interface CreateResponse {
   error?: string;
 }
 
+interface QueueItem {
+  number?: number;
+  title?: string;
+  url?: string;
+  createdAt?: string;
+  status?: string;
+}
+
+interface QueueResponse {
+  items?: QueueItem[];
+  repoUrl?: string | null;
+  page?: number;
+  pageSize?: number;
+  hasPreviousPage?: boolean;
+  hasNextPage?: boolean;
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const baseUrl = options.baseUrl.replace(/\/$/, "");
@@ -43,6 +60,27 @@ async function main(): Promise<void> {
   const meta = await getJson<MetaResponse>(`${baseUrl}/api/meta`);
   assert(meta.configured === true, "Meta endpoint reported configured !== true.");
   assert(Boolean(meta.repoUrl), "Meta endpoint did not expose a repoUrl.");
+
+  const queue = await getJson<QueueResponse>(`${baseUrl}/api/requests`);
+  assert(Array.isArray(queue.items), "Queue endpoint did not return an items array.");
+  assert(Boolean(queue.repoUrl), "Queue endpoint did not expose a repoUrl.");
+  assert(queue.page === 1, `Expected queue page 1, received ${String(queue.page)}.`);
+  assert(
+    typeof queue.pageSize === "number" && queue.pageSize > 0,
+    "Queue endpoint did not return a positive pageSize."
+  );
+  assert(
+    typeof queue.hasPreviousPage === "boolean" && typeof queue.hasNextPage === "boolean",
+    "Queue endpoint did not return pagination booleans."
+  );
+  assert(queue.items.length > 0, "Queue endpoint returned no visible requests.");
+
+  const firstQueueItem = queue.items[0] ?? {};
+  assert(typeof firstQueueItem.number === "number", "Queue item did not include an issue number.");
+  assert(Boolean(firstQueueItem.title), "Queue item did not include a title.");
+  assert(Boolean(firstQueueItem.url), "Queue item did not include a URL.");
+  assert(Boolean(firstQueueItem.createdAt), "Queue item did not include a createdAt timestamp.");
+  assert(Boolean(firstQueueItem.status), "Queue item did not include a status.");
 
   const payload = buildSmokeRequest();
   const created = await postJson<CreateResponse>(`${baseUrl}/api/requests`, payload);
