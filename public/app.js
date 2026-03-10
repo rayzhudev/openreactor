@@ -7,6 +7,9 @@ const repoStarLink = document.querySelector("#repo-star-link");
 const queueBoard = document.querySelector("#queue-board");
 const queueTableWrap = document.querySelector("#queue-table-wrap");
 const queueTableBody = document.querySelector("#queue-table-body");
+const queueArchive = document.querySelector("#queue-archive");
+const queueArchiveList = document.querySelector("#queue-archive-list");
+const queueArchiveCountNode = document.querySelector("#queue-archive-count");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
@@ -56,9 +59,7 @@ const REACTORLE_WORDS = [
 const REACTORLE_KEYBOARD_ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const BOARD_COLUMNS = [
   { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
-  { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." },
-  { key: "complete", label: "Complete", description: "Closed because the work shipped." },
-  { key: "rejected", label: "Rejected", description: "Publicly declined for product reasons." }
+  { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." }
 ];
 
 let queueEtag = "";
@@ -717,7 +718,7 @@ async function loadQueue(page = 1, options = {}) {
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy(queueItems.length, page);
+      refreshQueueStatusCopy(queueItems, page);
       return;
     }
 
@@ -822,7 +823,7 @@ function renderQueue(data) {
     return;
   }
 
-  refreshQueueStatusCopy(items.length, page);
+  refreshQueueStatusCopy(items, page);
 }
 
 function renderQueueError(message) {
@@ -961,8 +962,10 @@ function onVisibilityChange() {
   }
 }
 
-function refreshQueueStatusCopy(itemCount = queueItems.length, page = queueState.page) {
-  const countLabel = `${itemCount} request${itemCount === 1 ? "" : "s"}.`;
+function refreshQueueStatusCopy(items = queueItems, page = queueState.page) {
+  const activeCount = items.filter((item) => !isArchivedQueueItem(item)).length;
+  const archivedCount = items.length - activeCount;
+  const countLabel = formatQueueCountLabel(activeCount, archivedCount);
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
@@ -1009,8 +1012,12 @@ function renderQueueView() {
     button.setAttribute("aria-pressed", String(isActive));
   }
 
-  renderQueueBoard(queueItems);
-  renderQueueTable(queueItems);
+  const activeItems = queueItems.filter((item) => !isArchivedQueueItem(item));
+  const archivedItems = queueItems.filter((item) => isArchivedQueueItem(item));
+
+  renderQueueBoard(activeItems);
+  renderQueueTable(activeItems);
+  renderQueueArchive(archivedItems);
 }
 
 function renderQueueBoard(items) {
@@ -1122,6 +1129,29 @@ function renderQueueTable(items) {
   queueTableBody.append(fragment);
 }
 
+function renderQueueArchive(items) {
+  queueArchiveList.innerHTML = "";
+  queueArchive.hidden = true;
+  queueArchive.removeAttribute("open");
+
+  if (!items.length) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.className = "queue-card";
+    row.append(createQueueCardLink(item));
+    fragment.append(row);
+  }
+
+  queueArchive.hidden = false;
+  queueArchiveCountNode.textContent = `${items.length} request${items.length === 1 ? "" : "s"}`;
+  queueArchiveList.append(fragment);
+}
+
 function createQueueCardLink(item) {
   const link = document.createElement("a");
   link.className = "queue-card-link";
@@ -1187,6 +1217,20 @@ function createQueueCardLink(item) {
 
   link.append(top, title, meta, discussion, cta);
   return link;
+}
+
+function isArchivedQueueItem(item) {
+  return item.status === "complete" || item.status === "rejected";
+}
+
+function formatQueueCountLabel(activeCount, archivedCount) {
+  const activeLabel = `${activeCount} active request${activeCount === 1 ? "" : "s"}.`;
+
+  if (!archivedCount) {
+    return activeLabel;
+  }
+
+  return `${activeLabel} ${archivedCount} archived.`;
 }
 
 function formatStatus(status) {

@@ -247,6 +247,16 @@
             <tbody id="queue-table-body"></tbody>
           </table>
         </div>
+        <details id="queue-archive" class="queue-archive" hidden>
+          <summary class="queue-archive-toggle">
+            <span class="queue-archive-heading">
+              <span class="queue-archive-kicker">Archive</span>
+              <span class="queue-archive-title">Completed and rejected requests</span>
+            </span>
+            <span id="queue-archive-count" class="queue-archive-count">0 requests</span>
+          </summary>
+          <ul id="queue-archive-list" class="queue-archive-list"></ul>
+        </details>
         <nav class="queue-pagination" aria-label="Queue pages">
           <button id="queue-newer" class="queue-pagination-button" type="button">
             Newer

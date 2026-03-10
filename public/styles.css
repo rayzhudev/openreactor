@@ -603,6 +603,70 @@ button {
   font-size: 0.9rem;
 }
 
+.queue-archive {
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.62);
+  overflow: hidden;
+}
+
+.queue-archive[open] {
+  border-color: rgba(184, 92, 56, 0.24);
+}
+
+.queue-archive-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.queue-archive-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.queue-archive-heading {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.queue-archive-kicker,
+.queue-archive-count {
+  font-family: var(--ui-font);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.queue-archive-kicker {
+  color: var(--accent-dark);
+}
+
+.queue-archive-title {
+  font-family: var(--display-font);
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.queue-archive-count {
+  color: var(--ink-soft);
+}
+
+.queue-archive-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 1rem 1rem;
+  list-style: none;
+}
+
 .queue-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1404,11 +1468,13 @@ button {
 
   .hero-title,
   .guide-title,
-  .intake-panel h2 {
+  .intake-panel h2,
+  .queue-archive-title {
     max-width: none;
   }
 
-  .queue-board {
+  .queue-board,
+  .queue-archive-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1442,7 +1508,8 @@ button {
   }
 
   .product-explainer-rail,
-  .queue-board {
+  .queue-board,
+  .queue-archive-list {
     grid-template-columns: 1fr;
   }
 
@@ -1462,7 +1529,9 @@ button {
   }
 
   .request-guide-toggle,
-  .request-guide-content {
+  .request-guide-content,
+  .queue-archive-toggle,
+  .queue-archive-list {
     padding-left: 1rem;
     padding-right: 1rem;
   }
