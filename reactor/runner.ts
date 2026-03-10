@@ -30,15 +30,26 @@ export interface HumanHandoff {
   instructions: string;
 }
 
+export interface DecompositionChildIssue {
+  title: string;
+  body: string;
+}
+
+export interface DecompositionPlan {
+  overview: string;
+  childIssues: DecompositionChildIssue[];
+}
+
 export interface AgentResult {
   issueNumber: number;
-  outcome: "accepted" | "rejected" | "retry";
+  outcome: "accepted" | "rejected" | "retry" | "decomposed";
   summary: string;
   branchName?: string | null;
   prUrl?: string | null;
   issueComment?: string | null;
   nextStep?: string | null;
   humanHandoff?: HumanHandoff | null;
+  decomposition?: DecompositionPlan | null;
   tests: AgentTestResult[];
 }
 
@@ -47,7 +58,7 @@ export interface RunRecord {
   issueTitle: string;
   branchName: string;
   agentTool?: AgentToolName;
-  status: "running" | "accepted" | "rejected" | "retry" | "failed";
+  status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
   iteration: number;
   createdAt: string;
   updatedAt: string;
@@ -300,6 +311,9 @@ export async function spawnIssueAgent(input: {
   githubToken: string;
 }): Promise<ActiveRun> {
   const tool = getAgentTool(input.record.agentTool);
+  if (tool.name === "spawn_codex_planner_agent") {
+    return spawnCodexPlannerAgent(input);
+  }
   if (tool.provider === "claude") {
     return spawnClaudeUiIssueAgent(input);
   }
@@ -365,6 +379,85 @@ async function spawnCodexIssueAgent(input: {
   const record: RunRecord = {
     ...input.record,
     agentTool: "spawn_codex_issue_agent",
+    status: "running",
+    iteration,
+    updatedAt: new Date().toISOString(),
+    lastHeartbeatAt: new Date().toISOString(),
+    lastError: ""
+  };
+  await writeRunRecord(paths, record);
+
+  const heartbeatTimer = setInterval(() => {
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    void writeRunRecord(paths, record);
+  }, 10_000);
+
+  return {
+    issue,
+    record,
+    process: child,
+    heartbeatTimer,
+    resultPath,
+    logPath,
+    startedAt: Date.now(),
+    parseResult: () => parseAgentResult(resultPath)
+  };
+}
+
+async function spawnCodexPlannerAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  const { config, issue, paths, githubToken } = input;
+  const iteration = input.record.iteration + 1;
+  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
+  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
+  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
+  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
+
+  await fs.writeFile(promptPath, prompt, "utf8");
+
+  const args = buildCodexArgs({
+    model: config.agentModel,
+    reasoningEffort: config.agentReasoningEffort,
+    serviceTier: config.agentServiceTier,
+    fullAccess: true,
+    outputSchemaPath: schemaPath,
+    outputPath: resultPath
+  });
+
+  const child = spawn("codex", args, {
+    cwd: paths.worktreePath,
+    env: {
+      ...process.env,
+      GH_TOKEN: githubToken,
+      GITHUB_TOKEN: githubToken,
+      OPENREACTOR_REPO_OWNER: config.owner,
+      OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+      OPENREACTOR_ISSUE_URL: issue.html_url,
+      OPENREACTOR_RUN_DIR: paths.runDir,
+      OPENREACTOR_PLAN_PATH: paths.planPath,
+      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
+      OPENREACTOR_TASKS_PATH: paths.tasksPath,
+      OPENREACTOR_BRANCH_NAME: paths.branchName,
+      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+
+  await attachProcessLogging(child, logPath);
+
+  const record: RunRecord = {
+    ...input.record,
+    agentTool: "spawn_codex_planner_agent",
     status: "running",
     iteration,
     updatedAt: new Date().toISOString(),
@@ -556,7 +649,11 @@ function buildAgentPrompt(
   const tool = getAgentTool(agentTool);
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const extraFiles =
-    agentTool === "spawn_claude_ui_agent" ? ["- prompts/ui-agent.md"] : [];
+    agentTool === "spawn_claude_ui_agent"
+      ? ["- prompts/ui-agent.md"]
+      : agentTool === "spawn_codex_planner_agent"
+        ? ["- prompts/planner-agent.md"]
+        : [];
   const toolRules =
     agentTool === "spawn_claude_ui_agent"
       ? [
@@ -564,6 +661,13 @@ function buildAgentPrompt(
           "- Use prompts/ui-agent.md as your frontend design skill equivalent while making design decisions.",
           "- Prefer tight, polished UI work over broad refactors when solving the issue."
         ]
+      : agentTool === "spawn_codex_planner_agent"
+        ? [
+            `- This issue was dispatched via ${tool.label}. Your primary job is to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.`,
+            "- Use prompts/planner-agent.md as the planning-specific rule set for this run.",
+            "- If the request is worth pursuing but too large, return `decomposed` with a structured decomposition plan instead of `rejected`.",
+            "- Do not open a PR for the oversized parent issue itself."
+          ]
       : [
           `- This issue was dispatched via ${tool.label}. Handle it as the general-purpose implementation path.`
         ];
