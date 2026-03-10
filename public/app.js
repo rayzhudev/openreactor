@@ -28,8 +28,10 @@ const queueOlderButton = document.querySelector("#queue-older");
 const queuePageLabelNode = document.querySelector("#queue-page-label");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
+const themeOptionNodes = Array.from(document.querySelectorAll(".theme-option"));
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const THEME_STORAGE_KEY = "openreactor-theme";
 const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
@@ -81,6 +83,12 @@ let reactorleState = loadReactorleState();
 boot();
 
 async function boot() {
+  initThemePicker();
+
+  if (!form || !requestField || !submitButton) {
+    return;
+  }
+
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
   setupReactorle();
@@ -103,6 +111,66 @@ async function boot() {
   });
   await Promise.all([loadRepoMeta(), loadQueue(queueState.page), loadLeaderboard()]);
   startQueuePolling();
+}
+
+function initThemePicker() {
+  if (!themeOptionNodes.length) {
+    return;
+  }
+
+  const selectedTheme = getStoredTheme();
+  renderThemeSelection(selectedTheme);
+
+  for (const node of themeOptionNodes) {
+    node.addEventListener("click", () => {
+      const nextTheme = node.dataset.themeValue === "dark" || node.dataset.themeValue === "light"
+        ? node.dataset.themeValue
+        : "system";
+
+      applyTheme(nextTheme);
+      renderThemeSelection(nextTheme);
+    });
+  }
+}
+
+function getStoredTheme() {
+  try {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+
+    if (savedTheme === "dark" || savedTheme === "light") {
+      return savedTheme;
+    }
+  } catch {}
+
+  return "system";
+}
+
+function applyTheme(theme) {
+  try {
+    if (theme === "dark" || theme === "light") {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      document.documentElement.dataset.theme = theme;
+      return;
+    }
+
+    localStorage.removeItem(THEME_STORAGE_KEY);
+    document.documentElement.removeAttribute("data-theme");
+  } catch {
+    if (theme === "dark" || theme === "light") {
+      document.documentElement.dataset.theme = theme;
+      return;
+    }
+
+    document.documentElement.removeAttribute("data-theme");
+  }
+}
+
+function renderThemeSelection(selectedTheme) {
+  for (const node of themeOptionNodes) {
+    const isActive = (node.dataset.themeValue || "system") === selectedTheme;
+    node.dataset.active = isActive ? "true" : "false";
+    node.setAttribute("aria-pressed", `${isActive}`);
+  }
 }
 
 function initDeployWatcher() {
