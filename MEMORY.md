@@ -61,3 +61,6 @@
 
 - Decision: let the watchdog open maintainer-steered `openreactor-core` repair issues when it detects a concrete OpenReactor fault that blocks issue flow.
   Reason: OpenReactor should not only recover operationally. It should also be able to route concrete faults in its own workflow back through the same autonomous issue-to-PR loop, then refresh the local services after the repair merges.
+
+- Decision: enforce a lightweight public CSS size budget through repo checks instead of pursuing ultra-tiny hard caps like 1 KiB.
+  Reason: the product's visual identity still matters, but unbounded stylesheet growth should fail validation before it lands.

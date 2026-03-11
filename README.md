@@ -280,6 +280,15 @@ cp .dev.vars.example .dev.vars
 bun run dev
 ```
 
+Validation:
+
+```bash
+bun run check
+```
+
+`bun run check` now includes a public CSS budget check so the shared stylesheet
+cannot grow past 40 KiB without failing validation.
+
 ## Deploy
 
 Set the same secrets in Cloudflare, then deploy:

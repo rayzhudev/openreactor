@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public --project-name openreactor",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && bun run check:css",
+    "check:css": "bun run ./scripts/check-css-budget.ts",
     "agent-browser:install": "agent-browser install",
     "test:ui": "npx playwright test",
     "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",
