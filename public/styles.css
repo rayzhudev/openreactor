@@ -1097,7 +1097,13 @@ button {
   animation: rise 760ms ease-out 80ms both;
 }
 
+.my-requests {
+  margin-top: 1rem;
+  animation: rise 720ms ease-out 60ms both;
+}
+
 .hero-copy,
+.my-requests,
 .queue,
 .reactorle,
 .leaderboard,
@@ -1115,6 +1121,77 @@ button {
 
 .queue-actions {
   align-items: center;
+}
+
+.my-requests-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.my-requests-note {
+  width: fit-content;
+  padding: 0.4rem 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--control-bg);
+  color: var(--ink-faint);
+  font-family: var(--ui-font);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.my-requests-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.my-requests-empty,
+.my-request-card {
+  min-width: 0;
+}
+
+.my-requests-empty,
+.my-request-card-body {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--card-bg);
+}
+
+.my-request-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.my-request-card-body {
+  height: 100%;
+}
+
+.my-request-detail {
+  color: var(--ink-soft);
+  font-family: var(--ui-font);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.my-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.my-request-link[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .queue-view-toggle {
@@ -2303,6 +2380,14 @@ button {
   .intake-panel h2 {
     max-width: none;
   }
+
+  .queue-archive-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .my-requests-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2315,6 +2400,7 @@ button {
   .topbar,
   .topbar-actions,
   .form-footer,
+  .my-requests-header,
   .queue-header,
   .queue-actions,
   .reactorle-header,
@@ -2325,6 +2411,7 @@ button {
 
   .hero-copy,
   .intake-panel,
+  .my-requests,
   .queue,
   .leaderboard,
   .reactorle,
@@ -2335,7 +2422,9 @@ button {
   }
 
   .product-explainer-rail,
-  .queue-board {
+  .queue-board,
+  .queue-archive-list,
+  .my-requests-list {
     grid-template-columns: 1fr;
   }
   .top-nav,
@@ -2346,6 +2435,7 @@ button {
 
   .repo-star-link,
   .queue-link,
+  .my-request-link,
   .top-nav-link,
   .product-explainer-link,
   .submit-button,

@@ -103,6 +103,7 @@ If rejected:
 
 - add the `rejected` label
 - remove the `or:running` label
+- make the issue comment and JSON summary name the concrete product, scope, or safety rule that caused the rejection
 - leave a concise comment explaining the product decision
 - if the issue is too large or too multi-step, explain how to break it into a
   smaller follow-up issue

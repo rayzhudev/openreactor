@@ -303,6 +303,24 @@
         </section>
       </section>
 
+      <section class="my-requests panel" aria-labelledby="my-requests-title">
+        <div class="my-requests-header">
+          <div class="queue-heading">
+            <p class="panel-kicker">Browser-local tracking</p>
+            <h2 id="my-requests-title">My requests</h2>
+            <p class="queue-subcopy">
+              Requests submitted from this browser stay pinned here, even before the public queue catches up.
+            </p>
+          </div>
+          <p class="my-requests-note">Saved in this browser only.</p>
+        </div>
+
+        <p id="my-requests-status" class="queue-status" role="status" aria-live="polite">
+          Checking this browser for saved requests...
+        </p>
+        <div id="my-requests-list" class="my-requests-list"></div>
+      </section>
+
       <section class="queue panel" aria-labelledby="queue-title">
         <div class="queue-header">
           <div class="queue-heading">
