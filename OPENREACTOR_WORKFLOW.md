@@ -29,6 +29,9 @@ maintainer consideration.
   code.
 - OpenReactor should be allowed to evolve as a process, not frozen as a rigid
   one-time design.
+- OpenReactor should supervise itself: stalled issues and repeated local
+  runtime failures should be detected, classified, and either healed
+  operationally or turned into concrete OpenReactor repair work.
 
 ## Scope
 
@@ -51,6 +54,13 @@ OpenReactor issues may still be shaped by user insight, but they should not be
 handled as ordinary public feature requests. Unless maintainer steering is
 clear, they should default toward banking, proposal handling, or explicit human
 review rather than direct autonomous implementation.
+
+One explicit exception is watchdog-generated repair work. When the local
+watchdog detects a concrete OpenReactor-core fault that is blocking normal
+issue flow, it may open a maintainer-steered `openreactor-core` repair issue so
+the reactor can fix OpenReactor itself. After that repair merges, the watchdog
+is expected to refresh the local checkout and restart the local OpenReactor
+services.
 
 ## Documentation rule
 

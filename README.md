@@ -155,7 +155,11 @@ The watchdog currently:
 - restarts the reactor service when a running issue appears stalled
 - clears retryable paused issues back into the queue after a delay
 - stops the reactor during GitHub App rate-limit loops and waits out a cooldown
-- flags non-recoverable paused issues for maintainer attention instead of retrying forever
+- opens concrete `openreactor-core` repair issues when it detects an
+  OpenReactor bug blocking issue flow
+- fast-forwards the local checkout to `origin/main` and restarts the local
+  services after a merged OpenReactor repair PR
+- flags non-recoverable failures for maintainer attention instead of retrying forever
 
 The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself

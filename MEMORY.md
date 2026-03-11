@@ -58,3 +58,6 @@
 
 - Decision: supervise the local reactor with a separate local watchdog instead of folding service-health recovery into the reactor loop itself.
   Reason: the reactor should focus on issue execution, while a watchdog can restart the service, unpause retryable issues, and escalate non-recoverable failures without entangling supervision logic into every issue run.
+
+- Decision: let the watchdog open maintainer-steered `openreactor-core` repair issues when it detects a concrete OpenReactor fault that blocks issue flow.
+  Reason: OpenReactor should not only recover operationally. It should also be able to route concrete faults in its own workflow back through the same autonomous issue-to-PR loop, then refresh the local services after the repair merges.

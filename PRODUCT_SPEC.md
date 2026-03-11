@@ -44,7 +44,7 @@ A request should be rejected/deferred if:
 - Frontend: public website for request intake and queue visibility
 - Website backend: API/backend for intake and future product features that require stored data
 - Reactor runtime: machine-local agent orchestration loop that polls GitHub, claims issues, spawns fresh agents, and retries until resolution
-- Watchdog runtime: machine-local supervisor that monitors the reactor, stalled issues, and repeated startup failures, then attempts limited self-healing
+- Watchdog runtime: machine-local supervisor that monitors the reactor, stalled issues, and repeated startup failures, attempts operational self-healing, and can emit concrete OpenReactor repair issues when the workflow itself needs to be fixed
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
 - Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state
 - Persistence (planned): application database for website/backend features that require stored data

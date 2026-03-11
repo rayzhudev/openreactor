@@ -11,6 +11,7 @@ export interface WatchdogConfig {
   serviceCooldownMs: number;
   maxAutoHealAttemptsPerIssue: number;
   reactorServiceName: string;
+  watchdogServiceName: string;
 }
 
 export function loadWatchdogConfig(repoRoot = process.cwd()): WatchdogConfig {
@@ -36,7 +37,9 @@ export function loadWatchdogConfig(repoRoot = process.cwd()): WatchdogConfig {
       2
     ),
     reactorServiceName:
-      clean(process.env.OPENREACTOR_REACTOR_SERVICE_NAME) || "openreactor-reactor.service"
+      clean(process.env.OPENREACTOR_REACTOR_SERVICE_NAME) || "openreactor-reactor.service",
+    watchdogServiceName:
+      clean(process.env.OPENREACTOR_WATCHDOG_SERVICE_NAME) || "openreactor-watchdog.service"
   };
 }
 

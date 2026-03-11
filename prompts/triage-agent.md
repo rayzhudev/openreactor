@@ -51,6 +51,9 @@ Rules:
   public feedback.
 - If an issue is labeled `openreactor-core`, treat it as an OpenReactor
   proposal rather than an ordinary product request.
+- If an `openreactor-core` issue is clearly a watchdog-generated repair request
+  for a concrete OpenReactor failure, treat it as actionable internal repair
+  work rather than banking it as a vague proposal.
 - If structured issue metadata marks the request as maintainer steering, do not
   reject or bank it solely for roadmap, product-direction, or constitution-fit
   reasons.

@@ -7,6 +7,8 @@ import { issueRuntimePaths, readRunRecord, type RunRecord } from "../reactor/run
 import { loadWatchdogConfig, type WatchdogConfig } from "./config";
 
 const WATCHDOG_COMMENT_MARKER = "<!-- openreactor:watchdog -->";
+const REPAIR_REQUEST_MARKER = "<!-- openreactor:repair-request -->";
+const OPENREACTOR_CORE_LABEL = "openreactor-core";
 
 type FailureClass =
   | "none"
@@ -31,6 +33,10 @@ interface IssueWatchdogState {
   lastEscalatedAt?: string;
   lastFailureClass?: FailureClass;
   lastSeenHead?: string;
+  repairIssueNumber?: number;
+  repairIssueOpenedAt?: string;
+  repairIssueMergedAt?: string;
+  repairDeployCompletedAt?: string;
 }
 
 interface WatchdogState {
@@ -76,8 +82,8 @@ class Watchdog {
   private async tick(): Promise<void> {
     const state = await this.readState();
     const now = new Date();
-    const serviceStatus = this.readServiceStatus();
-    const recentLogs = this.readRecentServiceLogs();
+    const serviceStatus = this.readServiceStatus(this.config.reactorServiceName);
+    const recentLogs = this.readRecentServiceLogs(this.config.reactorServiceName);
     const serviceFailure = classifyFailure(
       `${serviceStatus.activeState} ${serviceStatus.subState} ${serviceStatus.result}\n${recentLogs}`
     );
@@ -111,7 +117,7 @@ class Watchdog {
     const record = await readRunRecord(issueRuntimePaths(this.reactorConfig, issue.number));
 
     if (labels.has(this.reactorConfig.runningLabel)) {
-      await this.handleRunningIssue(issue, issueState, record, serviceStatus, now);
+      await this.handleRunningIssue(issue, issueState, record, serviceStatus, state, now);
     }
 
     if (!labels.has(this.reactorConfig.pausedLabel)) {
@@ -122,13 +128,20 @@ class Watchdog {
     issueState.lastFailureClass = failure.className;
     issueState.lastSeenHead ??= currentHead;
 
+    if (issueState.repairIssueNumber) {
+      const deployed = await this.reconcileRepairIssue(issue, issueState, state, now);
+      if (deployed) {
+        return;
+      }
+    }
+
     const pausedAt = parseDate(record?.updatedAt) ?? parseDate(issue.updated_at) ?? now;
     const pausedForMs = now.getTime() - pausedAt.getTime();
     const codeChangedSincePause = issueState.lastSeenHead !== currentHead;
 
     if (this.shouldAutoHealPausedIssue(issueState, failure, pausedForMs, codeChangedSincePause)) {
       if (!isServiceActive(serviceStatus) && serviceFailure.retryable) {
-        await this.restartService(state, "paused issue requires a healthy reactor before retry");
+        await this.restartService(state, this.config.reactorServiceName, "paused issue requires a healthy reactor before retry");
       }
 
       await this.github.removeLabel(issue.number, this.reactorConfig.pausedLabel);
@@ -151,6 +164,17 @@ class Watchdog {
       return;
     }
 
+    if (failure.requiresCodeChange && !issueState.repairIssueNumber) {
+      const repairIssueNumber = await this.ensureRepairIssue(issue, record, failure, issueState, now);
+      if (repairIssueNumber) {
+        issueState.repairIssueNumber = repairIssueNumber;
+        const deployed = await this.reconcileRepairIssue(issue, issueState, state, now);
+        if (deployed) {
+          return;
+        }
+      }
+    }
+
     if (pausedForMs < this.config.pausedEscalationMs) {
       return;
     }
@@ -171,10 +195,13 @@ class Watchdog {
         `Failure class: ${failure.className}.`,
         `Paused for: ${formatDuration(pausedForMs)}.`,
         `Auto-heal attempts used: ${issueState.autoHealAttempts}/${this.config.maxAutoHealAttemptsPerIssue}.`,
+        issueState.repairIssueNumber
+          ? `OpenReactor repair issue: #${issueState.repairIssueNumber}.`
+          : null,
         failure.requiresCodeChange
-          ? "This looks like a code or schema problem inside OpenReactor itself, so the watchdog is waiting for a maintainer fix before retrying."
+          ? "This looks like an OpenReactor-core problem. The watchdog opened or is waiting on an internal repair issue, but it still needs maintainer attention because the problem has not resolved cleanly."
           : "The watchdog could not safely recover this issue automatically and is leaving it paused until a maintainer intervenes."
-      ].join("\n")
+      ].filter(Boolean).join("\n")
     );
   }
 
@@ -183,6 +210,7 @@ class Watchdog {
     issueState: IssueWatchdogState,
     record: RunRecord | null,
     serviceStatus: ServiceStatus,
+    state: WatchdogState,
     now: Date
   ): Promise<void> {
     if (!record) {
@@ -206,7 +234,8 @@ class Watchdog {
 
     if (isServiceActive(serviceStatus)) {
       await this.restartService(
-        undefined,
+        state,
+        this.config.reactorServiceName,
         `issue #${issue.number} heartbeat stalled for ${formatDuration(stalledForMs)}`
       );
       issueState.lastAutoHealAt = now.toISOString();
@@ -232,7 +261,7 @@ class Watchdog {
 
     if (cooldownUntil && cooldownUntil.getTime() > now.getTime()) {
       if (isServiceActive(serviceStatus)) {
-        this.stopService("watchdog cooldown is active");
+        this.stopService(this.config.reactorServiceName, "watchdog cooldown is active");
         state.lastServiceActionAt = now.toISOString();
       }
       return;
@@ -240,7 +269,7 @@ class Watchdog {
 
     if (cooldownUntil && cooldownUntil.getTime() <= now.getTime()) {
       state.serviceCooldownUntil = undefined;
-      this.startService("watchdog cooldown expired");
+      this.startService(this.config.reactorServiceName, "watchdog cooldown expired");
       state.lastServiceActionAt = now.toISOString();
       return;
     }
@@ -252,7 +281,7 @@ class Watchdog {
     state.lastServiceFailureClass = failure.className;
 
     if (failure.className === "rate_limit") {
-      this.stopService("GitHub App rate limit detected");
+      this.stopService(this.config.reactorServiceName, "GitHub App rate limit detected");
       state.serviceCooldownUntil = new Date(
         now.getTime() + this.config.serviceCooldownMs
       ).toISOString();
@@ -261,7 +290,11 @@ class Watchdog {
     }
 
     if (failure.retryable) {
-      await this.restartService(state, `reactor service unhealthy (${failure.className})`);
+      await this.restartService(
+        state,
+        this.config.reactorServiceName,
+        `reactor service unhealthy (${failure.className})`
+      );
     }
   }
 
@@ -284,6 +317,167 @@ class Watchdog {
     }
 
     return failure.retryable;
+  }
+
+  private async ensureRepairIssue(
+    sourceIssue: GitHubIssue,
+    record: RunRecord | null,
+    failure: FailureInfo,
+    issueState: IssueWatchdogState,
+    now: Date
+  ): Promise<number | null> {
+    if (issueState.repairIssueNumber) {
+      return issueState.repairIssueNumber;
+    }
+
+    const body = buildRepairIssueBody(this.reactorConfig.owner, sourceIssue, record, failure);
+    const title = `[OpenReactor Repair] Resolve ${failure.className} blocking issue #${sourceIssue.number}`;
+    const created = await this.github.createIssue({
+      title,
+      body,
+      labels: [OPENREACTOR_CORE_LABEL]
+    });
+
+    issueState.repairIssueNumber = created.number;
+    issueState.repairIssueOpenedAt = now.toISOString();
+    await this.github.createComment(
+      sourceIssue.number,
+      [
+        `OpenReactor watchdog opened internal repair issue #${created.number} to fix the OpenReactor fault blocking this request.`,
+        "",
+        `Repair issue: ${created.html_url}`,
+        "Once that repair merges and the local services refresh, the watchdog will release this request back into the queue."
+      ].join("\n")
+    );
+    await this.upsertWatchdogComment(
+      sourceIssue.number,
+      [
+        "OpenReactor watchdog detected an OpenReactor-core fault and opened an internal repair issue.",
+        "",
+        `Failure class: ${failure.className}.`,
+        `Repair issue: #${created.number} ${created.html_url}.`,
+        "The reactor should work that repair issue like any other issue, then the watchdog will redeploy the local OpenReactor services after the repair PR merges."
+      ].join("\n")
+    );
+
+    return created.number;
+  }
+
+  private async reconcileRepairIssue(
+    sourceIssue: GitHubIssue,
+    issueState: IssueWatchdogState,
+    state: WatchdogState,
+    now: Date
+  ): Promise<boolean> {
+    const repairIssueNumber = issueState.repairIssueNumber;
+    if (!repairIssueNumber) {
+      return false;
+    }
+
+    const repairIssue = await this.github.getIssue(repairIssueNumber);
+    const repairBranch = issueRuntimePaths(this.reactorConfig, repairIssueNumber).branchName;
+    const pullRequest = await this.github.findPullRequestByBranch(repairBranch, "all");
+    const merged = pullRequest ? await this.github.isPullRequestMerged(pullRequest.number) : false;
+
+    if (merged) {
+      const deployed = await this.applyMergedRepair(sourceIssue, repairIssue, pullRequest?.html_url ?? "", issueState, state, now);
+      return deployed;
+    }
+
+    if (repairIssue.state === "closed") {
+      await this.upsertWatchdogComment(
+        sourceIssue.number,
+        [
+          "OpenReactor watchdog is waiting for maintainer intervention.",
+          "",
+          `Repair issue #${repairIssue.number} closed without a merged PR, so the original paused issue cannot be released automatically.`,
+          `Repair issue URL: ${repairIssue.html_url}`
+        ].join("\n")
+      );
+    }
+
+    return false;
+  }
+
+  private async applyMergedRepair(
+    sourceIssue: GitHubIssue,
+    repairIssue: GitHubIssue,
+    repairPrUrl: string,
+    issueState: IssueWatchdogState,
+    state: WatchdogState,
+    now: Date
+  ): Promise<boolean> {
+    if (issueState.repairDeployCompletedAt) {
+      await this.github.removeLabel(sourceIssue.number, this.reactorConfig.pausedLabel);
+      await this.github.removeLabel(sourceIssue.number, this.reactorConfig.runningLabel);
+      return true;
+    }
+
+    const statusOutput = execFileSync(
+      "git",
+      ["-C", this.reactorConfig.repoRoot, "status", "--porcelain"],
+      { encoding: "utf8" }
+    ).trim();
+    if (statusOutput) {
+      await this.upsertWatchdogComment(
+        sourceIssue.number,
+        [
+          "OpenReactor watchdog found a merged internal repair PR, but it cannot redeploy the local OpenReactor checkout automatically.",
+          "",
+          "Reason: the local repository has uncommitted changes.",
+          `Repair issue: #${repairIssue.number} ${repairIssue.html_url}`,
+          repairPrUrl ? `Merged PR: ${repairPrUrl}` : null
+        ].filter(Boolean).join("\n")
+      );
+      return false;
+    }
+
+    execFileSync("git", ["-C", this.reactorConfig.repoRoot, "fetch", "origin"], {
+      stdio: "ignore"
+    });
+    const currentBranch = this.currentBranch();
+    if (currentBranch !== "main") {
+      execFileSync("git", ["-C", this.reactorConfig.repoRoot, "checkout", "main"], {
+        stdio: "ignore"
+      });
+    }
+    execFileSync(
+      "git",
+      ["-C", this.reactorConfig.repoRoot, "pull", "--ff-only", "origin", "main"],
+      { stdio: "ignore" }
+    );
+
+    issueState.repairIssueMergedAt = now.toISOString();
+    issueState.repairDeployCompletedAt = now.toISOString();
+    issueState.lastSeenHead = this.currentHead();
+    state.updatedAt = now.toISOString();
+    await this.writeState(state);
+
+    await this.github.removeLabel(sourceIssue.number, this.reactorConfig.pausedLabel);
+    await this.github.removeLabel(sourceIssue.number, this.reactorConfig.runningLabel);
+    await this.upsertWatchdogComment(
+      sourceIssue.number,
+      [
+        "OpenReactor watchdog applied a merged OpenReactor repair and released this request back into the queue.",
+        "",
+        `Repair issue: #${repairIssue.number} ${repairIssue.html_url}`,
+        repairPrUrl ? `Merged PR: ${repairPrUrl}` : null,
+        "The watchdog fast-forwarded the local checkout to `origin/main` and restarted the local OpenReactor services."
+      ].filter(Boolean).join("\n")
+    );
+
+    execFileSync(
+      "systemctl",
+      [
+        "--user",
+        "restart",
+        this.config.reactorServiceName,
+        this.config.watchdogServiceName
+      ],
+      { stdio: "ignore" }
+    );
+
+    return true;
   }
 
   private issueState(state: WatchdogState, issueNumber: number): IssueWatchdogState {
@@ -317,13 +511,21 @@ class Watchdog {
     }).trim();
   }
 
-  private readServiceStatus(): ServiceStatus {
+  private currentBranch(): string {
+    return execFileSync(
+      "git",
+      ["-C", this.reactorConfig.repoRoot, "rev-parse", "--abbrev-ref", "HEAD"],
+      { encoding: "utf8" }
+    ).trim();
+  }
+
+  private readServiceStatus(serviceName: string): ServiceStatus {
     const raw = execFileSync(
       "systemctl",
       [
         "--user",
         "show",
-        this.config.reactorServiceName,
+        serviceName,
         "--property=ActiveState,SubState,Result,ExecMainPID,NRestarts",
         "--no-pager"
       ],
@@ -348,40 +550,42 @@ class Watchdog {
     };
   }
 
-  private readRecentServiceLogs(): string {
+  private readRecentServiceLogs(serviceName: string): string {
     try {
-      return execFileSync(
-        "journalctl",
-        ["--user", "-u", this.config.reactorServiceName, "-n", "80", "--no-pager"],
-        { encoding: "utf8" }
-      );
+      return execFileSync("journalctl", ["--user", "-u", serviceName, "-n", "80", "--no-pager"], {
+        encoding: "utf8"
+      });
     } catch {
       return "";
     }
   }
 
-  private async restartService(state: WatchdogState | undefined, reason: string): Promise<void> {
-    execFileSync("systemctl", ["--user", "restart", this.config.reactorServiceName], {
+  private async restartService(
+    state: WatchdogState | undefined,
+    serviceName: string,
+    reason: string
+  ): Promise<void> {
+    execFileSync("systemctl", ["--user", "restart", serviceName], {
       stdio: "ignore"
     });
     if (state) {
       state.lastServiceActionAt = new Date().toISOString();
     }
-    console.log(`Watchdog restarted ${this.config.reactorServiceName}: ${reason}`);
+    console.log(`Watchdog restarted ${serviceName}: ${reason}`);
   }
 
-  private stopService(reason: string): void {
-    execFileSync("systemctl", ["--user", "stop", this.config.reactorServiceName], {
+  private stopService(serviceName: string, reason: string): void {
+    execFileSync("systemctl", ["--user", "stop", serviceName], {
       stdio: "ignore"
     });
-    console.log(`Watchdog stopped ${this.config.reactorServiceName}: ${reason}`);
+    console.log(`Watchdog stopped ${serviceName}: ${reason}`);
   }
 
-  private startService(reason: string): void {
-    execFileSync("systemctl", ["--user", "start", this.config.reactorServiceName], {
+  private startService(serviceName: string, reason: string): void {
+    execFileSync("systemctl", ["--user", "start", serviceName], {
       stdio: "ignore"
     });
-    console.log(`Watchdog started ${this.config.reactorServiceName}: ${reason}`);
+    console.log(`Watchdog started ${serviceName}: ${reason}`);
   }
 
   private async upsertWatchdogComment(issueNumber: number, body: string): Promise<void> {
@@ -454,7 +658,7 @@ function classifyFailure(message: string): FailureInfo {
       className: "missing_binary",
       retryable: false,
       global: false,
-      requiresCodeChange: false
+      requiresCodeChange: true
     };
   }
 
@@ -490,6 +694,67 @@ function classifyFailure(message: string): FailureInfo {
     global: false,
     requiresCodeChange: false
   };
+}
+
+function buildRepairIssueBody(
+  owner: string,
+  sourceIssue: GitHubIssue,
+  record: RunRecord | null,
+  failure: FailureInfo
+): string {
+  return [
+    "<!-- openreactor:feature-request -->",
+    REPAIR_REQUEST_MARKER,
+    "",
+    "## Summary",
+    `Repair OpenReactor so issue #${sourceIssue.number} can proceed again`,
+    "",
+    "## Problem",
+    `The OpenReactor watchdog detected a concrete OpenReactor-core failure while processing issue #${sourceIssue.number}.`,
+    "",
+    `Source issue: #${sourceIssue.number} ${sourceIssue.html_url}`,
+    `Failure class: ${failure.className}`,
+    record?.lastError ? `Failure detail: ${record.lastError}` : "Failure detail: _Unavailable_",
+    "",
+    "## Desired Outcome",
+    "Fix the OpenReactor bug, configuration path, or workflow defect so the blocked source issue can be retried successfully.",
+    "",
+    "Requested change:",
+    `Repair the OpenReactor workflow so it no longer hits the detected ${failure.className} failure and can resume issue #${sourceIssue.number}.`,
+    "",
+    "## Desired Scope",
+    "Auto — Let the issue agent decide the amount of scope.",
+    "",
+    "## Constraints",
+    "- Treat this as maintainer-controlled OpenReactor work.",
+    "- Preserve the ability for OpenReactor to supervise product work safely.",
+    "- Update workflow docs or prompts if the repair changes durable OpenReactor behavior.",
+    "",
+    "## Success Criteria",
+    `- The underlying OpenReactor failure that paused issue #${sourceIssue.number} is fixed.`,
+    "- A PR is opened and merged for the repair.",
+    "- The watchdog can fast-forward the local OpenReactor checkout and restart services.",
+    `- After the repair deploys locally, issue #${sourceIssue.number} becomes eligible for the reactor again.`,
+    "",
+    "## Additional Notes",
+    "- This issue was generated automatically by the local OpenReactor watchdog.",
+    "- It is a concrete repair task, not a speculative proposal.",
+    "",
+    "## Submitted By",
+    "OpenReactor Watchdog",
+    "",
+    "## GitHub Username",
+    `@${owner}`,
+    "",
+    "## Contact",
+    "_Not provided_",
+    "",
+    "## Intake Metadata",
+    `- Origin: local watchdog`,
+    `- Source issue: #${sourceIssue.number}`,
+    `- Failure class: ${failure.className}`,
+    `- Generated at: ${new Date().toISOString()}`
+  ].join("\n");
 }
 
 function isServiceActive(status: ServiceStatus): boolean {
