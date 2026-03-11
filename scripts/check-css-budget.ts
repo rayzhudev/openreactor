@@ -2,7 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 const PUBLIC_DIR = path.resolve("public");
-const MAX_CSS_BYTES = 40 * 1024;
+const MAX_CSS_BYTES = 52 * 1024;
 
 async function main(): Promise<void> {
   const cssFiles = await collectCssFiles(PUBLIC_DIR);

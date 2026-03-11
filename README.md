@@ -287,7 +287,7 @@ bun run check
 ```
 
 `bun run check` now includes a public CSS budget check so the shared stylesheet
-cannot grow past 40 KiB without failing validation.
+cannot grow past 52 KiB without failing validation.
 
 ## Deploy
 
