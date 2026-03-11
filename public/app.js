@@ -1525,7 +1525,11 @@ function renderQueueBoard(items) {
 
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
-    lane.className = "queue-lane";
+    const columnItems = groupedItems.get(column.key) || [];
+    lane.className = columnItems.length
+      ? "queue-lane"
+      : "queue-lane queue-lane--empty";
+    lane.dataset.status = column.key;
 
     const header = document.createElement("div");
     header.className = "queue-lane-header";
@@ -1547,8 +1551,6 @@ function renderQueueBoard(items) {
 
     const list = document.createElement("ul");
     list.className = "queue-lane-list";
-
-    const columnItems = groupedItems.get(column.key) || [];
 
     if (!columnItems.length) {
       const empty = document.createElement("li");

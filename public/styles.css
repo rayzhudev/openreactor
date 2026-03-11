@@ -1473,6 +1473,10 @@ button {
   padding: 0;
 }
 
+.queue-board:has(.queue-lane--empty) {
+  grid-template-columns: minmax(140px, 200px) 1fr;
+}
+
 .queue-lane-empty {
   padding: 1.5rem 1rem;
   border: 1px dashed var(--line-strong);
