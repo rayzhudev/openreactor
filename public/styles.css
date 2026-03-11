@@ -1405,6 +1405,16 @@ button {
   text-transform: uppercase;
 }
 
+.leaderboard-stats.loading .leaderboard-stat-value {
+  color: var(--ink-faint);
+  animation: stat-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes stat-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
 .leaderboard-status {
   min-height: 1.5rem;
   font-size: 0.94rem;

@@ -19,6 +19,7 @@ const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
 const leaderboardTotalPrsNode = document.querySelector("#leaderboard-total-prs");
 const leaderboardTotalAuthorsNode = document.querySelector("#leaderboard-total-authors");
 const leaderboardLatestMergeNode = document.querySelector("#leaderboard-latest-merge");
+const leaderboardStatsNode = document.querySelector(".leaderboard-stats");
 const reactorleBoard = document.querySelector("#reactorle-board");
 const reactorleStatusNode = document.querySelector("#reactorle-status");
 const reactorleKeyboard = document.querySelector("#reactorle-keyboard");
@@ -910,6 +911,8 @@ function renderQueueError(message) {
 
 function renderLeaderboard(items, totals) {
   leaderboardList.innerHTML = "";
+  leaderboardStatsNode.classList.remove("loading");
+  leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardTotalPrsNode.textContent = `${totals.mergedPullRequests || 0}`;
   leaderboardTotalAuthorsNode.textContent = `${totals.contributors || 0}`;
   leaderboardLatestMergeNode.textContent = totals.latestMergedAt
@@ -975,9 +978,11 @@ function renderLeaderboard(items, totals) {
 
 function renderLeaderboardError(message) {
   leaderboardList.innerHTML = "";
+  leaderboardStatsNode.classList.remove("loading");
+  leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardSummaryNode.textContent = "Contributor data unavailable right now.";
-  leaderboardTotalPrsNode.textContent = "0";
-  leaderboardTotalAuthorsNode.textContent = "0";
+  leaderboardTotalPrsNode.textContent = "\u2014";
+  leaderboardTotalAuthorsNode.textContent = "\u2014";
   leaderboardLatestMergeNode.textContent = "Unavailable";
   setLeaderboardStatus(`${message} Try again later.`, "error");
 }
