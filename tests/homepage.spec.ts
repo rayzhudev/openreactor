@@ -90,7 +90,7 @@ test("renders the redesign and submits a request through the mocked API", async 
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1, name: /pressure builds the brief/i })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: /write the next pressure point/i })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /submit a request/i })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /requests in the open/i })).toBeVisible();
   await expect(page.getByText("Radically improve the homepage art direction").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /leaderboard/i })).toBeVisible();
