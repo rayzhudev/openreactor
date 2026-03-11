@@ -207,29 +207,24 @@
 
             <p id="request-count" class="request-count" aria-live="polite">0 / 2000</p>
 
-            <div class="scope-field">
-              <div class="scope-field-header">
-                <span class="request-meta-heading">Scope</span>
-                <span class="scope-value-label" id="scope-value-label">Moderate change</span>
+            <label class="request-label" for="scope-preference">
+              <span class="request-meta-heading">Desired scope</span>
+              <div class="scope-select-wrap">
+                <select
+                  id="scope-preference"
+                  name="scopePreference"
+                  class="request-field-control request-select"
+                >
+                  <option value="auto" selected>Auto — let the issue agent decide</option>
+                  <option value="25">25 / 100 — Minimal change</option>
+                  <option value="50">50 / 100 — Moderate change</option>
+                  <option value="75">75 / 100 — Significant change</option>
+                </select>
               </div>
-              <input
-                id="effort-level"
-                name="effortLevel"
-                class="scope-slider"
-                type="range"
-                min="0"
-                max="100"
-                value="50"
-                step="1"
-                aria-label="Desired scope of change"
-                aria-valuetext="Moderate change"
-              />
-              <div class="scope-ticks" aria-hidden="true">
-                <span>Minimal</span>
-                <span>Moderate</span>
-                <span>Significant</span>
-              </div>
-            </div>
+              <span class="request-subcopy">
+                Auto is the default. Use a fixed scope only when you want to signal how broad the change should be.
+              </span>
+            </label>
 
             <details class="request-guide" id="request-guide">
               <summary class="request-guide-toggle">

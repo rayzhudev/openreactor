@@ -3,8 +3,6 @@ const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
-const effortLevelField = document.querySelector("#effort-level");
-const scopeValueLabelNode = document.querySelector("#scope-value-label");
 const repoStarLink = document.querySelector("#repo-star-link");
 const myRequestsList = document.querySelector("#my-requests-list");
 const myRequestsStatusNode = document.querySelector("#my-requests-status");
@@ -121,10 +119,6 @@ async function boot() {
         setStatus("");
       }
     });
-  }
-  if (effortLevelField) {
-    effortLevelField.addEventListener("input", onEffortInput);
-    updateScopeLabel(Number(effortLevelField.value));
   }
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
@@ -379,7 +373,7 @@ async function onSubmit(event) {
   const request = `${formData.get("request") ?? ""}`.trim();
   const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
-  const effortLevel = Math.min(100, Math.max(0, Number(formData.get("effortLevel") ?? 50)));
+  const scopePreference = `${formData.get("scopePreference") ?? "auto"}`;
   const validationError = validateRequest(request, githubUsername);
 
   if (validationError) {
@@ -397,7 +391,7 @@ async function onSubmit(event) {
     return;
   }
 
-  const payload = buildPayload(request, website, githubUsername, effortLevel);
+  const payload = buildPayload(request, website, githubUsername, scopePreference);
 
   try {
     const response = await fetch("/api/requests", {
@@ -423,10 +417,6 @@ async function onSubmit(event) {
     form.reset();
     updateRequestCount("");
     requestField.removeAttribute("aria-invalid");
-    if (effortLevelField) {
-      effortLevelField.value = "50";
-      updateScopeLabel(50);
-    }
     rememberSubmittedRequest({
       number: data.number,
       url: data.url || "",
@@ -450,7 +440,7 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, githubUsername, effortLevel = 50) {
+function buildPayload(request, website, githubUsername, scopePreference = "auto") {
   const summary = summarizeRequest(request);
 
   return {
@@ -462,27 +452,12 @@ function buildPayload(request, website, githubUsername, effortLevel = 50) {
     constraints: "",
     successCriteria: "",
     notes: "",
-    effortLevel: Math.min(100, Math.max(0, Math.round(effortLevel)))
+    scopePreference: normalizeScopePreference(scopePreference)
   };
 }
 
-function scopeLabelFromValue(value) {
-  if (value <= 25) return "Minimal change";
-  if (value <= 65) return "Moderate change";
-  return "Significant change";
-}
-
-function updateScopeLabel(value) {
-  if (!scopeValueLabelNode) return;
-  const label = scopeLabelFromValue(value);
-  scopeValueLabelNode.textContent = label;
-  if (effortLevelField) {
-    effortLevelField.setAttribute("aria-valuetext", label);
-  }
-}
-
-function onEffortInput(event) {
-  updateScopeLabel(Number(event.currentTarget.value));
+function normalizeScopePreference(value) {
+  return ["auto", "25", "50", "75"].includes(value) ? value : "auto";
 }
 
 function summarizeRequest(request) {
