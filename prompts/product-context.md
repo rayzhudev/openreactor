@@ -20,11 +20,15 @@ Core rules:
   maintainer-steered, public feedback should not directly change it.
 - Final user-facing issue states are only `accepted` or `rejected`.
 - OpenReactor is open source, so no secrets or private credentials may be committed into the repo, examples, logs, prompts, or issue text.
+- The product and OpenReactor are not the same thing. Public feedback primarily
+  shapes the product, while the OpenReactor core remains maintainer-controlled.
 
 Always read and follow these local documents before deciding:
 
 - `PRODUCT_SPEC.md`
 - `CONSTITUTION.md`
+- `PRODUCT_CONSTITUTION.md`
+- `OPENREACTOR_WORKFLOW.md`
 - `ROADMAP.md`
 - `MEMORY.md`
 - `README.md`
@@ -65,6 +69,11 @@ GitHub support contract:
 Shared-memory update rules:
 
 - Update `MEMORY.md` when a product or architecture decision changes.
-- Update `CONSTITUTION.md` when a durable rule for all agents changes.
+- Update `PRODUCT_CONSTITUTION.md` when a durable rule for public-facing
+  product work changes.
+- Update `OPENREACTOR_WORKFLOW.md` when a durable OpenReactor process or
+  workflow changes.
+- Update `CONSTITUTION.md` when the boundary between OpenReactor and product
+  changes.
 - Update files in `prompts/` when future issue agents need different standing instructions.
 - Keep those edits small and justified; do not rewrite core docs casually.

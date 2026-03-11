@@ -12,7 +12,7 @@ The main goal of OpenReactor is to become a system that anyone can implement so
 their software products can evolve fully autonomously, without requiring a
 human to manually steer every feature, fix, and deployment.
 
-## The Engine
+## The OpenReactor Workflow
 
 OpenReactor works by turning software development into a living loop instead of
 a sequence of one-off tasks.
@@ -30,7 +30,7 @@ In that loop:
 6. The system preserves memory about product direction, constraints, and
    learnings so the loop gets smarter over time.
 
-That is the OpenReactor engine: intake, judgment, implementation, verification,
+That is the OpenReactor workflow: intake, judgment, implementation, verification,
 deployment, and memory all connected into one continuous system.
 
 ## Why It Matters
@@ -53,7 +53,7 @@ The system is intentionally not a literal ticket fulfiller.
 
 - Issues are product feedback, not binding specs.
 - Low-sensitivity experiments can move quickly.
-- High-sensitivity surfaces such as the homepage, brand voice, and engine
+- High-sensitivity surfaces such as the homepage, brand voice, and OpenReactor
   behavior need stronger evidence or maintainer steering.
 - Good ideas do not need to be implemented immediately; they can be stored in
   the feedback bank until more support accumulates.
@@ -81,6 +81,28 @@ The website/backend and the reactor are separate:
 
 Today, the public website deploys continuously through Cloudflare Pages, while
 the local reactor handles the autonomous issue loop on this machine.
+
+## OpenReactor vs Product
+
+The clearest split in this repo is conceptual, not folder-level:
+
+- `reactor/` and `ops/` are the OpenReactor core
+- `public/` and `functions/` are the product currently being built by OpenReactor
+
+That means the repo does **not** need a big folder rename right now. The naming
+is already serviceable once the governance boundary is explicit.
+
+What it did need was a clearer policy split:
+
+- [CONSTITUTION.md](/home/ray/projects/openreactor/CONSTITUTION.md) defines the
+  boundary
+- [PRODUCT_CONSTITUTION.md](/home/ray/projects/openreactor/PRODUCT_CONSTITUTION.md)
+  governs the public-facing product
+- [OPENREACTOR_WORKFLOW.md](/home/ray/projects/openreactor/OPENREACTOR_WORKFLOW.md)
+  describes the maintainer-controlled OpenReactor process
+
+OpenReactor issues should carry the `openreactor-core` label so they are not
+confused with normal website/product feedback.
 
 ## Running The Reactor
 
@@ -116,7 +138,7 @@ The reactor currently:
 - persists per-issue run files under `.openreactor/`
 - retries the same issue until it reaches a real terminal state
 
-The operational details below exist to support the engine. They are not the
+The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself
 autonomous.
 
@@ -232,6 +254,6 @@ bun run deploy
 See [ROADMAP.md](/home/ray/projects/openreactor/ROADMAP.md),
 [MEMORY.md](/home/ray/projects/openreactor/MEMORY.md), and
 [PRODUCT_SPEC.md](/home/ray/projects/openreactor/PRODUCT_SPEC.md) for the
-current product direction and engine rules. Deployment details live in
+current product direction and OpenReactor workflow rules. Deployment details live in
 [DEPLOYMENT.md](/home/ray/projects/openreactor/DEPLOYMENT.md). GitHub App
 settings are documented in [GITHUB_APP_SETUP.md](/home/ray/projects/openreactor/GITHUB_APP_SETUP.md).
