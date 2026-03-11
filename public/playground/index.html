@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playground - OpenReactor</title>
+    <meta
+      name="description"
+      content="Fun community features and experiments from OpenReactor."
+    />
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("openreactor-theme");
+
+        if (savedTheme === "light" || savedTheme === "dark") {
+          document.documentElement.dataset.theme = savedTheme;
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <p class="brand-mark"><a class="brand-link" href="/">OpenReactor</a></p>
+        <nav class="site-nav" aria-label="Site navigation">
+          <a class="site-nav-link" href="/">Intake</a>
+          <a class="site-nav-link site-nav-link-active" href="/playground/" aria-current="page">Playground</a>
+        </nav>
+        <button class="topbar-toggle" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="topbar-toggle-icon topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="topbar-toggle-icon topbar-toggle-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="topbar-actions">
+          <div class="theme-picker" role="group" aria-label="Color theme">
+            <span class="theme-picker-label">Theme</span>
+            <div class="theme-picker-options">
+              <button class="theme-option" type="button" data-theme-value="system">System</button>
+              <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
+              <button class="theme-option" type="button" data-theme-value="light">Light</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="playground-hero" aria-labelledby="playground-title">
+        <p class="eyebrow">Community experiments</p>
+        <h1 class="playground-title" id="playground-title">Playground</h1>
+        <p class="playground-summary">
+          Small, fun features that people build through OpenReactor requests.
+          Nothing mission-critical, just experiments worth keeping around.
+        </p>
+      </section>
+
+      <div class="playground-grid">
+        <section class="playground-card panel" aria-labelledby="reactorle-title">
+          <div class="reactorle-header">
+            <div>
+              <p class="panel-kicker">Daily mini puzzle</p>
+              <h2 id="reactorle-title">Reactorle</h2>
+            </div>
+            <p class="reactorle-badge">6 guesses</p>
+          </div>
+
+          <p class="reactorle-copy">
+            A Wordle-style five-letter puzzle. Type anywhere or use the on-screen keys.
+          </p>
+
+          <div
+            id="reactorle-status"
+            class="reactorle-status"
+            role="status"
+            aria-live="polite"
+          ></div>
+          <div
+            id="reactorle-board"
+            class="reactorle-board"
+            role="grid"
+            aria-label="Daily five-letter puzzle board"
+          ></div>
+          <div
+            id="reactorle-keyboard"
+            class="reactorle-keyboard"
+            aria-label="Puzzle keyboard"
+          ></div>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

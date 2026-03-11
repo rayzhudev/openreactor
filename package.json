@@ -8,7 +8,7 @@
     "deploy": "wrangler pages deploy public --project-name openreactor",
     "check": "tsc --noEmit",
     "agent-browser:install": "agent-browser install",
-    "test:ui": "playwright test",
+    "test:ui": "npx playwright test",
     "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",

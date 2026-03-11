@@ -65,6 +65,21 @@ export class GitHubClient {
     );
   }
 
+  async createIssue(input: {
+    title: string;
+    body: string;
+    labels?: string[];
+  }): Promise<GitHubIssue> {
+    return this.request<GitHubIssue>(`/repos/${this.config.owner}/${this.config.repo}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        body: input.body,
+        labels: input.labels ?? []
+      })
+    });
+  }
+
   async ensureLabel(name: string, color: string, description: string): Promise<void> {
     const encodedName = encodeURIComponent(name);
 
