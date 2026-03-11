@@ -737,6 +737,7 @@ button {
 
 .product-explainer-step {
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 0.6rem;
 }
 
