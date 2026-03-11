@@ -9,7 +9,7 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["accepted", "rejected", "retry"]
+      "enum": ["accepted", "rejected", "retry", "decomposed"]
     },
     "summary": {
       "type": "string",
@@ -40,6 +40,34 @@
       },
       "required": ["required", "instructions"]
     },
+    "decomposition": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "overview": {
+          "type": "string"
+        },
+        "childIssues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 8
+              },
+              "body": {
+                "type": "string",
+                "minLength": 20
+              }
+            },
+            "required": ["title", "body"]
+          }
+        }
+      },
+      "required": ["overview", "childIssues"]
+    },
     "tests": {
       "type": "array",
       "items": {
@@ -68,6 +96,7 @@
     "issueComment",
     "nextStep",
     "humanHandoff",
+    "decomposition",
     "tests"
   ]
 }
