@@ -9,7 +9,7 @@
     },
     "outcome": {
       "type": "string",
-      "enum": ["reject", "dispatch"]
+      "enum": ["reject", "dispatch", "bank"]
     },
     "summary": {
       "type": "string",
@@ -18,13 +18,44 @@
     "issueComment": {
       "type": ["string", "null"]
     },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "evidenceStrength": {
+      "type": "string",
+      "enum": ["weak", "moderate", "strong"]
+    },
+    "evidenceSummary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bankReason": {
+      "type": ["string", "null"]
+    },
     "toolName": {
       "type": ["string", "null"],
-      "enum": [null, "spawn_codex_issue_agent", "spawn_claude_ui_agent"]
+      "enum": [
+        null,
+        "spawn_codex_issue_agent",
+        "spawn_codex_planner_agent",
+        "spawn_claude_ui_agent"
+      ]
     },
     "toolReason": {
       "type": ["string", "null"]
     }
   },
-  "required": ["issueNumber", "outcome", "summary", "issueComment", "toolName", "toolReason"]
+  "required": [
+    "issueNumber",
+    "outcome",
+    "summary",
+    "issueComment",
+    "sensitivity",
+    "evidenceStrength",
+    "evidenceSummary",
+    "bankReason",
+    "toolName",
+    "toolReason"
+  ]
 }
