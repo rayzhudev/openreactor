@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@source "../public";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+@layer base {
+:root {
+  color-scheme: light dark;
+  --paper: #ffffff;
+  --surface: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --ink: #111827;
+  --ink-soft: #4b5563;
+  --ink-faint: #9ca3af;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --accent: #c6643f;
+  --accent-dark: #7b3125;
+  --accent-muted: rgba(184, 92, 56, 0.12);
+  --queue-queued: #506d89;
+  --queue-progress: #9d5b20;
+  --queue-complete: #2f6d56;
+  --queue-rejected: #9d4331;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --paper: #0f1117;
+    --surface: #1a1b1e;
+    --surface-hover: #27282d;
+    --ink: #f0f0f0;
+    --ink-soft: #a1a1aa;
+    --ink-faint: #71717a;
+    --line: #27272a;
+    --line-strong: #3f3f46;
+    --accent: #d59c58;
+    --accent-dark: #efe0a6;
+    --accent-muted: rgba(213, 156, 88, 0.14);
+    --queue-queued: #b7c4cf;
+    --queue-progress: #d59c58;
+    --queue-complete: #8fbe97;
+    --queue-rejected: #ff9d89;
+  }
+}
+
+.dark {
+  --paper: #0f1117;
+  --surface: #1a1b1e;
+  --surface-hover: #27282d;
+  --ink: #f0f0f0;
+  --ink-soft: #a1a1aa;
+  --ink-faint: #71717a;
+  --line: #27272a;
+  --line-strong: #3f3f46;
+  --accent: #d59c58;
+  --accent-dark: #efe0a6;
+  --accent-muted: rgba(213, 156, 88, 0.14);
+  --queue-queued: #b7c4cf;
+  --queue-progress: #d59c58;
+  --queue-complete: #8fbe97;
+  --queue-rejected: #ff9d89;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; }
+textarea, input, button { font: inherit; }
+} /* end @layer base */
+
+@layer components {
+.topbar-toggle[aria-expanded="true"] .topbar-toggle-open { display: none; }
+.topbar-toggle[aria-expanded="true"] .topbar-toggle-close { display: block; }
+[hidden] { display: none !important; }
+
+.frog-portrait { width: 5rem; height: auto; overflow: visible; }
+.frog-shadow { fill: rgba(33, 21, 12, 0.15); }
+.frog-body, .frog-head { fill: #8fcb68; stroke: rgba(48, 64, 24, 0.25); stroke-width: 3; }
+.frog-eye, .frog-leg { fill: #7bb45b; stroke: rgba(48, 64, 24, 0.25); stroke-width: 3; }
+.frog-eye-white { fill: #fbf7ea; }
+.frog-pupil { fill: #1a1a1a; }
+.frog-mouth { fill: none; stroke: rgba(27, 36, 27, 0.85); stroke-width: 4; stroke-linecap: round; }
+.frog-belly { fill: none; stroke: rgba(244, 255, 221, 0.5); stroke-width: 3; stroke-linecap: round; }
+.frog-cheek { fill: rgba(255, 212, 196, 0.3); }
+} /* end @layer components */
