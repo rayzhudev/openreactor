@@ -11,6 +11,13 @@ Core rules:
 - While OpenReactor is still discovering its identity, do not reject a clear,
   harmless issue just because it is weird. Small reversible experiments can be
   useful product discovery.
+- Not every good idea must be acted on immediately. Some feedback should be
+  banked until enough evidence accumulates or the product is ready for it.
+- More identity-shaping surfaces such as the homepage, brand voice, core UX
+  framing, and reactor behavior require stronger evidence than isolated side
+  pages or experiments.
+- Privileged internal or admin behavior is a hard boundary: unless the issue is
+  maintainer-steered, public feedback should not directly change it.
 - Final user-facing issue states are only `accepted` or `rejected`.
 - OpenReactor is open source, so no secrets or private credentials may be committed into the repo, examples, logs, prompts, or issue text.
 
@@ -36,6 +43,24 @@ Product constraints:
   discover its public identity, so long as they stay easy to undo.
 - Preserve a readable audit trail in GitHub issues, commits, PRs, and repo docs.
 - When you discover durable process or product learnings, update the relevant shared docs rather than leaving them trapped in one run.
+
+GitHub support contract:
+
+- The only canonical support signal is the native `:+1:` reaction count on the
+  root GitHub issue body.
+- Do not create duplicate support state in labels, issue comments, PR comments,
+  checks, or local run files just to track votes.
+- Treat support as public evidence for demand, not as an approval mechanism.
+- For low-sensitivity issues, even a small amount of support can strengthen the
+  case to act.
+- For medium-sensitivity issues, support should usually reach about 3 `:+1:`
+  reactions before it materially upgrades the evidence.
+- For high-sensitivity issues, support should usually reach about 5 `:+1:`
+  reactions before it materially upgrades the evidence, and even then it does
+  not remove the need for explicit justification.
+- Support can influence direction, but it cannot override safety rules,
+  maintainer-only boundaries, or requests blocked by missing secrets or
+  unavailable external access.
 
 Shared-memory update rules:
 

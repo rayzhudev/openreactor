@@ -24,16 +24,22 @@
   <body class="guide-page">
     <main class="guide-shell">
       <nav class="top-nav" aria-label="Guide navigation">
-        <div class="theme-picker" role="group" aria-label="Color theme">
-          <span class="theme-picker-label">Theme</span>
-          <div class="theme-picker-options">
-            <button class="theme-option" type="button" data-theme-value="system">System</button>
-            <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
-            <button class="theme-option" type="button" data-theme-value="light">Light</button>
+        <button class="topbar-toggle" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="topbar-toggle-icon topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="topbar-toggle-icon topbar-toggle-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="top-nav-items">
+          <div class="theme-picker" role="group" aria-label="Color theme">
+            <span class="theme-picker-label">Theme</span>
+            <div class="theme-picker-options">
+              <button class="theme-option" type="button" data-theme-value="system">System</button>
+              <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
+              <button class="theme-option" type="button" data-theme-value="light">Light</button>
+            </div>
           </div>
+          <a class="top-nav-link" href="/">Back to intake</a>
+          <a class="top-nav-link" href="/#queue-title">View public queue</a>
         </div>
-        <a class="top-nav-link" href="/">Back to intake</a>
-        <a class="top-nav-link" href="/#queue-title">View public queue</a>
       </nav>
 
       <section class="guide-hero panel" aria-labelledby="guide-title">
@@ -47,11 +53,38 @@
 
         <div class="guide-hero-aside">
           <aside class="frog-card frog-card-guide" aria-label="OpenReactor mascot note">
-            <div class="frog-portrait" aria-hidden="true">
-              <span class="frog-eye frog-eye-left"></span>
-              <span class="frog-eye frog-eye-right"></span>
-              <span class="frog-mouth"></span>
-            </div>
+            <svg
+              class="frog-portrait"
+              viewBox="0 0 180 140"
+              role="img"
+              aria-labelledby="frog-guide-title frog-guide-desc"
+            >
+              <title id="frog-guide-title">OpenReactor frog mascot</title>
+              <desc id="frog-guide-desc">
+                A cheerful frog sticker with bright eyes and a slight bounce.
+              </desc>
+              <ellipse class="frog-shadow" cx="90" cy="121" rx="42" ry="10" />
+              <path
+                class="frog-leg"
+                d="M39 93c-14 7-20 19-16 27 5 8 17 6 31-4 12-8 18-17 16-24-2-8-13-8-31 1Z"
+              />
+              <path
+                class="frog-leg"
+                d="M141 93c14 7 20 19 16 27-5 8-17 6-31-4-12-8-18-17-16-24 2-8 13-8 31 1Z"
+              />
+              <rect class="frog-body" x="48" y="48" width="84" height="44" rx="22" />
+              <circle class="frog-head" cx="90" cy="65" r="30" />
+              <circle class="frog-eye" cx="71" cy="40" r="13" />
+              <circle class="frog-eye" cx="109" cy="40" r="13" />
+              <circle class="frog-eye-white" cx="71" cy="40" r="8" />
+              <circle class="frog-eye-white" cx="109" cy="40" r="8" />
+              <circle class="frog-pupil" cx="71" cy="41" r="3.5" />
+              <circle class="frog-pupil" cx="109" cy="41" r="3.5" />
+              <path class="frog-mouth" d="M76 74c4 5 9 7 14 7s10-2 14-7" />
+              <path class="frog-belly" d="M66 84c7 6 15 10 24 10s17-4 24-10" />
+              <circle class="frog-cheek" cx="61" cy="72" r="4.5" />
+              <circle class="frog-cheek" cx="119" cy="72" r="4.5" />
+            </svg>
             <div class="frog-copy">
               <p class="frog-card-kicker">Field mascot</p>
               <p class="frog-card-title">Write it like a field note and the frog stays calm.</p>
