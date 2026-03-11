@@ -32,6 +32,7 @@ import {
 
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
+const OPENREACTOR_CORE_LABEL = "openreactor-core";
 const SENSITIVITY_LABELS = {
   low: "sensitivity:low",
   medium: "sensitivity:medium",
@@ -121,7 +122,7 @@ class Reactor {
     await this.github.ensureLabel(
       SENSITIVITY_LABELS.high,
       "d73a4a",
-      "This request likely affects a high-sensitivity surface such as the homepage, engine, or privileged internals."
+      "This request likely affects a high-sensitivity surface such as the homepage, OpenReactor workflow, or privileged internals."
     );
     await this.github.ensureLabel(
       EVIDENCE_LABELS.weak,
@@ -137,6 +138,11 @@ class Reactor {
       EVIDENCE_LABELS.strong,
       "238636",
       "Current supporting evidence for acting on this request is strong."
+    );
+    await this.github.ensureLabel(
+      OPENREACTOR_CORE_LABEL,
+      "5319e7",
+      "This issue pertains to OpenReactor itself rather than the product surface."
     );
   }
 

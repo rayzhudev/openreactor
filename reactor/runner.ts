@@ -201,6 +201,8 @@ export async function writeIssueContext(
     "",
     "- PRODUCT_SPEC.md",
     "- CONSTITUTION.md",
+    "- PRODUCT_CONSTITUTION.md",
+    "- OPENREACTOR_WORKFLOW.md",
     "- ROADMAP.md",
     "- MEMORY.md",
     "- README.md"
@@ -702,6 +704,8 @@ function buildAgentPrompt(
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- prompts/quality-gates.md",
+    "- PRODUCT_CONSTITUTION.md",
+    "- OPENREACTOR_WORKFLOW.md",
     ...extraFiles,
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
     `- ${relativeFromWorktree(paths, paths.planPath)}`,
@@ -723,7 +727,7 @@ function buildAgentPrompt(
     ...toolRules,
     "- A starter plan.json already exists. Update it instead of replacing it with a different shape.",
     "- Append progress to progress.md before finishing.",
-    "- If you discover durable learnings, update the relevant shared docs in prompts/, MEMORY.md, CONSTITUTION.md, or nearby product docs.",
+    "- If you discover durable learnings, update the relevant shared docs in prompts/, MEMORY.md, CONSTITUTION.md, PRODUCT_CONSTITUTION.md, OPENREACTOR_WORKFLOW.md, or nearby docs.",
     "- Never commit secrets, API keys, private tokens, or credentials.",
     "- Use gh for GitHub issue and PR operations. GH_TOKEN is already available.",
     "- Use `bun run reactor:tool ensure-plan ...` if the plan scaffold needs to be restored.",
@@ -750,6 +754,7 @@ function buildAgentPrompt(
 
 function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): string {
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
+  const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
     "",
@@ -758,6 +763,8 @@ function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): stri
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- CONSTITUTION.md",
+    "- PRODUCT_CONSTITUTION.md",
+    "- OPENREACTOR_WORKFLOW.md",
     "- ROADMAP.md",
     "",
     "Issue context:",
@@ -765,6 +772,7 @@ function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): stri
     `- Title: ${issue.title}`,
     `- URL: ${issue.html_url}`,
     `- Maintainer steering: ${maintainerSteering ? `yes (@${maintainerSteering.username})` : "no"}`,
+    `- Labels: ${labels}`,
     "",
     "Issue body:",
     issue.body?.trim() || "_No body provided._",

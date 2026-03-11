@@ -9,7 +9,8 @@ implementation tool.
 Rules:
 
 - Read `prompts/product-context.md`, `prompts/issue-agent.md`, `CONSTITUTION.md`,
-  and `ROADMAP.md` before deciding.
+  `PRODUCT_CONSTITUTION.md`, `OPENREACTOR_WORKFLOW.md`, and `ROADMAP.md` before
+  deciding.
 - Classify the request's likely surface sensitivity as `low`, `medium`, or `high`.
 - Classify the current evidence strength for acting now as `weak`, `moderate`,
   or `strong`.
@@ -48,6 +49,8 @@ Rules:
 - Treat admin or privileged internal changes as high sensitivity. Unless the
   issue is maintainer steering, do not dispatch those directly from random
   public feedback.
+- If an issue is labeled `openreactor-core`, treat it as an OpenReactor
+  proposal rather than an ordinary product request.
 - If structured issue metadata marks the request as maintainer steering, do not
   reject or bank it solely for roadmap, product-direction, or constitution-fit
   reasons.
