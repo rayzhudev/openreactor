@@ -36,3 +36,22 @@
 
 - Decision: use native GitHub issue comments as the public discussion layer for queued requests until the product has an application-backed backend.
   Reason: it adds visible feedback and acceptance signal without introducing new persistence or moderation infrastructure during the MVP intake loop.
+
+## 2026-03-11
+
+- Decision: credit merged issue-loop PRs on the public leaderboard to the requester's optional GitHub username when the issue body provides one.
+  Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
+- Decision: treat issues whose structured `GitHub Username` matches the repo owner as maintainer steering.
+  Reason: maintainer requests should be able to push the product in sharper new directions without being rejected solely for normal constitution-fit or roadmap-fit heuristics, while still preserving hard safety and feasibility limits.
+
+- Decision: treat native GitHub `:+1:` reactions on the root issue body as the canonical support signal, with higher support expected before it materially upgrades evidence on higher-sensitivity requests.
+  Reason: popularity should stay GitHub-native and visible without creating parallel vote state, while still remaining subordinate to safety, maintainer boundaries, and secret-dependent feasibility limits.
+
+- Decision: let signed-in website support actions write through to the same GitHub `:+1:` issue reaction instead of creating a website-side vote ledger.
+  Reason: the queue can add a convenient support UI without splitting canonical support state away from GitHub.
+
+- Decision: ship a browser-local `My requests` section before adding application-backed request history or inbox features.
+  Reason: submitters need a lightweight way to find their own issues now, while durable per-user state still sits beyond the MVP cutline.
+
+- Decision: route rejected-request clarification through GitHub issue comments and require rejection messages to name the governing rule.
+  Reason: the product already exposes GitHub as the public discussion layer, so clearer rejection reasons plus direct comment follow-up solve the need without adding a second conversation system.

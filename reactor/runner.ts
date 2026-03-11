@@ -16,11 +16,18 @@ export interface AgentTestResult {
   status: "passed" | "failed" | "not-run";
 }
 
+export type SurfaceSensitivity = "low" | "medium" | "high";
+export type EvidenceStrength = "weak" | "moderate" | "strong";
+
 export interface TriageResult {
   issueNumber: number;
-  outcome: "reject" | "dispatch";
+  outcome: "reject" | "dispatch" | "bank";
   summary: string;
   issueComment: string | null;
+  sensitivity: SurfaceSensitivity;
+  evidenceStrength: EvidenceStrength;
+  evidenceSummary: string;
+  bankReason: string | null;
   toolName: AgentToolName | null;
   toolReason: string | null;
 }
@@ -30,15 +37,26 @@ export interface HumanHandoff {
   instructions: string;
 }
 
+export interface DecompositionChildIssue {
+  title: string;
+  body: string;
+}
+
+export interface DecompositionPlan {
+  overview: string;
+  childIssues: DecompositionChildIssue[];
+}
+
 export interface AgentResult {
   issueNumber: number;
-  outcome: "accepted" | "rejected" | "retry";
+  outcome: "accepted" | "rejected" | "retry" | "decomposed";
   summary: string;
   branchName?: string | null;
   prUrl?: string | null;
   issueComment?: string | null;
   nextStep?: string | null;
   humanHandoff?: HumanHandoff | null;
+  decomposition?: DecompositionPlan | null;
   tests: AgentTestResult[];
 }
 
@@ -47,8 +65,12 @@ export interface RunRecord {
   issueTitle: string;
   branchName: string;
   agentTool?: AgentToolName;
-  status: "running" | "accepted" | "rejected" | "retry" | "failed";
+  sensitivity?: SurfaceSensitivity;
+  evidenceStrength?: EvidenceStrength;
+  evidenceSummary?: string;
+  status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
   iteration: number;
+  startFailureCount?: number;
   createdAt: string;
   updatedAt: string;
   lastHeartbeatAt: string;
@@ -84,6 +106,10 @@ export interface ActiveRun {
 }
 
 const RESULT_MARKER = "<!-- openreactor:agent-result -->";
+
+interface MaintainerSteeringSignal {
+  username: string;
+}
 
 export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: number): IssueRuntimePaths {
   const runDir = path.join(config.runsDir, `issue-${issueNumber}`);
@@ -127,9 +153,15 @@ export async function writeRunRecord(paths: IssueRuntimePaths, record: RunRecord
 export async function writeIssueContext(
   config: OrchestratorConfig,
   issue: GitHubIssue,
-  paths: IssueRuntimePaths
+  paths: IssueRuntimePaths,
+  governance?: {
+    sensitivity?: SurfaceSensitivity;
+    evidenceStrength?: EvidenceStrength;
+    evidenceSummary?: string;
+  }
 ): Promise<void> {
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
+  const maintainerSteering = getMaintainerSteeringSignal(config, issue);
 
   const content = [
     "# Issue Context",
@@ -139,10 +171,24 @@ export async function writeIssueContext(
     `- URL: ${issue.html_url}`,
     `- Labels: ${labels}`,
     `- Branch: ${paths.branchName}`,
+    `- Surface sensitivity: ${governance?.sensitivity ?? "unknown"}`,
+    `- Evidence strength: ${governance?.evidenceStrength ?? "unknown"}`,
+    `- Maintainer steering: ${
+      maintainerSteering
+        ? `yes (${maintainerSteering.username} matches repo owner ${config.owner})`
+        : "no"
+    }`,
+    governance?.evidenceSummary ? `- Evidence summary: ${governance.evidenceSummary}` : "",
     "",
     "## Issue Body",
     "",
     issue.body ?? "_No body provided._",
+    "",
+    "## Derived Guidance",
+    "",
+    maintainerSteering
+      ? `- This issue declares GitHub Username \`@${maintainerSteering.username}\`, which matches the repo owner. Agents should treat it as maintainer steering: do not reject it solely for roadmap, product-direction, or constitution-fit reasons, but still enforce safety, legality, secrecy, and feasibility constraints.`
+      : "- No maintainer steering signal detected from the structured issue metadata.",
     "",
     "## Local Run Files",
     "",
@@ -158,7 +204,7 @@ export async function writeIssueContext(
     "- ROADMAP.md",
     "- MEMORY.md",
     "- README.md"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   await fs.mkdir(paths.runDir, { recursive: true });
   await fs.writeFile(paths.contextPath, `${content}\n`, "utf8");
@@ -211,6 +257,7 @@ export async function createInitialRunRecord(
     branchName: paths.branchName,
     status: "running",
     iteration: 0,
+    startFailureCount: 0,
     createdAt: now,
     updatedAt: now,
     lastHeartbeatAt: now,
@@ -284,6 +331,9 @@ export async function spawnIssueAgent(input: {
   githubToken: string;
 }): Promise<ActiveRun> {
   const tool = getAgentTool(input.record.agentTool);
+  if (tool.name === "spawn_codex_planner_agent") {
+    return spawnCodexPlannerAgent(input);
+  }
   if (tool.provider === "claude") {
     return spawnClaudeUiIssueAgent(input);
   }
@@ -351,6 +401,87 @@ async function spawnCodexIssueAgent(input: {
     agentTool: "spawn_codex_issue_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
+    updatedAt: new Date().toISOString(),
+    lastHeartbeatAt: new Date().toISOString(),
+    lastError: ""
+  };
+  await writeRunRecord(paths, record);
+
+  const heartbeatTimer = setInterval(() => {
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    void writeRunRecord(paths, record);
+  }, 10_000);
+
+  return {
+    issue,
+    record,
+    process: child,
+    heartbeatTimer,
+    resultPath,
+    logPath,
+    startedAt: Date.now(),
+    parseResult: () => parseAgentResult(resultPath)
+  };
+}
+
+async function spawnCodexPlannerAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  const { config, issue, paths, githubToken } = input;
+  const iteration = input.record.iteration + 1;
+  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
+  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
+  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
+  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
+
+  await fs.writeFile(promptPath, prompt, "utf8");
+
+  const args = buildCodexArgs({
+    model: config.agentModel,
+    reasoningEffort: config.agentReasoningEffort,
+    serviceTier: config.agentServiceTier,
+    fullAccess: true,
+    outputSchemaPath: schemaPath,
+    outputPath: resultPath
+  });
+
+  const child = spawn("codex", args, {
+    cwd: paths.worktreePath,
+    env: {
+      ...process.env,
+      GH_TOKEN: githubToken,
+      GITHUB_TOKEN: githubToken,
+      OPENREACTOR_REPO_OWNER: config.owner,
+      OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+      OPENREACTOR_ISSUE_URL: issue.html_url,
+      OPENREACTOR_RUN_DIR: paths.runDir,
+      OPENREACTOR_PLAN_PATH: paths.planPath,
+      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
+      OPENREACTOR_TASKS_PATH: paths.tasksPath,
+      OPENREACTOR_BRANCH_NAME: paths.branchName,
+      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
+    },
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+
+  await attachProcessLogging(child, logPath);
+
+  const record: RunRecord = {
+    ...input.record,
+    agentTool: "spawn_codex_planner_agent",
+    status: "running",
+    iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
@@ -400,7 +531,7 @@ async function spawnClaudeUiIssueAgent(input: {
     runDir: paths.runDir
   });
 
-  const child = spawn("claude", args, {
+  const child = spawn(config.claudeUiBin, args, {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
@@ -429,6 +560,7 @@ async function spawnClaudeUiIssueAgent(input: {
     agentTool: "spawn_claude_ui_agent",
     status: "running",
     iteration,
+    startFailureCount: 0,
     updatedAt: new Date().toISOString(),
     lastHeartbeatAt: new Date().toISOString(),
     lastError: ""
@@ -461,7 +593,7 @@ export async function runIssueTriage(input: {
 }): Promise<{ result: TriageResult | null; exitCode: number | null }> {
   const { config, issue, paths, githubToken } = input;
   const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
-  const prompt = buildTriagePrompt(issue);
+  const prompt = buildTriagePrompt(config, issue);
 
   await fs.mkdir(paths.runDir, { recursive: true });
   await fs.writeFile(paths.triagePromptPath, prompt, "utf8");
@@ -538,8 +670,13 @@ function buildAgentPrompt(
   agentTool: AgentToolName
 ): string {
   const tool = getAgentTool(agentTool);
+  const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const extraFiles =
-    agentTool === "spawn_claude_ui_agent" ? ["- prompts/ui-agent.md"] : [];
+    agentTool === "spawn_claude_ui_agent"
+      ? ["- prompts/ui-agent.md"]
+      : agentTool === "spawn_codex_planner_agent"
+        ? ["- prompts/planner-agent.md"]
+        : [];
   const toolRules =
     agentTool === "spawn_claude_ui_agent"
       ? [
@@ -547,6 +684,13 @@ function buildAgentPrompt(
           "- Use prompts/ui-agent.md as your frontend design skill equivalent while making design decisions.",
           "- Prefer tight, polished UI work over broad refactors when solving the issue."
         ]
+      : agentTool === "spawn_codex_planner_agent"
+        ? [
+            `- This issue was dispatched via ${tool.label}. Your primary job is to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.`,
+            "- Use prompts/planner-agent.md as the planning-specific rule set for this run.",
+            "- If the request is worth pursuing but too large, return `decomposed` with a structured decomposition plan instead of `rejected`.",
+            "- Do not open a PR for the oversized parent issue itself."
+          ]
       : [
           `- This issue was dispatched via ${tool.label}. Handle it as the general-purpose implementation path.`
         ];
@@ -569,6 +713,7 @@ function buildAgentPrompt(
     `- Issue URL: ${issue.html_url}`,
     `- Run directory: ${paths.runDir}`,
     `- Branch to use: ${paths.branchName}`,
+    `- Maintainer steering: ${maintainerSteering ? `yes (@${maintainerSteering.username})` : "no"}`,
     "",
     "Rules for this run:",
     "- Stay on the current branch. Do not create a different branch name.",
@@ -589,6 +734,13 @@ function buildAgentPrompt(
     "- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/main, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.",
     "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
+    ...(maintainerSteering
+      ? [
+          "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
+          "- Do not reject it solely for roadmap fit, current product direction, constitution-fit, or because it asks for a more drastic product change than normal intake requests.",
+          "- Still enforce hard safety rules, legality, secret handling, and realistic human-handoff constraints."
+        ]
+      : []),
     "",
     "Return only JSON matching the provided output schema.",
     "",
@@ -596,7 +748,8 @@ function buildAgentPrompt(
   ].join("\n");
 }
 
-function buildTriagePrompt(issue: GitHubIssue): string {
+function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): string {
+  const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   return [
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
     "",
@@ -611,14 +764,28 @@ function buildTriagePrompt(issue: GitHubIssue): string {
     `- Issue: #${issue.number}`,
     `- Title: ${issue.title}`,
     `- URL: ${issue.html_url}`,
+    `- Maintainer steering: ${maintainerSteering ? `yes (@${maintainerSteering.username})` : "no"}`,
     "",
     "Issue body:",
     issue.body?.trim() || "_No body provided._",
     "",
     "Your job:",
-    "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly too broad for one safe iteration.",
-    "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable to one of the available implementation tools.",
-    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage.",
+    "- Classify the likely surface sensitivity of the request as `low`, `medium`, or `high`.",
+    "- Classify the current evidence strength for making the change now as `weak`, `moderate`, or `strong`.",
+    "- Use `low` sensitivity for side pages, isolated experiments, and narrow reversible features.",
+    "- Use `medium` sensitivity for shared UI patterns, navigation, and important but non-defining flows.",
+    "- Use `high` sensitivity for homepage identity, brand voice, core UX framing, reactor behavior, deployment-critical surfaces, and privileged internal/admin capabilities.",
+    "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly unsafe.",
+    "- Bank for later when the direction seems potentially good but should not be acted on yet because evidence is weak for the sensitivity level, timing is wrong, or the request should accumulate more supporting feedback first.",
+    "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable when the evidence is strong enough for the likely sensitivity.",
+    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage, especially for low-sensitivity experiments.",
+    "- Treat admin or privileged internal changes as high sensitivity. Unless maintainer steering is explicit, do not dispatch those from random public feedback.",
+    ...(maintainerSteering
+      ? [
+          "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
+          "- Do not reject or bank it solely for roadmap fit, product-direction fit, or constitution-fit concerns. Dispatch an implementation tool unless a hard safety or feasibility blocker is obvious."
+        ]
+      : []),
     "- Do not perform implementation work, open PRs, or mutate files.",
     "",
     "Available implementation tools:",
@@ -627,6 +794,43 @@ function buildTriagePrompt(issue: GitHubIssue): string {
     "Return only JSON matching the provided output schema."
   ].join("\n");
 }
+
+function getMaintainerSteeringSignal(
+  config: Pick<OrchestratorConfig, "owner">,
+  issue: Pick<GitHubIssue, "body">
+): MaintainerSteeringSignal | null {
+  const username = normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
+  if (!username) {
+    return null;
+  }
+
+  return username.toLowerCase() === config.owner.toLowerCase() ? { username } : null;
+}
+
+function readStructuredIssueField(body: string | null | undefined, field: string): string | null {
+  if (!body) {
+    return null;
+  }
+
+  const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`^## ${escapedField}\\s*\\n([\\s\\S]*?)(?=\\n## \\S|$)`, "m"));
+  return match?.[1]?.trim() ?? null;
+}
+
+function normalizeGitHubUsername(value: string | null): string | null {
+  const cleaned = (value ?? "")
+    .trim()
+    .replace(/^_+|_+$/g, "")
+    .replace(/^@/, "")
+    .trim();
+
+  if (!cleaned || /^not provided$/i.test(cleaned) || /^anonymous$/i.test(cleaned)) {
+    return null;
+  }
+
+  return cleaned;
+}
+
 
 async function parseAgentResult(resultPath: string): Promise<AgentResult | null> {
   try {
