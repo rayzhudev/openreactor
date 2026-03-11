@@ -98,7 +98,21 @@ let supportSession = {
   profileUrl: ""
 };
 
+initTopbarToggle();
 boot();
+
+function initTopbarToggle() {
+  for (const toggle of document.querySelectorAll(".topbar-toggle")) {
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      const actions = toggle.parentElement.querySelector(".topbar-actions, .top-nav-items");
+      if (actions) {
+        actions.classList.toggle("topbar-actions--open", !expanded);
+      }
+    });
+  }
+}
 
 async function boot() {
   initThemePicker();
