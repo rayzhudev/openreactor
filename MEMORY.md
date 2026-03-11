@@ -55,3 +55,6 @@
 
 - Decision: route rejected-request clarification through GitHub issue comments and require rejection messages to name the governing rule.
   Reason: the product already exposes GitHub as the public discussion layer, so clearer rejection reasons plus direct comment follow-up solve the need without adding a second conversation system.
+
+- Decision: supervise the local reactor with a separate local watchdog instead of folding service-health recovery into the reactor loop itself.
+  Reason: the reactor should focus on issue execution, while a watchdog can restart the service, unpause retryable issues, and escalate non-recoverable failures without entangling supervision logic into every issue run.

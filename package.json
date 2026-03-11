@@ -13,7 +13,9 @@
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",
     "reactor:dry-run": "bun run reactor/index.ts --once --dry-run",
-    "reactor:tool": "bun run reactor/tool.ts"
+    "reactor:tool": "bun run reactor/tool.ts",
+    "watchdog": "bash scripts/watchdog-service.sh",
+    "watchdog:once": "bash scripts/watchdog-service.sh --once"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

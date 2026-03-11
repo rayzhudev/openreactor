@@ -80,7 +80,10 @@ The website/backend and the reactor are separate:
   PR repair, and retry logic
 
 Today, the public website deploys continuously through Cloudflare Pages, while
-the local reactor handles the autonomous issue loop on this machine.
+the local reactor handles the autonomous issue loop on this machine. A local
+watchdog process can now supervise that reactor, detect stalled issues and
+startup failure loops, and attempt limited self-healing before escalating to a
+maintainer.
 
 ## OpenReactor vs Product
 
@@ -128,6 +131,13 @@ Safe polling verification without claiming issues:
 bun run reactor:dry-run
 ```
 
+The watchdog is a separate supervisor for local runtime health:
+
+```bash
+bun run watchdog
+bun run watchdog:once
+```
+
 The reactor currently:
 
 - claims work with `or:running`
@@ -137,6 +147,15 @@ The reactor currently:
 - creates a dedicated git worktree per issue
 - persists per-issue run files under `.openreactor/`
 - retries the same issue until it reaches a real terminal state
+
+The watchdog currently:
+
+- watches for stalled `or:running` issues based on run heartbeats
+- watches for `or:paused` issues that have stayed paused too long
+- restarts the reactor service when a running issue appears stalled
+- clears retryable paused issues back into the queue after a delay
+- stops the reactor during GitHub App rate-limit loops and waits out a cooldown
+- flags non-recoverable paused issues for maintainer attention instead of retrying forever
 
 The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself
@@ -219,6 +238,20 @@ Useful commands:
 ```bash
 systemctl --user status --no-pager openreactor-reactor.service
 journalctl --user -u openreactor-reactor.service -n 100 --no-pager
+```
+
+## Watchdog service
+
+The repo also includes a user-level watchdog unit template at
+[`ops/openreactor-watchdog.service`](/home/ray/projects/openreactor/ops/openreactor-watchdog.service).
+
+It uses the same env file and runs locally on this machine so it can supervise
+and restart the reactor service:
+
+```bash
+systemctl --user restart openreactor-watchdog.service
+systemctl --user status --no-pager openreactor-watchdog.service
+journalctl --user -u openreactor-watchdog.service -n 100 --no-pager
 ```
 
 ## Local Development

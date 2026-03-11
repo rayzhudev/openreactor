@@ -54,4 +54,4 @@ if [[ -z "${GITHUB_APP_ID:-}" || -z "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
   fi
 fi
 
-exec /home/ray/.bun/bin/bun /home/ray/projects/openreactor/reactor/index.ts
+exec /home/ray/.bun/bin/bun /home/ray/projects/openreactor/reactor/index.ts "$@"
