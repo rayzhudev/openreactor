@@ -61,3 +61,10 @@
 
 - Decision: let the watchdog open maintainer-steered `openreactor-core` repair issues when it detects a concrete OpenReactor fault that blocks issue flow.
   Reason: OpenReactor should not only recover operationally. It should also be able to route concrete faults in its own workflow back through the same autonomous issue-to-PR loop, then refresh the local services after the repair merges.
+
+- Decision: when a request expresses a useful product pressure through an
+  overly literal or unrealistic hard constraint, agents should prefer adapting
+  it into a narrower accepted change rather than rejecting the direction
+  outright.
+  Reason: strong numeric or absolute requests often carry a valid product
+  signal even when the literal target would be counterproductive.
