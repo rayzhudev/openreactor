@@ -18,8 +18,10 @@ OpenReactor needs these environment values:
 - `GITHUB_LABELS`: optional comma-separated labels to apply when those labels already exist
 - `GITHUB_APP_ID`: GitHub App ID
 - `GITHUB_APP_CLIENT_ID`: optional GitHub App client ID
+- `GITHUB_APP_CLIENT_SECRET`: required for website GitHub sign-in
 - `GITHUB_APP_INSTALLATION_ID`: optional installation ID
 - `GITHUB_APP_PRIVATE_KEY`: GitHub App private key PEM
+- `SESSION_SECRET`: required to encrypt website GitHub sign-in cookies
 
 Legacy fallback:
 
@@ -57,8 +59,10 @@ npx wrangler secret put GITHUB_REPO
 npx wrangler secret put GITHUB_LABELS
 npx wrangler secret put GITHUB_APP_ID
 npx wrangler secret put GITHUB_APP_CLIENT_ID
+npx wrangler secret put GITHUB_APP_CLIENT_SECRET
 npx wrangler secret put GITHUB_APP_INSTALLATION_ID
 npx wrangler secret put GITHUB_APP_PRIVATE_KEY
+npx wrangler secret put SESSION_SECRET
 ```
 
 Optional legacy fallback:
@@ -96,6 +100,10 @@ needs:
 - `Pull requests`: read and write
 - `Commit statuses`: read and write
 
+For website support sign-in, also configure the app callback URL as:
+
+- `https://openreactor.net/api/auth/callback`
+
 See [GITHUB_APP_SETUP.md](/home/ray/projects/openreactor/GITHUB_APP_SETUP.md)
 for the exact setup.
 
@@ -119,6 +127,8 @@ Once deployed, verify:
 2. the homepage loads
 3. a form submission creates a GitHub issue directly through the GitHub App, or falls back to a prefilled GitHub issue URL
 4. the new issue appears in the public queue
+5. support counts render from GitHub issue reactions
+6. if website sign-in secrets are configured, signing in and supporting an issue adds a GitHub `+1` reaction
 
 To verify the direct GitHub App path end to end on production, run:
 
