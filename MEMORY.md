@@ -64,3 +64,10 @@
 
 - Decision: keep CSS minimal by convention rather than enforcing a hard byte budget through scripts.
   Reason: the tendency to add lots of CSS is what causes bad design. Agents should default to the fewest possible custom styles, leaning on Tailwind utilities and avoiding decorative flourishes like gradients, shadows, and backdrop blurs.
+
+- Decision: when a request expresses a useful product pressure through an
+  overly literal or unrealistic hard constraint, agents should prefer adapting
+  it into a narrower accepted change rather than rejecting the direction
+  outright.
+  Reason: strong numeric or absolute requests often carry a valid product
+  signal even when the literal target would be counterproductive.
