@@ -6,6 +6,8 @@ const requestCountNode = document.querySelector("#request-count");
 const effortLevelField = document.querySelector("#effort-level");
 const scopeValueLabelNode = document.querySelector("#scope-value-label");
 const repoStarLink = document.querySelector("#repo-star-link");
+const myRequestsList = document.querySelector("#my-requests-list");
+const myRequestsStatusNode = document.querySelector("#my-requests-status");
 const queueBoard = document.querySelector("#queue-board");
 const queueTableWrap = document.querySelector("#queue-table-wrap");
 const queueTableBody = document.querySelector("#queue-table-body");
@@ -39,6 +41,8 @@ const supportSignOutButton = document.querySelector("#support-signout-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
+const MY_REQUESTS_STORAGE_KEY = "openreactor-my-requests";
+const MAX_MY_REQUESTS = 12;
 const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
@@ -76,6 +80,7 @@ let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
 let queueActiveItems = [];
 let queueArchivedItems = [];
+let myRequests = loadMyRequests();
 let activeQueueView = "board";
 const queueState = {
   page: DEFAULT_QUEUE_PAGE,
@@ -132,6 +137,7 @@ async function boot() {
   queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
 
   updateRequestCount(requestField.value);
+  renderMyRequests();
   renderQueueView();
   syncQueueControls({
     page: queueState.page,
@@ -421,7 +427,19 @@ async function onSubmit(event) {
       effortLevelField.value = "50";
       updateScopeLabel(50);
     }
-    setStatus(`Request queued as issue #${data.number}.`, "success");
+    rememberSubmittedRequest({
+      number: data.number,
+      url: data.url || "",
+      title: summarizeRequest(request),
+      createdAt: new Date().toISOString(),
+      githubUsername: normalizeGitHubUsername(githubUsername),
+      status: "queued",
+      statusDetail: "Submitted from this browser. Waiting for the public queue to refresh.",
+      statusUpdatedAt: new Date().toISOString(),
+      commentCount: 0,
+      commentUrl: data.url || ""
+    });
+    setStatus(`Request queued as issue #${data.number}. Added to My requests.`, "success");
     requestField.focus();
     await loadQueue(1);
   } catch (error) {
@@ -535,6 +553,231 @@ function isLowSignalText(value) {
 function updateRequestCount(request) {
   requestCountNode.textContent = `${request.length} / 2000`;
   requestCountNode.classList.toggle("request-count--near-limit", request.length > 1800);
+}
+
+function loadMyRequests() {
+  try {
+    const raw = localStorage.getItem(MY_REQUESTS_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item) => item && Number.isInteger(item.number))
+      .map(normalizeTrackedRequest)
+      .filter(Boolean)
+      .slice(0, MAX_MY_REQUESTS);
+  } catch {
+    return [];
+  }
+}
+
+function persistMyRequests() {
+  try {
+    localStorage.setItem(MY_REQUESTS_STORAGE_KEY, JSON.stringify(myRequests.slice(0, MAX_MY_REQUESTS)));
+  } catch {}
+}
+
+function normalizeTrackedRequest(item) {
+  if (!item || !Number.isInteger(item.number)) {
+    return null;
+  }
+
+  return {
+    number: item.number,
+    title: `${item.title || `Issue #${item.number}`}`.trim(),
+    url: typeof item.url === "string" ? item.url : "",
+    commentUrl: typeof item.commentUrl === "string" ? item.commentUrl : "",
+    createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
+    githubUsername: typeof item.githubUsername === "string" ? normalizeGitHubUsername(item.githubUsername) : null,
+    status: normalizeTrackedStatus(item.status),
+    statusDetail:
+      typeof item.statusDetail === "string" && item.statusDetail.trim() ? item.statusDetail.trim() : null,
+    statusUpdatedAt: typeof item.statusUpdatedAt === "string" ? item.statusUpdatedAt : null,
+    commentCount: Number.isInteger(item.commentCount) ? item.commentCount : 0
+  };
+}
+
+function normalizeTrackedStatus(value) {
+  return ["queued", "in-progress", "complete", "rejected"].includes(value) ? value : "queued";
+}
+
+function rememberSubmittedRequest(item) {
+  const normalized = normalizeTrackedRequest(item);
+
+  if (!normalized) {
+    return;
+  }
+
+  const existingIndex = myRequests.findIndex((entry) => entry.number === normalized.number);
+
+  if (existingIndex >= 0) {
+    myRequests.splice(existingIndex, 1);
+  }
+
+  myRequests.unshift(normalized);
+  myRequests = myRequests.slice(0, MAX_MY_REQUESTS);
+  persistMyRequests();
+  renderMyRequests();
+}
+
+function syncMyRequestsWithQueue(items) {
+  if (!myRequests.length) {
+    renderMyRequests();
+    return;
+  }
+
+  const byNumber = new Map(items.map((item) => [item.number, item]));
+  let changed = false;
+
+  myRequests = myRequests.map((item) => {
+    const liveItem = byNumber.get(item.number);
+
+    if (!liveItem) {
+      return item;
+    }
+
+    changed = true;
+    return normalizeTrackedRequest({
+      ...item,
+      ...liveItem,
+      url: liveItem.url || item.url,
+      commentUrl: liveItem.commentUrl || liveItem.url || item.commentUrl || item.url
+    });
+  });
+
+  if (changed) {
+    persistMyRequests();
+  }
+
+  renderMyRequests();
+}
+
+function renderMyRequests() {
+  if (!myRequestsList || !myRequestsStatusNode) {
+    return;
+  }
+
+  myRequestsList.innerHTML = "";
+
+  if (!myRequests.length) {
+    myRequestsStatusNode.textContent =
+      "No saved requests in this browser yet. Submit one here and it will stay pinned for quick follow-up.";
+
+    const empty = document.createElement("article");
+    empty.className = "my-requests-empty";
+    empty.textContent =
+      "Rejected requests can be clarified directly on GitHub once they appear here. No separate account or inbox yet.";
+    myRequestsList.append(empty);
+    return;
+  }
+
+  myRequestsStatusNode.textContent =
+    `${myRequests.length} saved request${myRequests.length === 1 ? "" : "s"} in this browser.`;
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of myRequests) {
+    const row = document.createElement("article");
+    row.className = "queue-card my-request-card";
+    row.append(createMyRequestCard(item));
+    fragment.append(row);
+  }
+
+  myRequestsList.append(fragment);
+}
+
+function createMyRequestCard(item) {
+  const card = document.createElement("div");
+  card.className = "my-request-card-body";
+
+  const top = document.createElement("div");
+  top.className = "queue-item-top";
+
+  const issue = document.createElement("span");
+  issue.className = "queue-item-issue";
+  issue.textContent = `Issue #${item.number}`;
+
+  const status = document.createElement("span");
+  status.className = "queue-item-status";
+  status.dataset.status = item.status;
+  status.textContent = formatStatus(item.status);
+
+  top.append(issue, status);
+
+  const title = document.createElement("h3");
+  title.className = "queue-item-title";
+  title.textContent = item.title;
+
+  const meta = document.createElement("div");
+  meta.className = "queue-item-meta";
+
+  if (item.githubUsername) {
+    const username = document.createElement("span");
+    username.className = "queue-item-username";
+    username.textContent = formatGitHubUsername(item.githubUsername);
+    meta.append(username);
+  }
+
+  const submittedAt = document.createElement("time");
+  submittedAt.className = "queue-item-submitted-at";
+  submittedAt.dateTime = item.createdAt;
+  submittedAt.title = item.createdAt;
+  submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
+  meta.append(submittedAt);
+
+  const detail = document.createElement("p");
+  detail.className = "my-request-detail";
+  detail.textContent = getMyRequestDetail(item);
+
+  const actions = document.createElement("div");
+  actions.className = "my-request-actions";
+
+  const primary = document.createElement("a");
+  primary.className = "queue-link my-request-link";
+  primary.href = item.commentUrl || item.url || "#";
+  primary.target = "_blank";
+  primary.rel = "noreferrer";
+  primary.textContent = item.status === "rejected" ? "Reply on GitHub to clarify" : "Open on GitHub";
+
+  if (!item.commentUrl && !item.url) {
+    primary.setAttribute("aria-disabled", "true");
+  }
+
+  actions.append(primary);
+
+  card.append(top, title, meta, detail, actions);
+  return card;
+}
+
+function getMyRequestDetail(item) {
+  if (item.status === "rejected") {
+    if (item.statusDetail) {
+      return `${item.statusDetail} Reply on GitHub with the context the agent asked for or a narrower follow-up.`;
+    }
+
+    return "This request was rejected. Open the GitHub issue to read the rejection note and reply with clarification there.";
+  }
+
+  if (item.statusDetail) {
+    return item.statusDetail;
+  }
+
+  if (item.status === "complete") {
+    return "This request shipped or the linked pull request merged.";
+  }
+
+  if (item.status === "in-progress") {
+    return "An agent is actively reviewing or shipping this request.";
+  }
+
+  return "Waiting in the public queue.";
 }
 
 function setStatus(message, tone) {
@@ -1060,10 +1303,12 @@ function renderQueue(data) {
   markQueueRefresh();
   queueActiveItems = activeItems;
   queueArchivedItems = archivedItems;
+  const items = activeItems.concat(archivedItems);
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
   queueState.archiveTotal = archiveTotal;
+  syncMyRequestsWithQueue(items);
   updateQueueLocation(page);
   syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal });
 
@@ -1511,17 +1756,14 @@ function createQueueCardLink(item) {
 
   const commentHint = document.createElement("span");
   commentHint.className = "queue-item-comment-hint";
-  commentHint.textContent =
-    formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
-    (item.commentCount > 0
-      ? "Discussion already started on GitHub."
-      : "Be the first to add context on GitHub.");
+  commentHint.textContent = getQueueDiscussionHint(item);
 
   discussion.append(commentCount, commentHint);
 
   const cta = document.createElement("span");
   cta.className = "queue-item-cta";
-  cta.textContent = "Open issue and comment on GitHub";
+  cta.textContent =
+    item.status === "rejected" ? "Read the rejection and reply on GitHub" : "Open issue and comment on GitHub";
 
   link.append(top, title, meta, discussion, cta);
   card.append(link, createSupportControls(item));
@@ -1640,6 +1882,23 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function getQueueDiscussionHint(item) {
+  if (item.status === "rejected") {
+    if (item.statusDetail) {
+      return `Rejected: ${item.statusDetail}`;
+    }
+
+    return "Rejected. Open the issue to read the reason and reply with clarification on GitHub.";
+  }
+
+  return (
+    formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
+    (item.commentCount > 0
+      ? "Discussion already started on GitHub."
+      : "Be the first to add context on GitHub.")
+  );
 }
 
 function formatShortDate(value) {
