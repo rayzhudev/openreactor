@@ -834,6 +834,30 @@ button {
   min-height: 3.6rem;
 }
 
+.scope-select-wrap {
+  position: relative;
+}
+
+.scope-select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 1.2rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-right: 2px solid var(--ink-faint);
+  border-bottom: 2px solid var(--ink-faint);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.request-select {
+  min-height: 3.6rem;
+  padding-right: 3.4rem;
+  appearance: none;
+  cursor: pointer;
+}
+
 .request-guide {
   border: 1px solid var(--line);
   border-radius: 22px;

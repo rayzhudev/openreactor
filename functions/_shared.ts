@@ -62,7 +62,7 @@ interface FeatureRequestInput {
   successCriteria?: string;
   notes?: string;
   website?: string;
-  effortLevel?: number;
+  scopePreference?: string;
 }
 
 interface ValidatedFeatureRequest {
@@ -75,8 +75,10 @@ interface ValidatedFeatureRequest {
   constraints: string;
   successCriteria: string;
   notes: string;
-  effortLevel: number;
+  scopePreference: ScopePreference;
 }
+
+type ScopePreference = "auto" | "25" | "50" | "75";
 
 interface GitHubIssue {
   number: number;
@@ -587,6 +589,7 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
   const name = clean(input.name);
   const contact = clean(input.contact);
   const githubUsername = normalizeGitHubUsername(input.githubUsername);
+  const scopePreference = normalizeScopePreference(input.scopePreference);
 
   if (summary.length < 8 || summary.length > 120) {
     return { error: "Summary must be between 8 and 120 characters." };
@@ -627,10 +630,10 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     };
   }
 
-  const rawEffortLevel = input.effortLevel ?? 50;
-  const effortLevel = Math.round(Number(rawEffortLevel));
-  if (!Number.isFinite(effortLevel) || effortLevel < 0 || effortLevel > 100) {
-    return { error: "Scope must be a number between 0 and 100." };
+  if (!scopePreference) {
+    return {
+      error: "Scope must be Auto, 25, 50, or 75."
+    };
   }
 
   const lowSignalFields: Array<[label: string, value: string]> = [
@@ -657,21 +660,15 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
     constraints,
     successCriteria,
     notes,
-    effortLevel
+    scopePreference
   };
-}
-
-function scopeLabelFromValue(value: number): string {
-  if (value <= 25) return "Minimal change";
-  if (value <= 65) return "Moderate change";
-  return "Significant change";
 }
 
 function buildIssueBody(input: ValidatedFeatureRequest, request: Request): string {
   const url = new URL(request.url);
   const submittedAt = new Date().toISOString();
   const origin = `${url.protocol}//${url.host}`;
-  const scopeLabel = scopeLabelFromValue(input.effortLevel);
+  const desiredScope = describeScopePreference(input.scopePreference);
 
   return [
     REQUEST_MARKER,
@@ -686,7 +683,7 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     input.outcome,
     "",
     "## Desired Scope",
-    `${input.effortLevel} / 100 — ${scopeLabel}`,
+    desiredScope,
     "",
     "## Constraints",
     input.constraints || "_None provided._",
@@ -710,6 +707,28 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     `- Submitted at: ${submittedAt}`,
     `- Origin: ${origin}`
   ].join("\n");
+}
+
+function normalizeScopePreference(value: string | undefined): ScopePreference | null {
+  if (value === undefined || value === "") {
+    return "auto";
+  }
+
+  return value === "auto" || value === "25" || value === "50" || value === "75" ? value : null;
+}
+
+function describeScopePreference(value: ScopePreference): string {
+  if (value === "auto") {
+    return "Auto — Let the issue agent decide the amount of scope.";
+  }
+
+  const labels: Record<Exclude<ScopePreference, "auto">, string> = {
+    "25": "Minimal change",
+    "50": "Moderate change",
+    "75": "Significant change"
+  };
+
+  return `${value} / 100 — ${labels[value]}`;
 }
 
 async function getExistingLabels(env: Env): Promise<string[]> {
