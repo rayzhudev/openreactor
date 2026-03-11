@@ -739,6 +739,16 @@ button {
   display: grid;
   grid-template-rows: auto auto 1fr;
   gap: 0.6rem;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.product-explainer-step:hover {
+  transform: translateY(-2px);
+  border-color: rgba(184, 92, 56, 0.28);
+  box-shadow: var(--shadow-soft);
 }
 
 .product-explainer-step-number {
@@ -2004,6 +2014,16 @@ button {
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--card-flat-bg);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.leaderboard-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(184, 92, 56, 0.28);
+  box-shadow: var(--shadow-soft);
 }
 
 .leaderboard-rank {

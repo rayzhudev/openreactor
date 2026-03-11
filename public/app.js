@@ -1341,6 +1341,49 @@ function renderQueueError(message) {
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
 
+function animateCountUp(element, target, duration = 800) {
+  if (typeof target !== "number" || target <= 0) return;
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReduced) {
+    element.textContent = `${target}`;
+    return;
+  }
+  const start = performance.now();
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    element.textContent = `${Math.round(eased * target)}`;
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  element.textContent = "0";
+  requestAnimationFrame(tick);
+}
+
+let leaderboardCounterAnimated = false;
+
+function setupLeaderboardCounterObserver() {
+  if (leaderboardCounterAnimated) return;
+  const statsContainer = document.querySelector(".leaderboard-stats");
+  if (!statsContainer) return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && !leaderboardCounterAnimated) {
+          leaderboardCounterAnimated = true;
+          observer.disconnect();
+          const prs = parseInt(leaderboardTotalPrsNode.textContent, 10);
+          const authors = parseInt(leaderboardTotalAuthorsNode.textContent, 10);
+          if (prs > 0) animateCountUp(leaderboardTotalPrsNode, prs);
+          if (authors > 0) animateCountUp(leaderboardTotalAuthorsNode, authors);
+        }
+      }
+    },
+    { threshold: 0.3 }
+  );
+  observer.observe(statsContainer);
+}
+
 function renderLeaderboard(items, totals) {
   leaderboardList.innerHTML = "";
   leaderboardStatsNode.classList.remove("loading");
@@ -1350,6 +1393,7 @@ function renderLeaderboard(items, totals) {
   leaderboardLatestMergeNode.textContent = totals.latestMergedAt
     ? formatShortDate(totals.latestMergedAt)
     : "No merges yet";
+  setupLeaderboardCounterObserver();
 
   if (!items.length) {
     leaderboardSummaryNode.textContent = "No merged pull requests yet.";
