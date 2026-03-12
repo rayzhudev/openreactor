@@ -32,6 +32,9 @@ maintainer consideration.
 - OpenReactor should supervise itself: stalled issues and repeated local
   runtime failures should be detected, classified, and either healed
   operationally or turned into concrete OpenReactor repair work.
+- When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
+  should leave a reviewable PR open, disable auto-merge, and mark the issue as
+  waiting for maintainer action instead of merging a documented partial.
 
 ## Scope
 

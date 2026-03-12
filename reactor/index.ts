@@ -34,6 +34,7 @@ import {
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
+const MAINTAINER_ACTION_REQUIRED_LABEL = "maintainer-action-required";
 const SENSITIVITY_LABELS = {
   low: "sensitivity:low",
   medium: "sensitivity:medium",
@@ -144,6 +145,11 @@ class Reactor {
       OPENREACTOR_CORE_LABEL,
       "5319e7",
       "This issue pertains to OpenReactor itself rather than the product surface."
+    );
+    await this.github.ensureLabel(
+      MAINTAINER_ACTION_REQUIRED_LABEL,
+      "b60205",
+      "OpenReactor prepared a PR for this issue but is waiting on a maintainer-only action before it can continue."
     );
   }
 
@@ -475,6 +481,10 @@ class Reactor {
         continue;
       }
 
+      if (record.status === "waiting-maintainer") {
+        continue;
+      }
+
       if (!record.agentTool) {
         try {
           const triageDecision = await this.triageIssue(issue);
@@ -524,6 +534,10 @@ class Reactor {
     }
 
     if (labels.has(FEEDBACK_BANK_LABEL)) {
+      return false;
+    }
+
+    if (labels.has(MAINTAINER_ACTION_REQUIRED_LABEL)) {
       return false;
     }
 
@@ -674,6 +688,47 @@ class Reactor {
         activeRun,
         paths
       });
+
+      if (result?.humanHandoff?.required) {
+        const handoffValidation = await this.validateMaintainerHandoff(paths.branchName, result);
+        if (!handoffValidation.ok) {
+          activeRun.record.status = "retry";
+          activeRun.record.lastError = handoffValidation.reason;
+          await writeRunRecord(paths, activeRun.record);
+        } else {
+          activeRun.record.status = "waiting-maintainer";
+          activeRun.record.lastError = "";
+          activeRun.record.lastResult = {
+            ...result,
+            prUrl: handoffValidation.pullRequest.html_url
+          };
+          await writeRunRecord(paths, activeRun.record);
+          await this.github.disablePullRequestAutoMerge(handoffValidation.pullRequest.number);
+          await this.github.addLabels(issueNumber, [MAINTAINER_ACTION_REQUIRED_LABEL]);
+          await this.github.addLabels(handoffValidation.pullRequest.number, [
+            MAINTAINER_ACTION_REQUIRED_LABEL
+          ]);
+          await this.github.removeLabel(issueNumber, this.config.runningLabel);
+          await this.syncIssueStatusComment(issueNumber, {
+            status: "queued",
+            phase: "waiting-maintainer",
+            iteration: activeRun.record.iteration,
+            detail: `Waiting on maintainer action before PR ${handoffValidation.pullRequest.html_url} can continue.`
+          });
+          await this.github.createComment(
+            issueNumber,
+            [
+              result.issueComment || result.summary,
+              "",
+              `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
+              "",
+              "Maintainer action required:",
+              result.humanHandoff.instructions
+            ].join("\n")
+          );
+          return;
+        }
+      }
 
       if (result?.outcome === "accepted") {
         const acceptedValidation = await this.validateAcceptedResult(paths.branchName, result);
@@ -861,6 +916,41 @@ class Reactor {
     }
 
     return { ok: true, pullRequest: mergedPullRequest };
+  }
+
+  private async validateMaintainerHandoff(
+    branchName: string,
+    result: AgentResult
+  ): Promise<
+    | { ok: true; pullRequest: GitHubPullRequest }
+    | { ok: false; reason: string }
+  > {
+    const instructions = result.humanHandoff?.instructions.trim() ?? "";
+    if (!instructions) {
+      return {
+        ok: false,
+        reason: "maintainer handoff requires explicit continuation instructions"
+      };
+    }
+
+    if (!result.branchName || result.branchName !== branchName) {
+      return { ok: false, reason: `maintainer handoff must report branch ${branchName}` };
+    }
+
+    const branchExists = await ensureRemoteBranchExists(this.config.repoRoot, branchName);
+    if (!branchExists) {
+      return { ok: false, reason: `remote branch ${branchName} was not found on origin` };
+    }
+
+    const openPullRequest = await this.github.findOpenPullRequestByBranch(branchName);
+    if (!openPullRequest) {
+      return {
+        ok: false,
+        reason: `maintainer handoff requires an open pull request for branch ${branchName}`
+      };
+    }
+
+    return { ok: true, pullRequest: openPullRequest };
   }
 
   private async syncIssueStatusComment(

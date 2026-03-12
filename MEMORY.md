@@ -78,3 +78,10 @@
   Reason: frontend quality decays quickly when autonomous changes rely only on
   local code edits and taste drift, so the reactor needs both a shared visual
   baseline and runtime enforcement.
+
+- Decision: if a worthwhile feature is blocked on a maintainer-only prerequisite
+  such as OAuth setup or secret provisioning, OpenReactor should leave a
+  reviewable PR open with auto-merge disabled and mark it as requiring
+  maintainer action instead of merging a documented partial.
+  Reason: maintainer-blocked features need a real waiting state in the workflow,
+  not just handoff text inside an otherwise accepted PR.

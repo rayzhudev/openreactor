@@ -92,6 +92,8 @@ key setup, OAuth registration, or infrastructure approval, agents should:
 
 - push the safe work completed so far
 - open or update a PR if the work is reviewable
+- leave that PR open without auto-merge
+- mark the issue and PR as requiring maintainer action
 - leave explicit continuation instructions
 - avoid fabricating completion
 

@@ -68,7 +68,14 @@ export interface RunRecord {
   sensitivity?: SurfaceSensitivity;
   evidenceStrength?: EvidenceStrength;
   evidenceSummary?: string;
-  status: "running" | "accepted" | "rejected" | "retry" | "failed" | "decomposed";
+  status:
+    | "running"
+    | "accepted"
+    | "rejected"
+    | "retry"
+    | "failed"
+    | "decomposed"
+    | "waiting-maintainer";
   iteration: number;
   startFailureCount?: number;
   createdAt: string;
@@ -761,6 +768,7 @@ function buildAgentPrompt(
     "- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/main, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.",
     "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
+    "- If a maintainer-only step still blocks the feature, do not return accepted. Leave an open PR, disable auto-merge with `--no-auto-merge`, set humanHandoff.required=true, and return retry.",
     ...(maintainerSteering
       ? [
           "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
