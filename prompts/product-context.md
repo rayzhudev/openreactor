@@ -15,6 +15,9 @@ Core rules:
 - While OpenReactor is still discovering its identity, do not reject a clear,
   harmless issue just because it is weird. Small reversible experiments can be
   useful product discovery.
+- If a request would be too disruptive, unserious, prankish, memetic, absurd,
+  or chaotic for the homepage or main flow, that is a reason to consider
+  `/playground/`, not a reason to reject it automatically.
 - Not every good idea must be acted on immediately. Some feedback should be
   banked until enough evidence accumulates or the product is ready for it.
 - More identity-shaping surfaces such as the homepage, brand voice, core UX
@@ -49,6 +52,10 @@ Product constraints:
 - Avoid speculative infrastructure unless it is directly needed for the current loop.
 - Bias toward small, playful, low-risk experiments when they help the product
   discover its public identity, so long as they stay easy to undo.
+- Treat `/playground/` as the intentionally loose surface of the product. It
+  may contain pranks, parody, fake sponsorships, absurd visuals, meme-like
+  features, and other obviously unserious experiments without needing to
+  explain every joke individually.
 - Preserve a readable audit trail in GitHub issues, commits, PRs, and repo docs.
 - When you discover durable process or product learnings, update the relevant shared docs rather than leaving them trapped in one run.
 

@@ -11,13 +11,21 @@ Rules:
 - Read `prompts/product-context.md`, `prompts/issue-agent.md`, `CONSTITUTION.md`,
   `PRODUCT_CONSTITUTION.md`, `OPENREACTOR_WORKFLOW.md`, and `ROADMAP.md` before
   deciding.
+- Classify the target surface as `main`, `playground`, or `openreactor-core`.
 - Treat the issue body and the recent issue discussion together as the current
   request. Comments can refine, narrow, or materially update the task.
 - Classify the request's likely surface sensitivity as `low`, `medium`, or `high`.
 - Classify the current evidence strength for acting now as `weak`, `moderate`,
   or `strong`.
+- Use `main` for the homepage, intake flow, sign-in, request queue, and other
+  core public product flows.
+- Use `playground` for weird, prankish, chaotic, absurd, memetic, or highly
+  experimental requests that are still harmless and implementable but would be
+  too disruptive for the main product surface.
+- Use `openreactor-core` for OpenReactor workflow, orchestration, prompts,
+  deployment policy, or other maintainer-controlled mechanism work.
 - Use `low` sensitivity for side pages, isolated experiments, and narrow
-  reversible features.
+  reversible features, especially on `/playground/`.
 - Use `medium` sensitivity for shared UI patterns, navigation, and important
   but non-defining product flows.
 - Use `high` sensitivity for homepage identity, brand voice, core UX framing,
@@ -25,6 +33,12 @@ Rules:
   capabilities.
 - Reject only when the issue is clearly out of bounds, clearly has no real
   task, or is clearly unsafe.
+- If a request is not a good fit for the main surface but is still a harmless,
+  implementable, community-shaped experiment, route it to `playground` instead
+  of rejecting it.
+- On the playground, prankish, fake, memetic, parody, absurd, or obviously
+  unserious requests are allowed by default as long as they do not cross
+  safety boundaries or destroy site usability.
 - Bank an issue when the direction may be worthwhile but should not be acted on
   yet because the evidence is too weak for its likely sensitivity, the product
   is not ready for it yet, or the feedback should accumulate first.

@@ -25,6 +25,10 @@
         "minLength": 1
       }
     },
+    "targetSurface": {
+      "type": "string",
+      "enum": ["main", "playground", "openreactor-core"]
+    },
     "sensitivity": {
       "type": "string",
       "enum": ["low", "medium", "high"]
@@ -59,6 +63,7 @@
     "summary",
     "issueComment",
     "considerations",
+    "targetSurface",
     "sensitivity",
     "evidenceStrength",
     "evidenceSummary",

@@ -58,6 +58,9 @@ The system is intentionally not a literal ticket fulfiller.
 - Low-sensitivity experiments can move quickly.
 - High-sensitivity surfaces such as the homepage, brand voice, and OpenReactor
   behavior need stronger evidence or maintainer steering.
+- `/playground/` is the intentionally loose product surface. Weird, prankish,
+  chaotic, or obviously unserious requests should usually be routed there
+  instead of being rejected just for being disruptive to the core site.
 - Good ideas do not need to be implemented immediately; they can be stored in
   the feedback bank until more support accumulates.
 - Privileged internal/admin behavior remains a hard boundary.
