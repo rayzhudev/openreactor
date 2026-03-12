@@ -183,6 +183,34 @@ interface LeaderboardContributor {
   };
 }
 
+type OpenReactorPipelineStage = {
+  key: string;
+  label: string;
+  available: boolean;
+  itemCount: number;
+  items: Array<Record<string, unknown>>;
+  recentTriage?: Array<Record<string, unknown>>;
+  pendingCount?: number;
+  source?: string;
+  error?: string;
+};
+
+type OpenReactorStatusPayload = {
+  ok?: boolean;
+  available?: boolean;
+  generatedAt?: string;
+  repo?: Record<string, unknown>;
+  services?: Record<string, unknown>;
+  agents?: Record<string, unknown>;
+  blockers?: Record<string, unknown>;
+  pipeline?: {
+    version?: number;
+    generatedAt?: string;
+    stages?: OpenReactorPipelineStage[];
+  };
+  error?: string;
+};
+
 export async function handleMeta(env: Env): Promise<Response> {
   return jsonResponse({
     configured: isRepoConfigured(env),
@@ -210,54 +238,170 @@ export async function handleHealth(env: Env): Promise<Response> {
 
 export async function handleOpenReactorStatus(env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
-  if (!normalized.OPENREACTOR_STATUS_URL) {
-    return jsonResponse({
-      available: false,
-      error: "Live OpenReactor status is not configured yet."
-    });
+  let localStatus: OpenReactorStatusPayload | null = null;
+  let localError = normalized.OPENREACTOR_STATUS_URL
+    ? ""
+    : "Live OpenReactor status is not configured yet.";
+
+  if (normalized.OPENREACTOR_STATUS_URL) {
+    try {
+      localStatus = await fetchLocalOpenReactorStatus(normalized);
+    } catch (error) {
+      console.error("Unable to load live OpenReactor status.", error);
+      localError = "Live OpenReactor status is temporarily unavailable.";
+    }
   }
 
-  try {
-    const headers = new Headers({
-      Accept: "application/json"
-    });
-    if (normalized.OPENREACTOR_STATUS_TOKEN) {
-      headers.set("Authorization", `Bearer ${normalized.OPENREACTOR_STATUS_TOKEN}`);
+  let intakeStage = buildIntakeStage([], {
+    available: false,
+    error: isRepoConfigured(normalized)
+      ? "Repository-backed intake metadata is temporarily unavailable."
+      : "Repository-backed intake metadata is not configured yet."
+  });
+
+  if (isRepoConfigured(normalized)) {
+    try {
+      const issues = await listRequestIssues(normalized);
+      intakeStage = buildIntakeStage(issues);
+    } catch (error) {
+      console.error("Unable to load intake-stage request metadata.", error);
     }
-
-    const response = await fetch(normalized.OPENREACTOR_STATUS_URL, {
-      headers,
-      cf: { cacheTtl: 0, cacheEverything: false }
-    } as RequestInit & {
-      cf: {
-        cacheTtl: number;
-        cacheEverything: boolean;
-      };
-    });
-    const text = await response.text();
-    const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-
-    if (!response.ok) {
-      return jsonResponse({
-        available: false,
-        error:
-          typeof data.error === "string"
-            ? data.error
-            : "Live OpenReactor status is temporarily unavailable."
-      });
-    }
-
-    return jsonResponse({
-      ...data,
-      available: true
-    });
-  } catch (error) {
-    console.error("Unable to load live OpenReactor status.", error);
-    return jsonResponse({
-      available: false,
-      error: "Live OpenReactor status is temporarily unavailable."
-    });
   }
+
+  return jsonResponse(
+    mergeOpenReactorStatusPayload(localStatus, intakeStage, localError || localStatus?.error || "")
+  );
+}
+
+async function fetchLocalOpenReactorStatus(env: NormalizedEnv): Promise<OpenReactorStatusPayload> {
+  const headers = new Headers({
+    Accept: "application/json"
+  });
+  if (env.OPENREACTOR_STATUS_TOKEN) {
+    headers.set("Authorization", `Bearer ${env.OPENREACTOR_STATUS_TOKEN}`);
+  }
+
+  const response = await fetch(env.OPENREACTOR_STATUS_URL, {
+    headers,
+    cf: { cacheTtl: 0, cacheEverything: false }
+  } as RequestInit & {
+    cf: {
+      cacheTtl: number;
+      cacheEverything: boolean;
+    };
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as OpenReactorStatusPayload) : {};
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.error === "string"
+        ? data.error
+        : "Live OpenReactor status is temporarily unavailable."
+    );
+  }
+
+  return data;
+}
+
+export function mergeOpenReactorStatusPayload(
+  localStatus: OpenReactorStatusPayload | null,
+  intakeStage: OpenReactorPipelineStage,
+  localError = ""
+): Record<string, unknown> {
+  const fallbackPipeline = buildFallbackPipeline({ intakeStage });
+  const localPipelineStages = Array.isArray(localStatus?.pipeline?.stages) ? localStatus.pipeline?.stages : [];
+
+  return {
+    ok: localStatus?.ok ?? true,
+    available: Boolean(localStatus?.available),
+    generatedAt: localStatus?.generatedAt ?? new Date().toISOString(),
+    repo: localStatus?.repo ?? null,
+    services: localStatus?.services ?? {
+      reactor: null,
+      watchdog: null
+    },
+    agents: localStatus?.agents ?? {
+      activeCount: 0,
+      pendingRetryCount: 0,
+      maxConcurrentIssues: 0,
+      items: []
+    },
+    blockers: localStatus?.blockers ?? {
+      pausedCount: 0,
+      pausedIssues: [],
+      maintainerHandoffCount: 0,
+      maintainerHandoffs: []
+    },
+    pipeline: {
+      version: Number(localStatus?.pipeline?.version ?? 1),
+      generatedAt: localStatus?.pipeline?.generatedAt ?? localStatus?.generatedAt ?? new Date().toISOString(),
+      stages: [intakeStage, ...(localPipelineStages.length ? localPipelineStages : fallbackPipeline.stages.slice(1))]
+    },
+    ...(localError ? { error: localError } : {})
+  };
+}
+
+export function buildIntakeStage(
+  issues: GitHubIssue[],
+  input?: {
+    available?: boolean;
+    error?: string;
+  }
+): OpenReactorPipelineStage {
+  const queuedIssues = issues.filter((issue) => getIssueStatus(issue) === "queued");
+  const items = queuedIssues.slice(0, MAX_ARCHIVE_ITEMS).map((issue) => ({
+    lane: "intake",
+    issueNumber: issue.number,
+    issueTitle: issue.title.replace(/^\[Request\]\s*/, ""),
+    issueUrl: issue.html_url,
+    createdAt: issue.created_at,
+    status: "queued",
+    supportCount: issue.reactions?.["+1"] ?? 0,
+    commentCount: issue.comments ?? 0,
+    githubUsername: getIssueGitHubUsername(issue)
+  }));
+
+  return {
+    key: "intake",
+    label: "Intake",
+    available: input?.available ?? true,
+    itemCount: queuedIssues.length,
+    items,
+    source: "github",
+    ...(input?.error ? { error: input.error } : {})
+  };
+}
+
+function buildFallbackPipeline(input: { intakeStage: OpenReactorPipelineStage }): {
+  version: number;
+  generatedAt: string;
+  stages: OpenReactorPipelineStage[];
+} {
+  return {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    stages: [
+      input.intakeStage,
+      buildUnavailableStage("triage-planning", "Triage & planning"),
+      buildUnavailableStage("execution", "Execution"),
+      buildUnavailableStage("retry", "Retry"),
+      buildUnavailableStage("blocked", "Blocked"),
+      buildUnavailableStage("completed", "Completed")
+    ]
+  };
+}
+
+function buildUnavailableStage(key: string, label: string): OpenReactorPipelineStage {
+  return {
+    key,
+    label,
+    available: false,
+    itemCount: 0,
+    items: [],
+    source: "local-runtime",
+    error: "Live OpenReactor runtime metadata is unavailable."
+  };
 }
 
 export async function handleSession(request: Request, env: Env): Promise<Response> {
