@@ -18,6 +18,7 @@ export interface AgentTestResult {
 
 export type SurfaceSensitivity = "low" | "medium" | "high";
 export type EvidenceStrength = "weak" | "moderate" | "strong";
+export type ProductSurfaceTarget = "main" | "playground" | "openreactor-core";
 
 export interface TriageResult {
   issueNumber: number;
@@ -25,6 +26,7 @@ export interface TriageResult {
   summary: string;
   issueComment: string | null;
   considerations: string[];
+  targetSurface: ProductSurfaceTarget;
   sensitivity: SurfaceSensitivity;
   evidenceStrength: EvidenceStrength;
   evidenceSummary: string;
@@ -82,6 +84,7 @@ export interface RunRecord {
   issueTitle: string;
   branchName: string;
   agentTool?: AgentToolName;
+  targetSurface?: ProductSurfaceTarget;
   sensitivity?: SurfaceSensitivity;
   evidenceStrength?: EvidenceStrength;
   evidenceSummary?: string;
@@ -193,6 +196,7 @@ export async function writeIssueContext(
   issue: GitHubIssue,
   paths: IssueRuntimePaths,
   governance?: {
+    targetSurface?: ProductSurfaceTarget;
     sensitivity?: SurfaceSensitivity;
     evidenceStrength?: EvidenceStrength;
     evidenceSummary?: string;
@@ -210,6 +214,7 @@ export async function writeIssueContext(
     `- URL: ${issue.html_url}`,
     `- Labels: ${labels}`,
     `- Branch: ${paths.branchName}`,
+    `- Target surface: ${governance?.targetSurface ?? "unknown"}`,
     `- Surface sensitivity: ${governance?.sensitivity ?? "unknown"}`,
     `- Evidence strength: ${governance?.evidenceStrength ?? "unknown"}`,
     `- Maintainer steering: ${
@@ -232,6 +237,13 @@ export async function writeIssueContext(
     maintainerSteering
       ? `- This issue declares GitHub Username \`@${maintainerSteering.username}\`, which matches the repo owner. Agents should treat it as maintainer steering: do not reject it solely for roadmap, product-direction, or constitution-fit reasons, but still enforce safety, legality, secrecy, and feasibility constraints.`
       : "- No maintainer steering signal detected from the structured issue metadata.",
+    governance?.targetSurface === "playground"
+      ? "- This request should be implemented on `/playground/` if accepted. Treat that surface as intentionally permissive, prank-friendly, and community-shaped. Do not drag the chaos back onto the homepage unless the request explicitly needs shared navigation or linking."
+      : governance?.targetSurface === "main"
+        ? "- This request targets the main product surface. Keep changes coherent with the homepage, intake flow, and other core public experiences."
+        : governance?.targetSurface === "openreactor-core"
+          ? "- This request targets OpenReactor itself rather than the public product surface."
+          : "",
     "",
     "## Local Run Files",
     "",
@@ -916,12 +928,18 @@ function buildTriagePrompt(
     formatRecentDiscussion(comments),
     "",
     "Your job:",
+    "- Classify the target surface as `main`, `playground`, or `openreactor-core`.",
     "- Classify the likely surface sensitivity of the request as `low`, `medium`, or `high`.",
     "- Classify the current evidence strength for making the change now as `weak`, `moderate`, or `strong`.",
-    "- Use `low` sensitivity for side pages, isolated experiments, and narrow reversible features.",
+    "- Use `main` for the homepage, intake, sign-in, request queue, and other core public product flows.",
+    "- Use `playground` for weird, prankish, chaotic, absurd, memetic, or highly experimental requests that are still harmless and implementable but would be too disruptive for the main product surface.",
+    "- Use `openreactor-core` for OpenReactor workflow, orchestration, prompts, deployment policy, or other maintainer-controlled mechanism work.",
+    "- Use `low` sensitivity for `/playground/`, side pages, isolated experiments, and narrow reversible features.",
     "- Use `medium` sensitivity for shared UI patterns, navigation, and important but non-defining flows.",
     "- Use `high` sensitivity for homepage identity, brand voice, core UX framing, reactor behavior, deployment-critical surfaces, and privileged internal/admin capabilities.",
     "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly unsafe.",
+    "- If a request is not a good fit for the main surface but is still a harmless, implementable, community-shaped experiment, route it to `playground` instead of rejecting it.",
+    "- On the playground, prankish, fake, memetic, parody, absurd, or obviously unserious requests are allowed by default as long as they do not cross safety boundaries or destroy site usability.",
     "- Bank for later when the direction seems potentially good but should not be acted on yet because evidence is weak for the sensitivity level, timing is wrong, or the request should accumulate more supporting feedback first.",
     "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable when the evidence is strong enough for the likely sensitivity.",
     "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage, especially for low-sensitivity experiments.",

@@ -36,6 +36,32 @@ smallest practical operational surface area.
 - Let public support influence prioritization and evidence only within safety,
   maintainer-boundary, and feasibility constraints.
 
+## Core site and playground
+
+OpenReactor is one product, but not every surface of that product should move
+the same way.
+
+- The homepage, intake flow, sign-in experience, primary navigation, and other
+  core public surfaces should stay more coherent and directionally focused.
+- `/playground/` is the intentionally loose surface. It is where OpenReactor
+  can absorb weird, prankish, memetic, chaotic, absurd, or obviously unserious
+  ideas that would be too disruptive for the main product flow.
+- The playground exists to make OpenReactor feel alive, surprising, viral, and
+  highly community-shaped. It is allowed to diverge sharply from the rest of
+  the site in visuals, tone, and behavior.
+- The playground does not need to explicitly self-disclose every prank, parody,
+  fake sponsorship, or absurd interaction. The surface as a whole may be
+  understood as intentionally playful and not bound by the same seriousness as
+  the homepage.
+- The playground should still remain navigable and preserve a clear path back
+  to the homepage.
+- The playground should not become pure noise. Additions should still create
+  delight, spectacle, interaction, novelty, or the sense that the surface is
+  alive.
+- If a request is not a good fit for the homepage or core flow, agents should
+  prefer routing it to `/playground/` over rejecting it when it is still
+  harmless and implementable.
+
 ## Sensitivity and evidence
 
 The product should not treat every surface as equally easy to change.
@@ -44,8 +70,8 @@ The product should not treat every surface as equally easy to change.
   experiences are higher-sensitivity surfaces.
 - Shared UI patterns, navigation, and important product flows are medium
   sensitivity.
-- Side pages, isolated experiments, and narrow reversible features are lower
-  sensitivity.
+- `/playground/`, side pages, isolated experiments, and narrow reversible
+  features are lower sensitivity by default.
 
 Lower-sensitivity changes can move on one strong request. Higher-sensitivity
 changes should usually need stronger evidence, maintainer steering, or repeated
@@ -58,6 +84,11 @@ If the underlying direction is sound but the exact requested threshold is too
 absolute, agents should usually keep the product signal and soften the literal
 constraint. For example, a request for an unrealistically tiny asset budget may
 still justify reducing obvious bloat or tightening the most wasteful surface.
+
+For `/playground/`, do not reject a request solely because it is prankish,
+absurd, memetic, fake, or obviously unserious. Reject it only when it crosses
+the repo's hard safety boundaries, destroys site usability, or is not a real
+implementable task.
 
 ## Maintainer steering
 
@@ -78,6 +109,7 @@ This constitution applies to:
 
 - `public/`
 - `functions/`
+- `/playground/`
 - public queue and explainer surfaces
 - request intake UX
 - other product-facing experiences

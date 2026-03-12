@@ -8,6 +8,7 @@ export interface ReactorLiveAgentSnapshot {
   issueUrl: string;
   branchName: string;
   iteration: number;
+  targetSurface?: "main" | "playground" | "openreactor-core";
   toolName: AgentToolName;
   toolLabel: string;
   provider: "codex" | "claude";

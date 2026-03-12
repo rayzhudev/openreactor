@@ -289,8 +289,11 @@ class Reactor {
         status: "queued",
         phase: "banked",
         detail:
-          normalizedResult.bankReason ??
-          `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`,
+          [
+            normalizedResult.bankReason ??
+              `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`,
+            `Target surface: ${normalizedResult.targetSurface}.`
+          ].join(" "),
         execution
       });
       await this.github.createComment(
@@ -300,6 +303,7 @@ class Reactor {
             [
               "OpenReactor banked this feedback for later consideration instead of acting on it immediately.",
               "",
+              `Target surface: ${normalizedResult.targetSurface}`,
               `Sensitivity: ${normalizedResult.sensitivity}`,
               `Evidence strength: ${normalizedResult.evidenceStrength}`,
               `Evidence summary: ${normalizedResult.evidenceSummary}`,
@@ -328,6 +332,7 @@ class Reactor {
           [
             normalizedResult.toolReason ??
               `Lightweight triage selected ${tool.label} for the next implementation attempt.`,
+            `Target surface: ${normalizedResult.targetSurface}.`,
             `Sensitivity: ${normalizedResult.sensitivity}.`,
             `Evidence: ${normalizedResult.evidenceStrength}.`,
             normalizedResult.evidenceSummary
@@ -346,6 +351,7 @@ class Reactor {
       summary: "Defaulted to dispatch because triage result was missing or incomplete.",
       issueComment: null,
       considerations: ["Triage result was incomplete, so the reactor fell back to the default implementation path."],
+      targetSurface: "main",
       sensitivity: "medium",
       evidenceStrength: "moderate",
       evidenceSummary: "Fallback classification because the triage result was incomplete.",
@@ -742,6 +748,7 @@ class Reactor {
       (await readRunRecord(paths)) ??
       (await createInitialRunRecord(issue, paths));
     record.agentTool = agentTool;
+    record.targetSurface = selectedTriage?.targetSurface ?? record.targetSurface;
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
     record.evidenceSummary = selectedTriage?.evidenceSummary ?? record.evidenceSummary;
@@ -750,6 +757,7 @@ class Reactor {
       const comments = await this.github.listIssueComments(issue.number);
       await ensureIssueWorktree(this.config, paths);
       await writeIssueContext(this.config, issue, paths, {
+        targetSurface: record.targetSurface,
         sensitivity: record.sensitivity,
         evidenceStrength: record.evidenceStrength,
         evidenceSummary: record.evidenceSummary
@@ -1070,6 +1078,7 @@ class Reactor {
         issueUrl: activeRun.issue.html_url,
         branchName: activeRun.record.branchName,
         iteration: activeRun.record.iteration,
+        targetSurface: activeRun.record.targetSurface,
         toolName: tool.name,
         toolLabel: tool.label,
         provider: tool.provider,
@@ -1479,6 +1488,27 @@ function normalizeTriageResult(
 ): TriageResult | null {
   if (!result) {
     return null;
+  }
+
+  if (result.targetSurface === "playground") {
+    result = {
+      ...result,
+      sensitivity: "low",
+      evidenceStrength: result.evidenceStrength === "weak" ? "moderate" : result.evidenceStrength,
+      evidenceSummary:
+        result.evidenceSummary ||
+        "Playground-targeted requests are intentionally lower-sensitivity than the core site."
+    };
+  }
+
+  if (result.targetSurface === "openreactor-core") {
+    result = {
+      ...result,
+      sensitivity: "high",
+      evidenceSummary:
+        result.evidenceSummary ||
+        "OpenReactor-core changes are maintainer-controlled and should be treated as high-sensitivity by default."
+    };
   }
 
   if (!maintainerSteering && result.outcome === "dispatch") {
