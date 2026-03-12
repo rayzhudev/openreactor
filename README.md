@@ -218,7 +218,10 @@ bun run smoke:pages -- --base-url https://openreactor.net --cleanup
 App installation token already injected into the run. That avoids using the
 server's SSH identity for remote publication. It also enables PR auto-merge by
 default; agents should pass `--no-auto-merge` when a PR must wait for manual
-review or human intervention. Accepted issues are also re-queued automatically
+review or human intervention. If a feature is blocked on a maintainer-only step
+such as OAuth setup or secret provisioning, the reactor now leaves the PR open,
+disables auto-merge, and applies `maintainer-action-required` instead of
+merging a documented partial. Accepted issues are also re-queued automatically
 if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed.

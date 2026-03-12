@@ -147,8 +147,11 @@ If blocked on a human-only step:
 
 - push the branch if the partial work is useful
 - open or update a PR if reviewable
+- use `bun run reactor:tool ensure-pr ... --no-auto-merge` for that PR
 - leave exact human continuation instructions in the issue comment, PR body, `plan.json`, and `progress.md`
+- set `humanHandoff.required` to `true` with exact continuation instructions
 - return `retry` unless the remaining work is explicitly outside the accepted scope
+- do not return `accepted` while a maintainer-only step is still required for the feature to work as intended
 - never fabricate that the feature is complete
 
 Use this to make PR creation idempotent:

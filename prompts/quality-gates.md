@@ -16,6 +16,7 @@ Completion standards:
 - Do not mark an issue `accepted` if checks failed.
 - Do not mark an issue `accepted` unless at least one relevant check passed.
 - If checks cannot run, explain why in `progress.md` and do not claim full completion.
+- Do not mark an issue `accepted` if a maintainer-only action is still required before the feature can work as intended.
 - Prefer clean, reviewable commits over large speculative rewrites.
 - Use as many existing safety guards as the repo offers. If lint, tests, type checks, builds, browser verification, or schema checks exist and are relevant, run them.
 - Acceptance criteria must be satisfied, not merely attempted.
