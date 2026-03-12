@@ -103,3 +103,10 @@
   Reason: the product should be able to show what OpenReactor is doing without
   turning the website into the runtime control plane or exposing arbitrary local
   state.
+
+- Decision: shape `/api/openreactor-status` around explicit pipeline stages,
+  with GitHub-backed intake metadata added at the website proxy and local
+  runtime stages supplied by the machine-local status service.
+  Reason: homepage visualizations need a stable stage-oriented contract for
+  intake, planning, execution, retry, blocked, and completed flow, while the
+  metadata-only boundary still needs to stay intact.

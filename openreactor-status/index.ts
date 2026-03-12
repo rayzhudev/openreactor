@@ -40,13 +40,34 @@ interface RunRecordSummary {
   lastHeartbeatAt: string;
   lastError: string;
   lastResult: {
+    outcome?: string;
+    summary?: string | null;
     prUrl?: string | null;
     humanHandoff?: {
       required: boolean;
       instructions: string;
     } | null;
   } | null;
+  triageExecution?: ExecutionSummary | null;
+  lastAgentExecution?: ExecutionSummary | null;
 }
+
+interface ExecutionSummary {
+  stage?: string | null;
+  providerKey?: string | null;
+  providerLabel?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
+  serviceTier?: string | null;
+  toolName?: string | null;
+  toolLabel?: string | null;
+  primaryUse?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+}
+
+const MAX_STAGE_ITEMS = 8;
 
 const reactorConfig = loadReactorConfig();
 const statusConfig = loadOpenReactorStatusConfig();
@@ -109,7 +130,9 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 async function buildStatusPayload(): Promise<Record<string, unknown>> {
   const reactorSnapshot = await readReactorLiveSnapshot(reactorConfig.repoRoot);
   const watchdogState = await readWatchdogState();
+  const runRecords = await listRunRecordSummaries();
   const handoffs = await listMaintainerHandoffs();
+  const pausedIssues = listPausedIssues(watchdogState);
   const reactorService = safeReadServiceStatus(statusConfig.reactorServiceName);
   const watchdogService = safeReadServiceStatus(statusConfig.watchdogServiceName);
   const now = new Date().toISOString();
@@ -133,12 +156,32 @@ async function buildStatusPayload(): Promise<Record<string, unknown>> {
       items: reactorSnapshot?.activeAgents ?? []
     },
     blockers: {
-      pausedCount: countPausedIssues(watchdogState),
-      pausedIssues: listPausedIssues(watchdogState),
+      pausedCount: pausedIssues.length,
+      pausedIssues,
       maintainerHandoffCount: handoffs.length,
       maintainerHandoffs: handoffs
-    }
+    },
+    pipeline: buildLocalPipeline({
+      generatedAt: now,
+      reactorSnapshot,
+      runRecords,
+      pausedIssues,
+      maintainerHandoffs: handoffs
+    })
   };
+}
+
+async function listRunRecordSummaries(): Promise<RunRecordSummary[]> {
+  const entries = await fs.readdir(reactorConfig.runsDir, { withFileTypes: true }).catch(() => []);
+  const records = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("issue-"))
+      .map((entry) => readRunRecordSummary(path.join(reactorConfig.runsDir, entry.name, "run.json")))
+  );
+
+  return records
+    .filter((record): record is RunRecordSummary => Boolean(record))
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
 }
 
 async function readWatchdogState(): Promise<WatchdogStateFile | null> {
@@ -237,6 +280,176 @@ function listPausedIssues(state: WatchdogStateFile | null): Array<Record<string,
       repairIssueUrl: issue.repairIssueNumber ? buildIssueUrl(issue.repairIssueNumber) : null
     }))
     .sort((left, right) => Number(right.issueNumber) - Number(left.issueNumber));
+}
+
+function buildLocalPipeline(input: {
+  generatedAt: string;
+  reactorSnapshot: ReactorLiveSnapshot | null;
+  runRecords: RunRecordSummary[];
+  pausedIssues: Array<Record<string, unknown>>;
+  maintainerHandoffs: Array<{
+    issueNumber: number;
+    issueTitle: string;
+    issueUrl: string;
+    branchName: string;
+    updatedAt: string;
+    prUrl: string | null;
+    instructions: string;
+  }>;
+}): Record<string, unknown> {
+  const planningAgents = (input.reactorSnapshot?.activeAgents ?? [])
+    .filter((agent) => agent.primaryUse === "planning")
+    .map((agent) => ({
+      lane: "planning",
+      issueNumber: agent.issueNumber,
+      issueTitle: agent.issueTitle,
+      issueUrl: agent.issueUrl,
+      branchName: agent.branchName,
+      iteration: agent.iteration,
+      status: agent.status,
+      toolName: agent.toolName,
+      toolLabel: agent.toolLabel,
+      provider: agent.provider,
+      primaryUse: agent.primaryUse,
+      startedAt: agent.startedAt,
+      updatedAt: agent.updatedAt,
+      lastHeartbeatAt: agent.lastHeartbeatAt,
+      summary: agent.summary ?? null
+    }));
+  const triageItems = input.runRecords
+    .filter((record) => record.triageExecution?.startedAt)
+    .slice(0, MAX_STAGE_ITEMS)
+    .map((record) => ({
+      lane: "triage",
+      issueNumber: record.issueNumber,
+      issueTitle: record.issueTitle,
+      issueUrl: buildIssueUrl(record.issueNumber),
+      branchName: record.branchName,
+      status: record.status,
+      startedAt: record.triageExecution?.startedAt ?? null,
+      completedAt: record.triageExecution?.completedAt ?? null,
+      provider: record.triageExecution?.providerKey ?? null,
+      providerLabel: record.triageExecution?.providerLabel ?? null,
+      toolName: record.triageExecution?.toolName ?? null,
+      toolLabel: record.triageExecution?.toolLabel ?? null,
+      primaryUse: record.triageExecution?.primaryUse ?? null,
+      stage: record.triageExecution?.stage ?? "triage"
+    }));
+  const executionItems = (input.reactorSnapshot?.activeAgents ?? [])
+    .filter((agent) => agent.primaryUse !== "planning")
+    .map((agent) => ({
+      lane: "execution",
+      issueNumber: agent.issueNumber,
+      issueTitle: agent.issueTitle,
+      issueUrl: agent.issueUrl,
+      branchName: agent.branchName,
+      iteration: agent.iteration,
+      status: agent.status,
+      toolName: agent.toolName,
+      toolLabel: agent.toolLabel,
+      provider: agent.provider,
+      primaryUse: agent.primaryUse,
+      startedAt: agent.startedAt,
+      updatedAt: agent.updatedAt,
+      lastHeartbeatAt: agent.lastHeartbeatAt,
+      summary: agent.summary ?? null
+    }));
+  const retryItems = input.runRecords
+    .filter((record) => record.status === "retry" || record.status === "failed")
+    .slice(0, MAX_STAGE_ITEMS)
+    .map((record) => ({
+      lane: "retry",
+      issueNumber: record.issueNumber,
+      issueTitle: record.issueTitle,
+      issueUrl: buildIssueUrl(record.issueNumber),
+      branchName: record.branchName,
+      status: record.status,
+      updatedAt: record.updatedAt,
+      lastHeartbeatAt: record.lastHeartbeatAt,
+      reason: record.lastError || null
+    }));
+  const blockedItems = [
+    ...input.maintainerHandoffs.map((handoff) => ({
+      lane: "maintainer-handoff",
+      issueNumber: handoff.issueNumber,
+      issueTitle: handoff.issueTitle,
+      issueUrl: handoff.issueUrl,
+      branchName: handoff.branchName,
+      status: "waiting-maintainer",
+      updatedAt: handoff.updatedAt,
+      prUrl: handoff.prUrl,
+      instructions: handoff.instructions
+    })),
+    ...input.pausedIssues.map((issue) => ({
+      lane: "paused",
+      ...issue
+    }))
+  ].slice(0, MAX_STAGE_ITEMS);
+  const completedItems = input.runRecords
+    .filter((record) => ["accepted", "rejected", "decomposed"].includes(record.status))
+    .slice(0, MAX_STAGE_ITEMS)
+    .map((record) => ({
+      lane: record.status,
+      issueNumber: record.issueNumber,
+      issueTitle: record.issueTitle,
+      issueUrl: buildIssueUrl(record.issueNumber),
+      branchName: record.branchName,
+      status: record.status,
+      updatedAt: record.updatedAt,
+      completedAt: record.lastAgentExecution?.completedAt ?? record.updatedAt,
+      provider: record.lastAgentExecution?.providerKey ?? null,
+      providerLabel: record.lastAgentExecution?.providerLabel ?? null,
+      toolName: record.lastAgentExecution?.toolName ?? null,
+      toolLabel: record.lastAgentExecution?.toolLabel ?? null,
+      primaryUse: record.lastAgentExecution?.primaryUse ?? null,
+      outcome: record.lastResult?.outcome ?? record.status,
+      prUrl: record.lastResult?.prUrl ?? null,
+      summary: record.lastResult?.summary ?? null
+    }));
+
+  return {
+    version: 1,
+    generatedAt: input.generatedAt,
+    stages: [
+      {
+        key: "triage-planning",
+        label: "Triage & planning",
+        available: true,
+        itemCount: planningAgents.length,
+        items: planningAgents,
+        recentTriage: triageItems
+      },
+      {
+        key: "execution",
+        label: "Execution",
+        available: true,
+        itemCount: executionItems.length,
+        items: executionItems
+      },
+      {
+        key: "retry",
+        label: "Retry",
+        available: true,
+        itemCount: retryItems.length,
+        pendingCount: input.reactorSnapshot?.reactor.pendingRetryCount ?? retryItems.length,
+        items: retryItems
+      },
+      {
+        key: "blocked",
+        label: "Blocked",
+        available: true,
+        itemCount: blockedItems.length,
+        items: blockedItems
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        available: true,
+        itemCount: completedItems.length,
+        items: completedItems
+      }
+    ]
+  };
 }
 
 function summarizeService(
