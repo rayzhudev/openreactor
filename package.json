@@ -4,16 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev public",
-    "deploy": "wrangler pages deploy public --project-name openreactor",
-    "check": "tsc --noEmit",
+    "dev": "bunx @tailwindcss/cli -i src/input.css -o public/styles.css --watch & wrangler pages dev public",
+    "css:build": "bunx @tailwindcss/cli -i src/input.css -o public/styles.css --minify",
+    "deploy": "bun run css:build && wrangler pages deploy public --project-name openreactor",
+    "check": "bun run css:build && tsc --noEmit",
     "agent-browser:install": "agent-browser install",
-    "test:ui": "playwright test",
+    "test:ui": "bunx playwright test",
     "smoke:pages": "bun run ./scripts/pages-smoke-test.ts",
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",
     "reactor:dry-run": "bun run reactor/index.ts --once --dry-run",
-    "reactor:tool": "bun run reactor/tool.ts"
+    "reactor:tool": "bun run reactor/tool.ts",
+    "watchdog": "bash scripts/watchdog-service.sh",
+    "watchdog:once": "bash scripts/watchdog-service.sh --once"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -21,5 +24,9 @@
     "agent-browser": "0.17.1",
     "typescript": "^5.9.2",
     "wrangler": "^4.64.0"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.2.1",
+    "tailwindcss": "^4.2.1"
   }
 }

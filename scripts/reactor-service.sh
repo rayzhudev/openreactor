@@ -13,9 +13,9 @@ for candidate in /home/ray/.nvm/versions/node/*/bin/node; do
 done
 
 if [[ -n "$NODE_BIN_DIR" ]]; then
-  export PATH="${NODE_BIN_DIR}:/home/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+  export PATH="${NODE_BIN_DIR}:/home/ray/.local/bin:/home/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 else
-  export PATH="/home/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+  export PATH="/home/ray/.local/bin:/home/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 fi
 
 if [[ -f "$ENV_FILE" ]]; then
@@ -54,4 +54,4 @@ if [[ -z "${GITHUB_APP_ID:-}" || -z "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
   fi
 fi
 
-exec /home/ray/.bun/bin/bun /home/ray/projects/openreactor/reactor/index.ts
+exec /home/ray/.bun/bin/bun /home/ray/projects/openreactor/reactor/index.ts "$@"

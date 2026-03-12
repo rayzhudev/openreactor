@@ -26,6 +26,7 @@ export interface GitHubPullRequest {
   number: number;
   html_url: string;
   state: string;
+  node_id?: string;
   merged_at?: string | null;
   title?: string;
   mergeable?: boolean | null;
@@ -63,6 +64,21 @@ export class GitHubClient {
     return this.request<GitHubIssue>(
       `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}`
     );
+  }
+
+  async createIssue(input: {
+    title: string;
+    body: string;
+    labels?: string[];
+  }): Promise<GitHubIssue> {
+    return this.request<GitHubIssue>(`/repos/${this.config.owner}/${this.config.repo}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        body: input.body,
+        labels: input.labels ?? []
+      })
+    });
   }
 
   async ensureLabel(name: string, color: string, description: string): Promise<void> {
@@ -220,6 +236,31 @@ export class GitHubClient {
     );
   }
 
+  async isPullRequestAutoMergeEnabled(pullRequestNumber: number): Promise<boolean> {
+    const pullRequest = await this.getPullRequestGraphNode(pullRequestNumber);
+    return Boolean(pullRequest.autoMergeRequest);
+  }
+
+  async disablePullRequestAutoMerge(pullRequestNumber: number): Promise<void> {
+    const pullRequest = await this.getPullRequestGraphNode(pullRequestNumber);
+    if (!pullRequest.autoMergeRequest) {
+      return;
+    }
+
+    await this.graphqlRequest(
+      [
+        "mutation($pullRequestId: ID!) {",
+        "  disablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId }) {",
+        "    clientMutationId",
+        "  }",
+        "}"
+      ].join("\n"),
+      {
+        pullRequestId: pullRequest.id
+      }
+    );
+  }
+
   private async request<T = unknown>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/vnd.github+json");
@@ -250,6 +291,43 @@ export class GitHubClient {
     }
 
     return (await response.json()) as T;
+  }
+
+  private async graphqlRequest<T = unknown>(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<T> {
+    const headers = new Headers();
+    headers.set("Accept", "application/vnd.github+json");
+    headers.set("User-Agent", USER_AGENT);
+    headers.set("X-GitHub-Api-Version", API_VERSION);
+    headers.set("Content-Type", "application/json");
+
+    const accessToken = await this.getAccessToken();
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    const response = await fetch(`${API_BASE}/graphql`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query,
+        variables: variables ?? {}
+      })
+    });
+
+    const payload = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message?: string }>;
+    };
+
+    if (!response.ok || payload.errors?.length) {
+      const detail = payload.errors?.map((error) => error.message).filter(Boolean).join("; ") ?? "";
+      throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+    }
+
+    return payload.data as T;
   }
 
   async getAgentAccessToken(): Promise<string> {
@@ -357,6 +435,45 @@ export class GitHubClient {
     );
 
     return `${signingInput}.${toBase64Url(signature)}`;
+  }
+
+  private async getPullRequestGraphNode(pullRequestNumber: number): Promise<{
+    id: string;
+    autoMergeRequest: { enabledAt?: string | null } | null;
+  }> {
+    const data = await this.graphqlRequest<{
+      repository: {
+        pullRequest: {
+          id: string;
+          autoMergeRequest: { enabledAt?: string | null } | null;
+        } | null;
+      };
+    }>(
+      [
+        "query($owner: String!, $repo: String!, $number: Int!) {",
+        "  repository(owner: $owner, name: $repo) {",
+        "    pullRequest(number: $number) {",
+        "      id",
+        "      autoMergeRequest {",
+        "        enabledAt",
+        "      }",
+        "    }",
+        "  }",
+        "}"
+      ].join("\n"),
+      {
+        owner: this.config.owner,
+        repo: this.config.repo,
+        number: pullRequestNumber
+      }
+    );
+
+    const pullRequest = data.repository.pullRequest;
+    if (!pullRequest) {
+      throw new Error(`Unable to load pull request #${pullRequestNumber} for auto-merge inspection.`);
+    }
+
+    return pullRequest;
   }
 }
 

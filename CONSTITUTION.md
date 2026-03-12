@@ -1,80 +1,98 @@
-# OpenReactor Constitution
+# OpenReactor Governance Boundary
 
-This document governs all product and implementation work unless a maintainer
-explicitly replaces it.
+This file defines the boundary between:
 
-## Mission
+- **OpenReactor itself**, which is the workflow that governs autonomous product
+  evolution
+- the **OpenReactor product**, which is the public-facing website and
+  experience that OpenReactor is currently building
 
-OpenReactor should turn user intent into product work with the smallest possible
-operational surface area.
+Both matter, but they are not governed the same way.
 
-OpenReactor is an open source product. All agent work must preserve that
-constraint.
+## Core distinction
 
-## Must do
+Users submit feedback that is consumed by OpenReactor.
 
-- Prefer the smallest deployable slice over architectural completeness.
-- Keep changes incremental, reversible, and legible.
-- Preserve a clear audit trail in repository docs and GitHub issues.
-- Keep shared context current by updating prompts and core docs when durable
-  learnings are discovered.
-- Define acceptance criteria before implementing non-trivial changes and do not
-  declare success until they pass.
-- Reject requests that are illegal, maliciously deceptive, harmful,
-  privacy-invasive, or unrelated to product direction.
-- Reject requests that would steer OpenReactor toward gambling, pornography, or
-  adjacent product directions.
-- Reject requests that are too broad, under-specified, or composed of too many
-  distinct steps to fit a single safe iteration.
-- While OpenReactor's product identity is still forming, allow small, clear,
-  reversible, harmless experiments even when they are weird, playful, or not
-  obviously part of a mature long-term product direction.
+What that feedback should primarily change is the **product** that OpenReactor
+builds, not OpenReactor's own governing core.
 
-## Must not do
+OpenReactor itself is the critical mechanism that makes autonomous evolution
+possible. That layer is maintainer-controlled.
 
-- Build automation that cannot be supervised yet.
-- Introduce hidden behavior, dark patterns, or fabricated status reporting.
-- Add infrastructure that is not required for the current MVP loop.
-- Depend on secrets or services that are not available in deployment.
-- Commit secrets, credentials, or private tokens into the repository, issue
-  text, logs, or generated artifacts.
+## Governance model
 
-## Current MVP cutline
+There are three practical surfaces in this repo:
 
-Shipping the live intake loop takes precedence over:
+1. **Product surface**
+- public website behavior
+- visual design
+- intake UX
+- public queue, guides, and other user-facing features
+- side pages and experiments
 
-- autonomous triage workers
-- automated PR generation
-- deployment health checks
-- internal memory databases
-- non-essential dashboards
+This surface is community-shapeable.
 
-## Acceptance rule
+2. **Transparency surface**
+- public visualizations of what OpenReactor is doing
+- explainers
+- read-only status views
+- public observability of requests, agents, and shipping motion
 
-A change is in scope if it directly improves one of:
+This surface is also community-shapeable, as long as it does not directly alter
+OpenReactor policy or privileged controls.
 
-- request submission
-- request formatting quality
-- issue creation reliability
-- public visibility into current requests
-- deployability of the website
+3. **OpenReactor core**
+- reactor orchestration behavior
+- triage policy
+- agent routing
+- merge and deployment policy
+- privileged internal/admin controls
+- prompt/governance core
+- secret-sensitive or infrastructure-sensitive behavior
 
-While the product identity is still forming, a change is also in scope if it is
-a small, clear, reversible, publicly visible experiment that helps discover the
-site's taste, voice, or interaction style without violating the safety rules
-above.
+This surface is maintainer-controlled.
 
-## Human handoff rule
+## Hard boundary
 
-If a task is blocked on a human-only action such as acquiring an API key,
-approving an external account, or configuring infrastructure access, an agent
-should:
+Public feedback may influence:
 
-- push the safe work completed so far,
-- open or update a PR if the work is reviewable,
-- leave explicit continuation instructions for the human,
-- and avoid fabricating completion.
+- what the product becomes
+- what parts of OpenReactor become visible
+- what product directions gain evidence over time
 
-If a task is rejected because it is too large or mixes too many separate steps,
-the agent should explain the scope problem clearly and suggest the shape of a
-smaller follow-up issue.
+Public feedback must not directly govern:
+
+- how OpenReactor governs itself
+- privileged admin behavior
+- safety boundaries
+- secret handling
+
+OpenReactor-core changes may still be proposed by users, but they should be
+treated as proposals for maintainer consideration rather than normal product
+requests.
+
+## Source documents
+
+Read the relevant document for the surface you are working on:
+
+- [PRODUCT_CONSTITUTION.md](/home/ray/projects/openreactor/PRODUCT_CONSTITUTION.md)
+- [OPENREACTOR_WORKFLOW.md](/home/ray/projects/openreactor/OPENREACTOR_WORKFLOW.md)
+
+If a change crosses the boundary, default to the stricter OpenReactor rules
+unless the maintainer has explicitly steered otherwise.
+
+## Documentation rule
+
+Agents working on either OpenReactor or the product are expected to pass on
+durable learnings by updating shared docs.
+
+That includes, when appropriate:
+
+- `OPENREACTOR_WORKFLOW.md`
+- `PRODUCT_CONSTITUTION.md`
+- `MEMORY.md`
+- files in `prompts/`
+- other nearby architecture or product docs
+
+The point is that OpenReactor should not only change code. It should also
+retain what it learns about how to build the product and how to govern itself.

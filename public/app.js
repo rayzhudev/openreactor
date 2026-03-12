@@ -4,12 +4,15 @@ const requestField = document.querySelector("#request");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
+const myRequestsList = document.querySelector("#my-requests-list");
+const myRequestsStatusNode = document.querySelector("#my-requests-status");
 const queueBoard = document.querySelector("#queue-board");
 const queueTableWrap = document.querySelector("#queue-table-wrap");
 const queueTableBody = document.querySelector("#queue-table-body");
 const queueArchive = document.querySelector("#queue-archive");
 const queueArchiveList = document.querySelector("#queue-archive-list");
 const queueArchiveCountNode = document.querySelector("#queue-archive-count");
+const queueArchivePagination = document.querySelector("#queue-archive-pagination");
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
@@ -19,6 +22,7 @@ const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
 const leaderboardTotalPrsNode = document.querySelector("#leaderboard-total-prs");
 const leaderboardTotalAuthorsNode = document.querySelector("#leaderboard-total-authors");
 const leaderboardLatestMergeNode = document.querySelector("#leaderboard-latest-merge");
+const leaderboardStatsNode = document.querySelector(".leaderboard-stats");
 const reactorleBoard = document.querySelector("#reactorle-board");
 const reactorleStatusNode = document.querySelector("#reactorle-status");
 const reactorleKeyboard = document.querySelector("#reactorle-keyboard");
@@ -29,9 +33,19 @@ const queuePageLabelNode = document.querySelector("#queue-page-label");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
 const themeOptionNodes = Array.from(document.querySelectorAll(".theme-option"));
+const supportSessionNode = document.querySelector("#support-session");
+const supportSessionCopyNode = document.querySelector("#support-session-copy");
+const supportSessionLink = document.querySelector("#support-session-link");
+const supportSignOutButton = document.querySelector("#support-signout-button");
+const requestAuthCopyNode = document.querySelector("#request-auth-copy");
+const requestAuthTierNode = document.querySelector("#request-auth-tier");
+const requestAuthLink = document.querySelector("#request-auth-link");
+const requestSignOutButton = document.querySelector("#request-signout-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
+const MY_REQUESTS_STORAGE_KEY = "openreactor-my-requests";
+const MAX_MY_REQUESTS = 12;
 const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
@@ -64,26 +78,125 @@ const BOARD_COLUMNS = [
   { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." }
 ];
 
+/* ── Tailwind class helpers ──────────────────────────────────────── */
+
+const CLS = {
+  pill: "or-button or-button--secondary",
+  pillSmall: "or-button or-button--secondary min-h-0 px-3 py-1.5",
+};
+
+function getStatusBadgeClasses(status) {
+  const base = "or-badge or-status-badge";
+  switch (status) {
+    case "queued": return `${base} is-queued`;
+    case "in-progress": return `${base} is-in-progress`;
+    case "complete": return `${base} is-complete`;
+    case "rejected": return `${base} is-rejected`;
+    default: return `${base} is-queued`;
+  }
+}
+
+function getStatusBorderColor(status) {
+  switch (status) {
+    case "queued": return "var(--queue-queued)";
+    case "in-progress": return "var(--queue-progress)";
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--line-strong)";
+  }
+}
+
+function getArchiveDotColor(status) {
+  switch (status) {
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--ink-faint)";
+  }
+}
+
+function getArchiveStatusColor(status) {
+  switch (status) {
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--ink-faint)";
+  }
+}
+
+function getReactorleTileClasses(state) {
+  const base = "flex items-center justify-center aspect-square border rounded-lg font-sans text-2xl font-bold uppercase";
+  switch (state) {
+    case "correct": return `${base} bg-[rgba(32,116,90,0.14)] border-[rgba(32,116,90,0.28)] text-[var(--queue-complete)]`;
+    case "present": return `${base} bg-[rgba(184,92,56,0.14)] border-[rgba(184,92,56,0.28)] text-[var(--queue-progress)]`;
+    case "absent": return `${base} bg-[rgba(127,143,150,0.14)] border-[var(--line)] text-[var(--queue-queued)]`;
+    case "active": return `${base} border-[rgba(184,92,56,0.38)] bg-[var(--surface)]`;
+    default: return `${base} border-[var(--line)] bg-[var(--surface)]`;
+  }
+}
+
+function getReactorleKeyClasses(state) {
+  const base = "min-h-10 border rounded-lg text-sm font-semibold cursor-pointer hover:bg-[var(--surface-hover)]";
+  switch (state) {
+    case "correct": return `${base} bg-[rgba(32,116,90,0.14)] border-[var(--line)] text-[var(--queue-complete)]`;
+    case "present": return `${base} bg-[rgba(184,92,56,0.14)] border-[var(--line)] text-[var(--queue-progress)]`;
+    case "absent": return `${base} bg-[rgba(127,143,150,0.14)] border-[var(--line)] text-[var(--queue-queued)]`;
+    case "wide": return `${base} col-span-2 border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]`;
+    default: return `${base} border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]`;
+  }
+}
+
+/* ── State ───────────────────────────────────────────────────────── */
+
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
-let queueItems = [];
+let queueActiveItems = [];
+let queueArchivedItems = [];
+let myRequests = loadMyRequests();
 let activeQueueView = "board";
 const queueState = {
   page: DEFAULT_QUEUE_PAGE,
   isLoading: false,
   hasPreviousPage: DEFAULT_QUEUE_PAGE > 1,
-  hasNextPage: false
+  hasNextPage: false,
+  archiveTotal: 0
 };
 let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
 let reactorleState = loadReactorleState();
+let supportSession = {
+  authAvailable: false,
+  authenticated: false,
+  login: "",
+  profileUrl: ""
+};
 
+initTopbarToggle();
 boot();
+
+function initTopbarToggle() {
+  for (const toggle of document.querySelectorAll(".topbar-toggle")) {
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!expanded));
+      const actions = toggle.parentElement.querySelector(".topbar-actions, .top-nav-items");
+      if (actions) {
+        if (!expanded) {
+          actions.classList.remove("max-md:hidden");
+          actions.classList.add("max-md:flex");
+        } else {
+          actions.classList.add("max-md:hidden");
+          actions.classList.remove("max-md:flex");
+        }
+      }
+    });
+  }
+}
 
 async function boot() {
   initThemePicker();
+  setupReactorle();
+  initSupportSession();
 
   if (!form || !requestField || !submitButton) {
     return;
@@ -91,7 +204,6 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
-  setupReactorle();
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -103,14 +215,65 @@ async function boot() {
   queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
 
   updateRequestCount(requestField.value);
+  renderMyRequests();
   renderQueueView();
   syncQueueControls({
     page: queueState.page,
     hasPreviousPage: queueState.hasPreviousPage,
     hasNextPage: queueState.hasNextPage
   });
-  await Promise.all([loadRepoMeta(), loadQueue(queueState.page), loadLeaderboard()]);
+  await Promise.all([loadRepoMeta(), loadSupportSession(), loadQueue(queueState.page), loadLeaderboard()]);
   startQueuePolling();
+}
+
+function initSupportSession() {
+  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+    return;
+  }
+
+  supportSignOutButton.addEventListener("click", onSupportSignOut);
+  if (requestSignOutButton) {
+    requestSignOutButton.addEventListener("click", onSupportSignOut);
+  }
+  renderSupportSession();
+  renderRequestAuthPanel();
+}
+
+async function loadSupportSession() {
+  if (!supportSessionNode) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/session", {
+      cache: "no-store",
+      credentials: "same-origin"
+    });
+    const data = await readJsonResponse(response, "session");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load GitHub support session.");
+    }
+
+    supportSession = {
+      authAvailable: Boolean(data.authAvailable),
+      authenticated: Boolean(data.authenticated),
+      login: data.login || "",
+      profileUrl: data.profileUrl || ""
+    };
+  } catch {
+    supportSession = {
+      authAvailable: false,
+      authenticated: false,
+      login: "",
+      profileUrl: ""
+    };
+  }
+
+  renderSupportSession();
+  renderRequestAuthPanel();
+  renderQueueView();
+  announceSupportSessionResult();
 }
 
 function initThemePicker() {
@@ -149,19 +312,21 @@ function applyTheme(theme) {
   try {
     if (theme === "dark" || theme === "light") {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
-      document.documentElement.dataset.theme = theme;
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
       return;
     }
 
     localStorage.removeItem(THEME_STORAGE_KEY);
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark", "light");
   } catch {
     if (theme === "dark" || theme === "light") {
-      document.documentElement.dataset.theme = theme;
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
       return;
     }
 
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark", "light");
   }
 }
 
@@ -282,6 +447,10 @@ function reloadForUpdate() {
 
 function onRequestInput(event) {
   updateRequestCount(event.currentTarget.value);
+  if (requestField.getAttribute("aria-invalid") === "true") {
+    requestField.removeAttribute("aria-invalid");
+    setStatus("");
+  }
 }
 
 async function onSubmit(event) {
@@ -293,18 +462,20 @@ async function onSubmit(event) {
 
   const formData = new FormData(form);
   const request = `${formData.get("request") ?? ""}`.trim();
-  const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
-  const validationError = validateRequest(request, githubUsername);
+  const scopePreference = `${formData.get("scopePreference") ?? "auto"}`;
+  const validationError = validateRequest(request);
 
   if (validationError) {
     setStatus(validationError, "error");
+    requestField.setAttribute("aria-invalid", "true");
+    requestField.focus();
     submitButton.disabled = false;
     submitButton.textContent = SUBMIT_BUTTON_LABEL;
     return;
   }
 
-  const payload = buildPayload(request, website, githubUsername);
+  const payload = buildPayload(request, website, scopePreference);
 
   try {
     const response = await fetch("/api/requests", {
@@ -329,7 +500,20 @@ async function onSubmit(event) {
 
     form.reset();
     updateRequestCount("");
-    setStatus(`Request queued as issue #${data.number}.`, "success");
+    requestField.removeAttribute("aria-invalid");
+    rememberSubmittedRequest({
+      number: data.number,
+      url: data.url || "",
+      title: summarizeRequest(request),
+      createdAt: new Date().toISOString(),
+      githubUsername: supportSession.authenticated ? normalizeGitHubUsername(supportSession.login) : null,
+      status: "queued",
+      statusDetail: "Submitted from this browser. Waiting for the public queue to refresh.",
+      statusUpdatedAt: new Date().toISOString(),
+      commentCount: 0,
+      commentUrl: data.url || ""
+    });
+    setStatus(`Request queued as issue #${data.number}. Added to My requests.`, "success");
     requestField.focus();
     await loadQueue(1);
   } catch (error) {
@@ -340,19 +524,23 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, githubUsername) {
+function buildPayload(request, website, scopePreference = "auto") {
   const summary = summarizeRequest(request);
 
   return {
     website,
-    githubUsername: normalizeGitHubUsername(githubUsername),
     summary,
     problem: request,
     outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
     constraints: "",
     successCriteria: "",
-    notes: ""
+    notes: "",
+    scopePreference: normalizeScopePreference(scopePreference)
   };
+}
+
+function normalizeScopePreference(value) {
+  return ["auto", "25", "50", "75"].includes(value) ? value : "auto";
 }
 
 function summarizeRequest(request) {
@@ -370,14 +558,9 @@ function summarizeRequest(request) {
   return `${normalized.slice(0, 117).trimEnd()}...`;
 }
 
-function validateRequest(request, githubUsername) {
+function validateRequest(request) {
   if (isLowSignalText(request)) {
     return "Describe the request in plain language instead of repeated or placeholder text.";
-  }
-
-  const normalizedGitHubUsername = normalizeGitHubUsername(githubUsername);
-  if (normalizedGitHubUsername && !isValidGitHubUsername(normalizedGitHubUsername)) {
-    return "GitHub username must be 1 to 39 characters using letters, numbers, or single hyphens.";
   }
 
   return "";
@@ -422,14 +605,352 @@ function isLowSignalText(value) {
 
 function updateRequestCount(request) {
   requestCountNode.textContent = `${request.length} / 2000`;
+  const nearLimit = request.length > 1800;
+  requestCountNode.style.color = nearLimit ? "var(--queue-rejected)" : "";
+  requestCountNode.style.fontWeight = nearLimit ? "600" : "";
+}
+
+function loadMyRequests() {
+  try {
+    const raw = localStorage.getItem(MY_REQUESTS_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item) => item && Number.isInteger(item.number))
+      .map(normalizeTrackedRequest)
+      .filter(Boolean)
+      .slice(0, MAX_MY_REQUESTS);
+  } catch {
+    return [];
+  }
+}
+
+function persistMyRequests() {
+  try {
+    localStorage.setItem(MY_REQUESTS_STORAGE_KEY, JSON.stringify(myRequests.slice(0, MAX_MY_REQUESTS)));
+  } catch {}
+}
+
+function normalizeTrackedRequest(item) {
+  if (!item || !Number.isInteger(item.number)) {
+    return null;
+  }
+
+  return {
+    number: item.number,
+    title: `${item.title || `Issue #${item.number}`}`.trim(),
+    url: typeof item.url === "string" ? item.url : "",
+    commentUrl: typeof item.commentUrl === "string" ? item.commentUrl : "",
+    createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
+    githubUsername: typeof item.githubUsername === "string" ? normalizeGitHubUsername(item.githubUsername) : null,
+    status: normalizeTrackedStatus(item.status),
+    statusDetail:
+      typeof item.statusDetail === "string" && item.statusDetail.trim() ? item.statusDetail.trim() : null,
+    statusUpdatedAt: typeof item.statusUpdatedAt === "string" ? item.statusUpdatedAt : null,
+    commentCount: Number.isInteger(item.commentCount) ? item.commentCount : 0
+  };
+}
+
+function normalizeTrackedStatus(value) {
+  return ["queued", "in-progress", "complete", "rejected"].includes(value) ? value : "queued";
+}
+
+function rememberSubmittedRequest(item) {
+  const normalized = normalizeTrackedRequest(item);
+
+  if (!normalized) {
+    return;
+  }
+
+  const existingIndex = myRequests.findIndex((entry) => entry.number === normalized.number);
+
+  if (existingIndex >= 0) {
+    myRequests.splice(existingIndex, 1);
+  }
+
+  myRequests.unshift(normalized);
+  myRequests = myRequests.slice(0, MAX_MY_REQUESTS);
+  persistMyRequests();
+  renderMyRequests();
+}
+
+function syncMyRequestsWithQueue(items) {
+  if (!myRequests.length) {
+    renderMyRequests();
+    return;
+  }
+
+  const byNumber = new Map(items.map((item) => [item.number, item]));
+  let changed = false;
+
+  myRequests = myRequests.map((item) => {
+    const liveItem = byNumber.get(item.number);
+
+    if (!liveItem) {
+      return item;
+    }
+
+    changed = true;
+    return normalizeTrackedRequest({
+      ...item,
+      ...liveItem,
+      url: liveItem.url || item.url,
+      commentUrl: liveItem.commentUrl || liveItem.url || item.commentUrl || item.url
+    });
+  });
+
+  if (changed) {
+    persistMyRequests();
+  }
+
+  renderMyRequests();
+}
+
+function renderMyRequests() {
+  if (!myRequestsList || !myRequestsStatusNode) {
+    return;
+  }
+
+  myRequestsList.innerHTML = "";
+
+  if (!myRequests.length) {
+    myRequestsStatusNode.textContent =
+      "No saved requests in this browser yet. Submit one here and it will stay pinned for quick follow-up.";
+
+    const empty = document.createElement("article");
+    empty.className = "or-empty-card";
+    empty.textContent =
+      "Rejected requests can be clarified directly on GitHub once they appear here. No separate account or inbox yet.";
+    myRequestsList.append(empty);
+    return;
+  }
+
+  myRequestsStatusNode.textContent =
+    `${myRequests.length} saved request${myRequests.length === 1 ? "" : "s"} in this browser.`;
+
+  const fragment = document.createDocumentFragment();
+
+  for (const item of myRequests) {
+    const row = document.createElement("article");
+    row.className = "block min-w-0 p-0 border-0 bg-transparent";
+    row.append(createMyRequestCard(item));
+    fragment.append(row);
+  }
+
+  myRequestsList.append(fragment);
+}
+
+function createMyRequestCard(item) {
+  const card = document.createElement("div");
+  card.className = "or-panel or-panel--tight h-full";
+
+  const top = document.createElement("div");
+  top.className = "flex items-center gap-2";
+
+  const issue = document.createElement("span");
+  issue.className = "text-xs font-semibold text-[var(--ink-faint)]";
+  issue.textContent = `Issue #${item.number}`;
+
+  const status = document.createElement("span");
+  status.className = getStatusBadgeClasses(item.status);
+  status.textContent = formatStatus(item.status);
+
+  top.append(issue, status);
+
+  const title = document.createElement("h3");
+  title.className = "text-base leading-snug";
+  title.textContent = item.title;
+
+  const meta = document.createElement("div");
+  meta.className = "flex items-baseline gap-1.5 flex-wrap";
+
+  if (item.githubUsername) {
+    const username = document.createElement("span");
+    username.className = "text-[var(--accent-dark)] text-sm font-medium";
+    username.textContent = formatGitHubUsername(item.githubUsername);
+    meta.append(username);
+  }
+
+  const submittedAt = document.createElement("time");
+  submittedAt.className = "text-sm text-[var(--ink-faint)]";
+  submittedAt.dateTime = item.createdAt;
+  submittedAt.title = item.createdAt;
+  submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
+  meta.append(submittedAt);
+
+  const detail = document.createElement("p");
+  detail.className = "text-[var(--ink-soft)] text-sm leading-relaxed";
+  detail.textContent = getMyRequestDetail(item);
+
+  const actions = document.createElement("div");
+  actions.className = "flex flex-wrap gap-2.5";
+
+  const primary = document.createElement("a");
+  primary.className = CLS.pill;
+  primary.href = item.commentUrl || item.url || "#";
+  primary.target = "_blank";
+  primary.rel = "noreferrer";
+  primary.textContent = item.status === "rejected" ? "Reply on GitHub to clarify" : "Open on GitHub";
+
+  if (!item.commentUrl && !item.url) {
+    primary.setAttribute("aria-disabled", "true");
+    primary.classList.add("opacity-50", "pointer-events-none");
+  }
+
+  actions.append(primary);
+
+  card.append(top, title, meta, detail, actions);
+  return card;
+}
+
+function getMyRequestDetail(item) {
+  if (item.status === "rejected") {
+    if (item.statusDetail) {
+      return `${item.statusDetail} Reply on GitHub with the context the agent asked for or a narrower follow-up.`;
+    }
+
+    return "This request was rejected. Open the GitHub issue to read the rejection note and reply with clarification there.";
+  }
+
+  if (item.statusDetail) {
+    return item.statusDetail;
+  }
+
+  if (item.status === "complete") {
+    return "This request shipped or the linked pull request merged.";
+  }
+
+  if (item.status === "in-progress") {
+    return "An agent is actively reviewing or shipping this request.";
+  }
+
+  return "Waiting in the public queue.";
 }
 
 function setStatus(message, tone) {
   statusNode.textContent = message;
-  statusNode.className = tone ? `status-message ${tone}` : "status-message";
+  statusNode.className = "min-h-6 text-sm leading-normal";
+  if (tone === "success") statusNode.style.color = "var(--queue-complete)";
+  else if (tone === "error") statusNode.style.color = "var(--queue-rejected)";
+  else statusNode.style.color = "";
+}
+
+function renderSupportSession() {
+  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+    return;
+  }
+
+  supportSessionNode.hidden = false;
+
+  if (supportSession.authenticated && supportSession.login) {
+    supportSessionNode.dataset.state = "connected";
+    supportSessionCopyNode.textContent = `Signed in as @${supportSession.login}. Support actions and submission credit run through GitHub.`;
+    supportSessionLink.hidden = false;
+    supportSessionLink.href = supportSession.profileUrl || "https://github.com";
+    supportSessionLink.textContent = "View profile";
+    supportSessionLink.target = "_blank";
+    supportSessionLink.rel = "noreferrer";
+    supportSignOutButton.hidden = false;
+    return;
+  }
+
+  supportSessionNode.dataset.state = supportSession.authAvailable ? "available" : "handoff";
+  supportSessionCopyNode.textContent = supportSession.authAvailable
+    ? "Sign in with GitHub to support issues from the site and get recognition for accepted contributions."
+    : "Support counts come from GitHub. Website sign-in needs maintainer OAuth setup first.";
+  supportSessionLink.hidden = false;
+  supportSessionLink.href = supportSession.authAvailable
+    ? buildSupportAuthUrl()
+    : "https://github.com/rayzhudev/openreactor/issues";
+  supportSessionLink.textContent = supportSession.authAvailable ? "Sign in with GitHub" : "Support on GitHub";
+  supportSessionLink.target = supportSession.authAvailable ? "_self" : "_blank";
+  if (supportSession.authAvailable) {
+    supportSessionLink.removeAttribute("rel");
+  } else {
+    supportSessionLink.rel = "noreferrer";
+  }
+  supportSignOutButton.hidden = true;
+}
+
+function renderRequestAuthPanel() {
+  if (!requestAuthCopyNode || !requestAuthTierNode || !requestAuthLink || !requestSignOutButton) {
+    return;
+  }
+
+  if (supportSession.authenticated && supportSession.login) {
+    requestAuthCopyNode.textContent = `Requests from this browser will be attributed to @${supportSession.login}, and merged feature PRs can credit that account automatically.`;
+    requestAuthTierNode.textContent = "Trust tier: GitHub account";
+    requestAuthLink.hidden = false;
+    requestAuthLink.href = supportSession.profileUrl || "https://github.com";
+    requestAuthLink.textContent = "View GitHub profile";
+    requestAuthLink.target = "_blank";
+    requestAuthLink.rel = "noreferrer";
+    requestSignOutButton.hidden = false;
+    return;
+  }
+
+  requestAuthTierNode.textContent = "Trust tier: anonymous";
+  requestAuthCopyNode.textContent = supportSession.authAvailable
+    ? "Log in with GitHub to get recognition for your contributions. Login is optional for submitting requests."
+    : "Requests can still be submitted anonymously. GitHub login will unlock contributor recognition once maintainer OAuth setup is complete.";
+  requestAuthLink.hidden = false;
+  requestAuthLink.href = supportSession.authAvailable ? buildSupportAuthUrl() : "https://github.com/rayzhudev/openreactor";
+  requestAuthLink.textContent = supportSession.authAvailable ? "Log in with GitHub" : "View on GitHub";
+  requestAuthLink.target = supportSession.authAvailable ? "_self" : "_blank";
+  if (supportSession.authAvailable) {
+    requestAuthLink.removeAttribute("rel");
+  } else {
+    requestAuthLink.rel = "noreferrer";
+  }
+  requestSignOutButton.hidden = true;
+}
+
+function buildSupportAuthUrl() {
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  return `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+async function onSupportSignOut() {
+  await fetch("/api/session", {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  window.location.assign(`${window.location.pathname}${window.location.search}`);
+}
+
+function announceSupportSessionResult() {
+  const url = new URL(window.location.href);
+  const supportStatus = url.searchParams.get("support");
+
+  if (!supportStatus) {
+    return;
+  }
+
+  if (supportStatus === "connected") {
+    setQueueStatus("GitHub sign-in connected. You can now support issues from the website.");
+  } else if (supportStatus === "auth-error") {
+    setQueueStatus("GitHub sign-in did not complete. Try again or support directly on GitHub.", "error");
+  } else if (supportStatus === "auth-unavailable") {
+    setQueueStatus("Website sign-in is not configured yet. Support directly on GitHub for now.", "error");
+  }
+
+  url.searchParams.delete("support");
+  window.history.replaceState({}, "", url);
 }
 
 function setupReactorle() {
+  if (!reactorleBoard || !reactorleKeyboard || !reactorleStatusNode) {
+    return;
+  }
+
   renderReactorleBoard();
   renderReactorleKeyboard();
   renderReactorleStatus();
@@ -529,7 +1050,7 @@ function renderReactorleBoard() {
 
   for (let rowIndex = 0; rowIndex < REACTORLE_MAX_GUESSES; rowIndex += 1) {
     const row = document.createElement("div");
-    row.className = "reactorle-row";
+    row.className = "grid grid-cols-5 gap-1.5";
     row.setAttribute("role", "row");
     const guess = getReactorleDisplayGuess(rowIndex);
     const evaluation =
@@ -539,21 +1060,21 @@ function renderReactorleBoard() {
 
     for (let columnIndex = 0; columnIndex < REACTORLE_WORD_LENGTH; columnIndex += 1) {
       const tile = document.createElement("div");
-      tile.className = "reactorle-tile";
       tile.setAttribute("role", "gridcell");
       tile.textContent = guess[columnIndex] ? guess[columnIndex].toUpperCase() : "";
 
-      const status = evaluation[columnIndex];
-      if (status) {
-        tile.dataset.state = status;
+      const tileStatus = evaluation[columnIndex];
+      let state = "empty";
+      if (tileStatus) {
+        state = tileStatus;
       } else if (
         rowIndex === reactorleState.guesses.length &&
         columnIndex < reactorleState.currentGuess.length
       ) {
-        tile.dataset.state = "active";
-      } else {
-        tile.dataset.state = "empty";
+        state = "active";
       }
+      tile.className = getReactorleTileClasses(state);
+      tile.dataset.state = state;
 
       row.append(tile);
     }
@@ -571,7 +1092,7 @@ function renderReactorleKeyboard() {
 
   for (const rowKeys of REACTORLE_KEYBOARD_ROWS) {
     const row = document.createElement("div");
-    row.className = "reactorle-keyboard-row";
+    row.className = "grid grid-cols-10 gap-1.5";
 
     if (rowKeys === REACTORLE_KEYBOARD_ROWS.at(-1)) {
       row.append(buildReactorleKey("Enter", "ENTER", "wide"));
@@ -594,7 +1115,7 @@ function renderReactorleKeyboard() {
 function buildReactorleKey(label, value, state) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "reactorle-key";
+  button.className = getReactorleKeyClasses(state);
   button.dataset.state = state;
   button.textContent = label;
   button.addEventListener("click", () => updateReactorleGuess(value));
@@ -767,7 +1288,9 @@ async function loadQueue(page = 1, options = {}) {
   if (!silent) {
     setQueueStatus("Loading queue...");
     setQueueRefreshNote("");
-    queueItems = [];
+    queueActiveItems = [];
+    queueArchivedItems = [];
+    queueState.archiveTotal = 0;
     renderQueueView();
   }
 
@@ -786,7 +1309,7 @@ async function loadQueue(page = 1, options = {}) {
 
     if (response.status === 304) {
       markQueueRefresh();
-      refreshQueueStatusCopy(queueItems, page);
+      refreshQueueStatusCopy(queueActiveItems, page, queueState.archiveTotal);
       return;
     }
 
@@ -856,19 +1379,29 @@ function renderRepoStarLink(repoUrl) {
 }
 
 function renderQueue(data) {
-  const items = data.items || [];
-  const page = Number.isInteger(data.page) ? data.page : 1;
-  const hasPreviousPage = Boolean(data.hasPreviousPage);
-  const hasNextPage = Boolean(data.hasNextPage);
+  const activeItems = Array.isArray(data.activeItems) ? data.activeItems : [];
+  const archivedItems = Array.isArray(data.archivedItems) ? data.archivedItems : [];
+  const page = Number.isInteger(data.archivePage)
+    ? data.archivePage
+    : Number.isInteger(data.page)
+      ? data.page
+      : 1;
+  const hasPreviousPage = Boolean(data.archiveHasPreviousPage ?? data.hasPreviousPage);
+  const hasNextPage = Boolean(data.archiveHasNextPage ?? data.hasNextPage);
+  const archiveTotal = Number.isFinite(data.archiveTotal) ? data.archiveTotal : archivedItems.length;
   const repoUrl = data.repoUrl || "";
 
   markQueueRefresh();
-  queueItems = items;
+  queueActiveItems = activeItems;
+  queueArchivedItems = archivedItems;
+  const items = activeItems.concat(archivedItems);
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
+  queueState.archiveTotal = archiveTotal;
+  syncMyRequestsWithQueue(items);
   updateQueueLocation(page);
-  syncQueueControls({ page, hasPreviousPage, hasNextPage });
+  syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal });
 
   if (repoUrl) {
     renderRepoStarLink(repoUrl);
@@ -881,28 +1414,29 @@ function renderQueue(data) {
 
   renderQueueView();
 
-  if (!items.length) {
-    setQueueStatus(page === 1 ? "No requests yet." : `Page ${page} has no requests.`);
+  if (!activeItems.length && !archivedItems.length) {
+    setQueueStatus("No requests yet.");
     setQueueRefreshNote(
-      page === 1
-        ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
-        : `Page ${page} is empty.`
+      `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}. Auto-refreshes every ${formatPollInterval()}.`
     );
     return;
   }
 
-  refreshQueueStatusCopy(items, page);
+  refreshQueueStatusCopy(activeItems, page, archiveTotal);
 }
 
 function renderQueueError(message) {
-  queueItems = [];
+  queueActiveItems = [];
+  queueArchivedItems = [];
+  queueState.archiveTotal = 0;
   renderQueueView();
   queueRepoLink.hidden = true;
   queueRepoLink.removeAttribute("href");
   syncQueueControls({
     page: queueState.page,
     hasPreviousPage: queueState.hasPreviousPage,
-    hasNextPage: queueState.hasNextPage
+    hasNextPage: queueState.hasNextPage,
+    archiveTotal: queueState.archiveTotal
   });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
@@ -910,6 +1444,7 @@ function renderQueueError(message) {
 
 function renderLeaderboard(items, totals) {
   leaderboardList.innerHTML = "";
+  leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardTotalPrsNode.textContent = `${totals.mergedPullRequests || 0}`;
   leaderboardTotalAuthorsNode.textContent = `${totals.contributors || 0}`;
   leaderboardLatestMergeNode.textContent = totals.latestMergedAt
@@ -923,42 +1458,47 @@ function renderLeaderboard(items, totals) {
   }
 
   leaderboardSummaryNode.textContent =
-    "Ranks GitHub accounts by merged pull requests authored in this repository.";
+    "Ranks credited GitHub usernames for merged pull requests in this repository.";
   const fragment = document.createDocumentFragment();
 
   for (const [index, item] of items.entries()) {
     const row = document.createElement("li");
-    row.className = "leaderboard-item";
+    row.className = "or-panel or-panel--tight grid-cols-[auto_minmax(0,1fr)]";
 
     const rank = document.createElement("span");
-    rank.className = "leaderboard-rank";
+    rank.className = "or-rank-badge";
     rank.textContent = `#${index + 1}`;
 
     const body = document.createElement("div");
-    body.className = "leaderboard-item-body";
+    body.className = "grid gap-1.5 min-w-0";
 
     const top = document.createElement("div");
-    top.className = "leaderboard-item-top";
+    top.className = "flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch";
 
     const profile = document.createElement("a");
-    profile.className = "leaderboard-profile";
+    profile.className = "min-w-0 text-base font-semibold no-underline hover:text-[var(--accent-dark)]";
     profile.href = item.profileUrl;
     profile.target = "_blank";
     profile.rel = "noreferrer";
     profile.textContent = `@${item.login}`;
 
     const badge = document.createElement("span");
-    badge.className = "leaderboard-badge";
-    badge.textContent = item.accountType === "Bot" ? "Bot" : "Account";
+    badge.className = "or-badge or-badge--neutral";
+    badge.textContent =
+      item.creditSource === "issue-requester"
+        ? "Requester"
+        : item.accountType === "Bot"
+          ? "Bot"
+          : "Account";
 
     top.append(profile, badge);
 
     const count = document.createElement("p");
-    count.className = "leaderboard-count";
+    count.className = "text-[var(--ink-soft)] text-sm leading-snug";
     count.textContent = `${item.mergedCount} merged PR${item.mergedCount === 1 ? "" : "s"}`;
 
     const latest = document.createElement("a");
-    latest.className = "leaderboard-latest";
+    latest.className = "min-w-0 overflow-hidden text-[var(--accent-dark)] text-sm font-medium leading-snug no-underline text-ellipsis whitespace-nowrap max-md:whitespace-normal hover:text-[var(--accent)]";
     latest.href = item.latestPullRequest.url;
     latest.target = "_blank";
     latest.rel = "noreferrer";
@@ -975,23 +1515,22 @@ function renderLeaderboard(items, totals) {
 
 function renderLeaderboardError(message) {
   leaderboardList.innerHTML = "";
+  leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardSummaryNode.textContent = "Contributor data unavailable right now.";
-  leaderboardTotalPrsNode.textContent = "0";
-  leaderboardTotalAuthorsNode.textContent = "0";
+  leaderboardTotalPrsNode.textContent = "\u2014";
+  leaderboardTotalAuthorsNode.textContent = "\u2014";
   leaderboardLatestMergeNode.textContent = "Unavailable";
   setLeaderboardStatus(`${message} Try again later.`, "error");
 }
 
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
-  queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+  queueStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
 }
 
 function setLeaderboardStatus(message, tone) {
   leaderboardStatusNode.textContent = message;
-  leaderboardStatusNode.className = tone
-    ? `leaderboard-status ${tone}`
-    : "leaderboard-status";
+  leaderboardStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
 }
 
 function setQueueRefreshNote(message) {
@@ -1030,14 +1569,17 @@ function onVisibilityChange() {
   }
 }
 
-function refreshQueueStatusCopy(items = queueItems, page = queueState.page) {
-  const activeCount = items.filter((item) => !isArchivedQueueItem(item)).length;
-  const archivedCount = items.length - activeCount;
-  const countLabel = formatQueueCountLabel(activeCount, archivedCount);
+function refreshQueueStatusCopy(
+  activeItems = queueActiveItems,
+  page = queueState.page,
+  archiveTotal = queueState.archiveTotal
+) {
+  const countLabel = formatQueueCountLabel(activeItems.length, archiveTotal);
   const freshnessLabel = lastQueueRefreshAt
     ? `Last checked ${formatRelativeRefreshTime(lastQueueRefreshAt)}.`
     : "Waiting for the first refresh.";
-  setQueueStatus(`Page ${page}. ${countLabel} Auto-refreshes every ${formatPollInterval()}.`);
+  const archiveLabel = archiveTotal ? ` Archive page ${page}.` : "";
+  setQueueStatus(`${countLabel}${archiveLabel} Auto-refreshes every ${formatPollInterval()}.`);
   setQueueRefreshNote(freshnessLabel);
 }
 
@@ -1080,12 +1622,9 @@ function renderQueueView() {
     button.setAttribute("aria-pressed", String(isActive));
   }
 
-  const activeItems = queueItems.filter((item) => !isArchivedQueueItem(item));
-  const archivedItems = queueItems.filter((item) => isArchivedQueueItem(item));
-
-  renderQueueBoard(activeItems);
-  renderQueueTable(activeItems);
-  renderQueueArchive(archivedItems);
+  renderQueueBoard(queueActiveItems);
+  renderQueueTable(queueActiveItems);
+  renderQueueArchive(queueArchivedItems, queueState.archiveTotal);
 }
 
 function renderQueueBoard(items) {
@@ -1102,45 +1641,39 @@ function renderQueueBoard(items) {
 
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
-    lane.className = "queue-lane";
-    lane.dataset.status = column.key;
+    const columnItems = groupedItems.get(column.key) || [];
+    lane.className = "or-panel or-panel--tight min-w-0 content-start";
 
     const header = document.createElement("div");
-    header.className = "queue-lane-header";
+    header.className = "flex items-center justify-between gap-3 px-0.5";
 
     const titleBlock = document.createElement("div");
-    titleBlock.className = "queue-lane-title-block";
+    titleBlock.className = "flex items-baseline gap-2";
 
     const heading = document.createElement("h3");
-    heading.className = "queue-lane-title";
+    heading.className = "or-section-eyebrow";
     heading.textContent = column.label;
 
-    const description = document.createElement("p");
-    description.className = "queue-lane-description";
-    description.textContent = column.description;
-
-    titleBlock.append(heading, description);
+    titleBlock.append(heading);
 
     const count = document.createElement("span");
-    count.className = "queue-lane-count";
+    count.className = "or-count-chip";
     count.textContent = String(groupedItems.get(column.key)?.length || 0);
 
     header.append(titleBlock, count);
 
     const list = document.createElement("ul");
-    list.className = "queue-lane-list";
-
-    const columnItems = groupedItems.get(column.key) || [];
+    list.className = "grid gap-2 list-none m-0 p-0";
 
     if (!columnItems.length) {
       const empty = document.createElement("li");
-      empty.className = "queue-lane-empty";
+      empty.className = "or-empty-card text-center";
       empty.textContent = "No requests here yet.";
       list.append(empty);
     } else {
       for (const item of columnItems) {
         const row = document.createElement("li");
-        row.className = "queue-card";
+        row.className = "block";
         row.append(createQueueCardLink(item));
         list.append(row);
       }
@@ -1160,14 +1693,16 @@ function renderQueueTable(items) {
 
   for (const item of items) {
     const row = document.createElement("tr");
+    row.className = "transition-colors hover:bg-[rgba(0,0,0,0.04)]";
 
     const issueCell = document.createElement("td");
-    issueCell.className = "queue-table-issue";
+    issueCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)] whitespace-nowrap font-mono text-xs font-semibold tracking-wide uppercase text-[var(--ink-faint)]";
     issueCell.textContent = `#${item.number}`;
 
     const titleCell = document.createElement("td");
+    titleCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
     const titleLink = document.createElement("a");
-    titleLink.className = "queue-table-link";
+    titleLink.className = "text-inherit no-underline";
     titleLink.href = item.commentUrl || item.url;
     titleLink.target = "_blank";
     titleLink.rel = "noreferrer";
@@ -1175,34 +1710,41 @@ function renderQueueTable(items) {
     titleCell.append(titleLink);
 
     const statusCell = document.createElement("td");
+    statusCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)] whitespace-nowrap";
     const status = document.createElement("span");
-    status.className = "queue-item-status";
-    status.dataset.status = item.status;
+    status.className = getStatusBadgeClasses(item.status);
     status.textContent = formatStatus(item.status);
     statusCell.append(status);
 
     const submittedCell = document.createElement("td");
-  const submittedTime = document.createElement("time");
-  submittedTime.className = "queue-table-time";
-  submittedTime.dateTime = item.createdAt;
-  submittedTime.title = item.createdAt;
-  const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
-  submittedTime.textContent = queueDetail || formatSubmissionTimestamp(item.createdAt);
-  submittedCell.append(submittedTime);
+    submittedCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
+    const submittedTime = document.createElement("time");
+    submittedTime.className = "text-[var(--ink-faint)] text-sm whitespace-nowrap";
+    submittedTime.dateTime = item.createdAt;
+    submittedTime.title = item.createdAt;
+    const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
+    submittedTime.textContent = queueDetail || formatShortDate(item.createdAt);
+    submittedCell.append(submittedTime);
 
-    row.append(issueCell, titleCell, statusCell, submittedCell);
+    const supportCell = document.createElement("td");
+    supportCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
+    supportCell.append(createSupportControls(item, "compact"));
+
+    row.append(issueCell, titleCell, statusCell, submittedCell, supportCell);
     fragment.append(row);
   }
 
   queueTableBody.append(fragment);
 }
 
-function renderQueueArchive(items) {
+function renderQueueArchive(items, total = items.length) {
+  const wasOpen = queueArchive.open;
   queueArchiveList.innerHTML = "";
   queueArchive.hidden = true;
   queueArchive.removeAttribute("open");
+  queueArchivePagination.hidden = true;
 
-  if (!items.length) {
+  if (!total) {
     return;
   }
 
@@ -1210,81 +1752,185 @@ function renderQueueArchive(items) {
 
   for (const item of items) {
     const row = document.createElement("li");
-    row.className = "queue-card";
-    row.append(createQueueCardLink(item));
+    row.className = "border-b border-[var(--line)] last:border-b-0";
+
+    const link = document.createElement("a");
+    link.className = "grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3 px-4 text-inherit no-underline transition-colors hover:bg-[rgba(0,0,0,0.04)]";
+    link.href = item.commentUrl || item.url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+
+    const issue = document.createElement("span");
+    issue.className = "text-sm font-semibold text-[var(--ink-faint)] min-w-14";
+    issue.textContent = `#${item.number}`;
+
+    const title = document.createElement("span");
+    title.className = "text-[0.95rem] leading-snug whitespace-nowrap overflow-hidden text-ellipsis";
+    title.textContent = item.title;
+
+    const statusWrap = document.createElement("span");
+    statusWrap.className = "inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase whitespace-nowrap";
+    statusWrap.style.color = getArchiveStatusColor(item.status);
+
+    const dot = document.createElement("span");
+    dot.className = "w-1.5 h-1.5 rounded-full shrink-0";
+    dot.style.background = getArchiveDotColor(item.status);
+
+    const statusLabel = document.createElement("span");
+    statusLabel.textContent = formatStatus(item.status);
+
+    statusWrap.append(dot, statusLabel);
+    link.append(issue, title, statusWrap);
+    row.append(link);
     fragment.append(row);
   }
 
   queueArchive.hidden = false;
-  queueArchiveCountNode.textContent = `${items.length} request${items.length === 1 ? "" : "s"}`;
+  queueArchiveCountNode.textContent = `${total} request${total === 1 ? "" : "s"}`;
   queueArchiveList.append(fragment);
+  queueArchivePagination.hidden = false;
+
+  if (wasOpen || queueState.page > 1) {
+    queueArchive.open = true;
+  }
 }
 
 function createQueueCardLink(item) {
+  const card = document.createElement("article");
+  card.className = "grid gap-3";
   const link = document.createElement("a");
-  link.className = "queue-card-link";
+  link.className = "or-panel or-panel--tight or-panel--interactive h-full text-inherit no-underline";
   link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";
+  link.style.borderLeft = `3px solid ${getStatusBorderColor(item.status)}`;
 
   const top = document.createElement("div");
-  top.className = "queue-item-top";
+  top.className = "flex items-center gap-2";
+
+  const title = document.createElement("span");
+  title.className = "text-base leading-snug";
+  title.textContent = item.title;
+
+  const meta = document.createElement("div");
+  meta.className = "flex items-baseline gap-1.5 flex-wrap";
 
   const issue = document.createElement("span");
-  issue.className = "queue-item-issue";
+  issue.className = "text-xs font-semibold text-[var(--ink-faint)]";
   issue.textContent = `Issue #${item.number}`;
 
   const status = document.createElement("span");
-  status.className = "queue-item-status";
-  status.dataset.status = item.status;
+  status.className = getStatusBadgeClasses(item.status);
   status.textContent = formatStatus(item.status);
 
   top.append(issue, status);
 
-  const title = document.createElement("span");
-  title.className = "queue-item-title";
-  title.textContent = item.title;
-
-  const meta = document.createElement("div");
-  meta.className = "queue-item-meta";
-
   if (item.githubUsername) {
     const username = document.createElement("span");
-    username.className = "queue-item-username";
+    username.className = "text-[var(--accent-dark)] text-sm font-medium";
     username.textContent = formatGitHubUsername(item.githubUsername);
     meta.append(username);
   }
 
   const submittedAt = document.createElement("time");
-  submittedAt.className = "queue-item-submitted-at";
+  submittedAt.className = "text-sm text-[var(--ink-faint)]";
   submittedAt.dateTime = item.createdAt;
   submittedAt.title = item.createdAt;
   submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
   meta.append(submittedAt);
 
   const discussion = document.createElement("div");
-  discussion.className = "queue-item-discussion";
+  discussion.className = "flex items-baseline gap-1 text-[0.82rem] text-[var(--ink-faint)]";
 
   const commentCount = document.createElement("span");
-  commentCount.className = "queue-item-comment-count";
+  commentCount.className = "font-semibold";
   commentCount.textContent = formatCommentCount(item.commentCount);
 
   const commentHint = document.createElement("span");
-  commentHint.className = "queue-item-comment-hint";
-  commentHint.textContent =
-    formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
-    (item.commentCount > 0
-      ? "Discussion already started on GitHub."
-      : "Be the first to add context on GitHub.");
+  commentHint.textContent = getQueueDiscussionHint(item);
 
   discussion.append(commentCount, commentHint);
 
   const cta = document.createElement("span");
-  cta.className = "queue-item-cta";
-  cta.textContent = "Open issue and comment on GitHub";
+  cta.className = "text-[var(--accent-dark)] text-sm font-medium";
+  cta.textContent =
+    item.status === "rejected" ? "Read the rejection and reply on GitHub" : "Open issue and comment on GitHub";
 
   link.append(top, title, meta, discussion, cta);
+  card.append(link, createSupportControls(item));
+  return card;
+}
+
+function createSupportControls(item, mode = "default") {
+  const support = document.createElement("div");
+  support.className = mode === "compact"
+    ? "flex items-center justify-between gap-3 min-w-56"
+    : "flex items-center justify-between gap-3 pt-0.5 border-t border-[var(--line)]";
+
+  const summary = document.createElement("div");
+  summary.className = "grid gap-0.5";
+
+  const count = document.createElement("span");
+  count.className = "text-[var(--ink)] text-sm font-semibold";
+  count.textContent = formatSupportCount(item.supportCount);
+
+  const hint = document.createElement("span");
+  hint.className = "text-[var(--ink-faint)] text-xs leading-tight";
+  hint.textContent = getSupportHint(item);
+
+  summary.append(count, hint);
+  support.append(summary, buildSupportAction(item, mode));
+  return support;
+}
+
+function buildSupportAction(item, mode) {
+  if (item.viewerSupports) {
+    const status = document.createElement("span");
+    status.className = `${CLS.pillSmall} border-[rgba(32,116,90,0.2)] bg-[rgba(32,116,90,0.1)] text-[var(--queue-complete)] cursor-default`;
+    status.textContent = "Supported";
+    return status;
+  }
+
+  if (supportSession.authenticated) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `${CLS.pillSmall} cursor-pointer`;
+    button.textContent = mode === "compact" ? "Support" : "Support with GitHub";
+    button.addEventListener("click", () => {
+      void handleSupportAction(item.number, button);
+    });
+    return button;
+  }
+
+  const link = document.createElement("a");
+  link.className = CLS.pillSmall;
+  link.href = supportSession.authAvailable ? buildSupportAuthUrl() : item.url;
+  link.textContent = supportSession.authAvailable ? "Sign in to support" : "Support on GitHub";
+
+  if (supportSession.authAvailable) {
+    link.target = "_self";
+  } else {
+    link.target = "_blank";
+    link.rel = "noreferrer";
+  }
+
   return link;
+}
+
+function getSupportHint(item) {
+  if (item.viewerSupports) {
+    return "Your GitHub support is already mirrored here.";
+  }
+
+  if (supportSession.authenticated) {
+    return "Writes a thumbs-up reaction to the GitHub issue.";
+  }
+
+  if (supportSession.authAvailable) {
+    return "GitHub sign-in is required so support stays tied to a real account.";
+  }
+
+  return "GitHub remains the canonical support ledger until website sign-in is configured.";
 }
 
 function isArchivedQueueItem(item) {
@@ -1329,6 +1975,23 @@ function formatSubmissionTimestamp(value) {
   }).format(date);
 
   return `Submitted ${formatted} at ${formattedTime}`;
+}
+
+function getQueueDiscussionHint(item) {
+  if (item.status === "rejected") {
+    if (item.statusDetail) {
+      return `Rejected: ${item.statusDetail}`;
+    }
+
+    return "Rejected. Open the issue to read the reason and reply with clarification on GitHub.";
+  }
+
+  return (
+    formatQueueDetail(item.statusDetail, item.statusUpdatedAt) ||
+    (item.commentCount > 0
+      ? "Discussion already started on GitHub."
+      : "Be the first to add context on GitHub.")
+  );
 }
 
 function formatShortDate(value) {
@@ -1376,6 +2039,66 @@ function formatCommentCount(value) {
   return `${count} comment${count === 1 ? "" : "s"}`;
 }
 
+function formatSupportCount(value) {
+  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
+  return `${count} support${count === 1 ? "" : "s"}`;
+}
+
+async function handleSupportAction(issueNumber, button) {
+  const originalLabel = button.textContent || "Support with GitHub";
+  button.disabled = true;
+  button.textContent = "Supporting...";
+
+  try {
+    const response = await fetch("/api/support", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({ issueNumber })
+    });
+    const data = await readJsonResponse(response, "support");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to support this issue.");
+    }
+
+    syncQueueItemSupport(issueNumber, {
+      supportCount: data.supportCount,
+      viewerSupports: Boolean(data.viewerSupports)
+    });
+    setQueueStatus(`Support recorded on GitHub for issue #${issueNumber}.`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to support this issue.";
+    setQueueStatus(message, "error");
+
+    if (/sign in/i.test(message)) {
+      supportSession.authenticated = false;
+      renderSupportSession();
+      renderQueueView();
+    } else {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  }
+}
+
+function syncQueueItemSupport(issueNumber, nextState) {
+  const syncItem = (item) =>
+    item.number === issueNumber
+      ? {
+          ...item,
+          supportCount: Number.isFinite(nextState.supportCount) ? nextState.supportCount : item.supportCount,
+          viewerSupports: Boolean(nextState.viewerSupports)
+        }
+      : item;
+
+  queueActiveItems = queueActiveItems.map(syncItem);
+  queueArchivedItems = queueArchivedItems.map(syncItem);
+  renderQueueView();
+}
+
 async function readJsonResponse(response, context) {
   const contentType = response.headers.get("content-type") || "";
 
@@ -1405,13 +2128,15 @@ function changeQueuePage(page) {
   void loadQueue(page);
 }
 
-function syncQueueControls({ page, hasPreviousPage, hasNextPage }) {
+function syncQueueControls({ page, hasPreviousPage, hasNextPage, archiveTotal = queueState.archiveTotal }) {
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
-  queuePageLabelNode.textContent = `Page ${page}`;
+  queueState.archiveTotal = archiveTotal;
+  queuePageLabelNode.textContent = `Archive page ${page}`;
   queueNewerButton.disabled = queueState.isLoading || !hasPreviousPage;
   queueOlderButton.disabled = queueState.isLoading || !hasNextPage;
+  queueArchivePagination.hidden = archiveTotal === 0;
 }
 
 function updateQueueLocation(page) {

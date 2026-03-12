@@ -36,3 +36,59 @@
 
 - Decision: use native GitHub issue comments as the public discussion layer for queued requests until the product has an application-backed backend.
   Reason: it adds visible feedback and acceptance signal without introducing new persistence or moderation infrastructure during the MVP intake loop.
+
+## 2026-03-11
+
+- Decision: credit merged issue-loop PRs on the public leaderboard to the requester's optional GitHub username when the issue body provides one.
+  Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
+- Decision: treat issues whose structured `GitHub Username` matches the repo owner as maintainer steering.
+  Reason: maintainer requests should be able to push the product in sharper new directions without being rejected solely for normal constitution-fit or roadmap-fit heuristics, while still preserving hard safety and feasibility limits.
+
+- Decision: treat native GitHub `:+1:` reactions on the root issue body as the canonical support signal, with higher support expected before it materially upgrades evidence on higher-sensitivity requests.
+  Reason: popularity should stay GitHub-native and visible without creating parallel vote state, while still remaining subordinate to safety, maintainer boundaries, and secret-dependent feasibility limits.
+
+- Decision: let signed-in website support actions write through to the same GitHub `:+1:` issue reaction instead of creating a website-side vote ledger.
+  Reason: the queue can add a convenient support UI without splitting canonical support state away from GitHub.
+
+- Decision: use the signed-in GitHub session as the canonical contributor
+  identity for website submissions and remove the free-text GitHub username
+  field from intake.
+  Reason: free-text usernames are spoofable, while authenticated GitHub login
+  lets accepted work credit a real account without requiring login for all
+  submissions.
+
+- Decision: ship a browser-local `My requests` section before adding application-backed request history or inbox features.
+  Reason: submitters need a lightweight way to find their own issues now, while durable per-user state still sits beyond the MVP cutline.
+
+- Decision: route rejected-request clarification through GitHub issue comments and require rejection messages to name the governing rule.
+  Reason: the product already exposes GitHub as the public discussion layer, so clearer rejection reasons plus direct comment follow-up solve the need without adding a second conversation system.
+
+- Decision: supervise the local reactor with a separate local watchdog instead of folding service-health recovery into the reactor loop itself.
+  Reason: the reactor should focus on issue execution, while a watchdog can restart the service, unpause retryable issues, and escalate non-recoverable failures without entangling supervision logic into every issue run.
+
+- Decision: let the watchdog open maintainer-steered `openreactor-core` repair issues when it detects a concrete OpenReactor fault that blocks issue flow.
+  Reason: OpenReactor should not only recover operationally. It should also be able to route concrete faults in its own workflow back through the same autonomous issue-to-PR loop, then refresh the local services after the repair merges.
+
+- Decision: keep CSS minimal by convention rather than enforcing a hard byte budget through scripts.
+  Reason: the tendency to add lots of CSS is what causes bad design. Agents should default to the fewest possible custom styles, leaning on Tailwind utilities and avoiding decorative flourishes like gradients, shadows, and backdrop blurs.
+
+- Decision: when a request expresses a useful product pressure through an
+  overly literal or unrealistic hard constraint, agents should prefer adapting
+  it into a narrower accepted change rather than rejecting the direction
+  outright.
+  Reason: strong numeric or absolute requests often carry a valid product
+  signal even when the literal target would be counterproductive.
+
+- Decision: treat UI quality as a governed system concern by requiring agents
+  to follow `UI_SYSTEM.md` and provide browser verification evidence for
+  accepted rendered-UI changes.
+  Reason: frontend quality decays quickly when autonomous changes rely only on
+  local code edits and taste drift, so the reactor needs both a shared visual
+  baseline and runtime enforcement.
+
+- Decision: if a worthwhile feature is blocked on a maintainer-only prerequisite
+  such as OAuth setup or secret provisioning, OpenReactor should leave a
+  reviewable PR open with auto-merge disabled and mark it as requiring
+  maintainer action instead of merging a documented partial.
+  Reason: maintainer-blocked features need a real waiting state in the workflow,
+  not just handoff text inside an otherwise accepted PR.
