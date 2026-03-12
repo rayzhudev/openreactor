@@ -287,6 +287,8 @@ export async function ensureIssueWorktree(
     return;
   }
 
+  await refreshOriginMain(config.repoRoot);
+
   const branchExists = await runCommand("git", [
     "-C",
     config.repoRoot,
@@ -316,8 +318,12 @@ export async function ensureIssueWorktree(
     "-b",
     paths.branchName,
     paths.worktreePath,
-    "main"
+    "origin/main"
   ]);
+}
+
+async function refreshOriginMain(repoRoot: string): Promise<void> {
+  await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
 }
 
 export async function ensureRemoteBranchExists(repoRoot: string, branchName: string): Promise<boolean> {

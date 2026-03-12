@@ -151,7 +151,7 @@ The reactor currently:
 - pauses repeated startup failures with `or:paused`
 - banks worthwhile-but-not-yet-actionable feedback with `feedback-bank`
 - applies `sensitivity:*` and `evidence:*` labels during triage
-- creates a dedicated git worktree per issue
+- creates a dedicated git worktree per issue from the latest `origin/main`
 - persists per-issue run files under `.openreactor/`
 - retries the same issue until it reaches a real terminal state
 
