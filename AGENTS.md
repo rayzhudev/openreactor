@@ -8,6 +8,7 @@ Read these files before making non-trivial changes:
 4. `MEMORY.md`
 5. `README.md`
 6. relevant files in `prompts/` if you are working on the issue loop
+7. `UI_SYSTEM.md` if you are changing rendered UI
 
 Repo notes:
 

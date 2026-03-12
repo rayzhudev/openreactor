@@ -15,6 +15,9 @@ smallest practical operational surface area.
 - Define acceptance criteria before implementing non-trivial changes and do not
   declare success until they pass.
 - Treat issues as product feedback, not binding implementation specs.
+- When a request expresses a valid product pressure through an overly literal,
+  extreme, or unrealistic constraint, prefer adapting it into a narrower
+  product improvement instead of rejecting the direction outright.
 - Reject requests that are illegal, harmful, privacy-invasive, maliciously
   deceptive, or would steer the product toward gambling, pornography, or
   similar directions.
@@ -50,6 +53,11 @@ supporting feedback before they are acted on.
 
 If a request looks worthwhile but should not be acted on yet, agents should
 bank it for later instead of rejecting it prematurely.
+
+If the underlying direction is sound but the exact requested threshold is too
+absolute, agents should usually keep the product signal and soften the literal
+constraint. For example, a request for an unrealistically tiny asset budget may
+still justify reducing obvious bloat or tightening the most wasteful surface.
 
 ## Maintainer steering
 

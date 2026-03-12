@@ -325,6 +325,25 @@ export async function ensureRemoteBranchExists(repoRoot: string, branchName: str
   ]).then(() => true, () => false);
 }
 
+export async function listChangedFilesForBranch(
+  repoRoot: string,
+  branchName: string,
+  baseRef = "origin/main"
+): Promise<string[]> {
+  const output = await runCommandCapture("git", [
+    "-C",
+    repoRoot,
+    "diff",
+    "--name-only",
+    `${baseRef}...${branchName}`
+  ]);
+
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export async function spawnIssueAgent(input: {
   config: OrchestratorConfig;
   issue: GitHubIssue;
@@ -701,6 +720,7 @@ function buildAgentPrompt(
     `You are OpenReactor's autonomous issue agent for GitHub issue #${issue.number}.`,
     "",
     "Read these files before doing anything else:",
+    "- UI_SYSTEM.md",
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- prompts/quality-gates.md",
@@ -724,6 +744,9 @@ function buildAgentPrompt(
     "- Treat the issue as product feedback, not a binding specification.",
     "- You may reject the request if that is better for the product.",
     "- If accepted, you may reinterpret the request and implement the best product change.",
+    "- If a request carries a valid product signal through an overly rigid numeric target, hard cap, or absolute rule, do not reject it on that basis alone.",
+    "- For directionally sound requests, prefer the smallest useful accepted change that addresses the concern and explain the softened interpretation clearly.",
+    "- If you touch rendered UI, browser verification is mandatory before returning accepted.",
     ...toolRules,
     "- A starter plan.json already exists. Update it instead of replacing it with a different shape.",
     "- Append progress to progress.md before finishing.",
@@ -927,6 +950,24 @@ async function runCommand(command: string, args: string[]): Promise<void> {
   if (exitCode !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with exit code ${exitCode}`);
   }
+}
+
+async function runCommandCapture(command: string, args: string[]): Promise<string> {
+  const child = spawn(command, args, {
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+
+  let stdout = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk.toString();
+  });
+
+  const exitCode = await waitForExit(child);
+  if (exitCode !== 0) {
+    throw new Error(`${command} ${args.join(" ")} failed with exit code ${exitCode}`);
+  }
+
+  return stdout;
 }
 
 async function attachProcessLogging(

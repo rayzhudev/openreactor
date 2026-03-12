@@ -77,18 +77,18 @@ const BOARD_COLUMNS = [
 /* ── Tailwind class helpers ──────────────────────────────────────── */
 
 const CLS = {
-  pill: "px-3 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]",
-  pillSmall: "px-3 py-1.5 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]",
+  pill: "or-button or-button--secondary",
+  pillSmall: "or-button or-button--secondary min-h-0 px-3 py-1.5",
 };
 
 function getStatusBadgeClasses(status) {
-  const base = "w-fit px-2.5 py-0.5 rounded font-mono text-xs font-semibold tracking-wide uppercase";
+  const base = "or-badge or-status-badge";
   switch (status) {
-    case "queued": return `${base} bg-[rgba(127,143,150,0.14)] text-[var(--queue-queued)]`;
-    case "in-progress": return `${base} bg-[rgba(184,92,56,0.12)] text-[var(--queue-progress)]`;
-    case "complete": return `${base} bg-[rgba(32,116,90,0.12)] text-[var(--queue-complete)]`;
-    case "rejected": return `${base} bg-[rgba(163,59,49,0.12)] text-[var(--queue-rejected)]`;
-    default: return `${base} bg-[rgba(127,143,150,0.14)] text-[var(--queue-queued)]`;
+    case "queued": return `${base} is-queued`;
+    case "in-progress": return `${base} is-in-progress`;
+    case "complete": return `${base} is-complete`;
+    case "rejected": return `${base} is-rejected`;
+    default: return `${base} is-queued`;
   }
 }
 
@@ -739,7 +739,7 @@ function renderMyRequests() {
       "No saved requests in this browser yet. Submit one here and it will stay pinned for quick follow-up.";
 
     const empty = document.createElement("article");
-    empty.className = "p-4 border border-[var(--line)] rounded-lg text-[var(--ink-soft)] text-sm";
+    empty.className = "or-empty-card";
     empty.textContent =
       "Rejected requests can be clarified directly on GitHub once they appear here. No separate account or inbox yet.";
     myRequestsList.append(empty);
@@ -763,7 +763,7 @@ function renderMyRequests() {
 
 function createMyRequestCard(item) {
   const card = document.createElement("div");
-  card.className = "grid gap-2 p-4 border border-[var(--line)] rounded-lg h-full";
+  card.className = "or-panel or-panel--tight h-full";
 
   const top = document.createElement("div");
   top.className = "flex items-center gap-2";
@@ -1443,10 +1443,10 @@ function renderLeaderboard(items, totals) {
 
   for (const [index, item] of items.entries()) {
     const row = document.createElement("li");
-    row.className = "grid grid-cols-[auto_minmax(0,1fr)] gap-4 p-4 border border-[var(--line)] rounded-lg";
+    row.className = "or-panel or-panel--tight grid-cols-[auto_minmax(0,1fr)]";
 
     const rank = document.createElement("span");
-    rank.className = "inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--accent-muted)] text-[var(--accent-dark)] font-semibold text-sm";
+    rank.className = "or-rank-badge";
     rank.textContent = `#${index + 1}`;
 
     const body = document.createElement("div");
@@ -1463,7 +1463,7 @@ function renderLeaderboard(items, totals) {
     profile.textContent = `@${item.login}`;
 
     const badge = document.createElement("span");
-    badge.className = "w-fit px-2.5 py-1 rounded bg-[rgba(0,0,0,0.06)] text-[var(--ink-faint)] text-xs font-medium tracking-wide uppercase whitespace-nowrap";
+    badge.className = "or-badge or-badge--neutral";
     badge.textContent =
       item.creditSource === "issue-requester"
         ? "Requester"
@@ -1622,7 +1622,7 @@ function renderQueueBoard(items) {
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
     const columnItems = groupedItems.get(column.key) || [];
-    lane.className = "grid gap-2 min-w-0 content-start p-4 border border-[var(--line)] rounded-lg";
+    lane.className = "or-panel or-panel--tight min-w-0 content-start";
 
     const header = document.createElement("div");
     header.className = "flex items-center justify-between gap-3 px-0.5";
@@ -1631,13 +1631,13 @@ function renderQueueBoard(items) {
     titleBlock.className = "flex items-baseline gap-2";
 
     const heading = document.createElement("h3");
-    heading.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
+    heading.className = "or-section-eyebrow";
     heading.textContent = column.label;
 
     titleBlock.append(heading);
 
     const count = document.createElement("span");
-    count.className = "inline-flex items-center justify-center min-w-6 min-h-6 px-1.5 rounded bg-[rgba(0,0,0,0.06)] text-[var(--ink-soft)] text-xs font-semibold";
+    count.className = "or-count-chip";
     count.textContent = String(groupedItems.get(column.key)?.length || 0);
 
     header.append(titleBlock, count);
@@ -1647,7 +1647,7 @@ function renderQueueBoard(items) {
 
     if (!columnItems.length) {
       const empty = document.createElement("li");
-      empty.className = "p-6 px-4 border border-dashed border-[var(--line-strong)] rounded-lg text-center text-[var(--ink-soft)] leading-relaxed";
+      empty.className = "or-empty-card text-center";
       empty.textContent = "No requests here yet.";
       list.append(empty);
     } else {
@@ -1779,7 +1779,7 @@ function createQueueCardLink(item) {
   const card = document.createElement("article");
   card.className = "grid gap-3";
   const link = document.createElement("a");
-  link.className = "grid gap-2 h-full p-3 border border-[var(--line)] rounded-lg text-inherit no-underline hover:bg-[var(--surface-hover)]";
+  link.className = "or-panel or-panel--tight or-panel--interactive h-full text-inherit no-underline";
   link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";

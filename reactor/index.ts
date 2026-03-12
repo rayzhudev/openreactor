@@ -20,6 +20,7 @@ import {
   ensureRuntimeDirectories,
   finalizeIssueAgentRun,
   issueRuntimePaths,
+  listChangedFilesForBranch,
   readRunRecord,
   runIssueTriage,
   spawnIssueAgent,
@@ -827,6 +828,15 @@ class Reactor {
       return { ok: false, reason: "accepted result reported a failed quality check" };
     }
 
+    const changedFiles = await listChangedFilesForBranch(this.config.repoRoot, branchName);
+    if (touchesUiSurface(changedFiles) && !hasBrowserVerificationEvidence(result)) {
+      return {
+        ok: false,
+        reason:
+          "accepted UI result must report browser verification evidence in its tests"
+      };
+    }
+
     const branchExists = await ensureRemoteBranchExists(this.config.repoRoot, branchName);
     if (!branchExists) {
       return { ok: false, reason: `remote branch ${branchName} was not found on origin` };
@@ -885,6 +895,36 @@ class Reactor {
     const comments = await this.github.listIssueComments(issueNumber);
     return comments.find((comment) => comment.body.includes(STATUS_COMMENT_MARKER)) ?? null;
   }
+}
+
+function touchesUiSurface(files: string[]): boolean {
+  return files.some((file) => {
+    if (file === "src/input.css" || file === "UI_SYSTEM.md") {
+      return true;
+    }
+
+    if (file.startsWith("public/")) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
+function hasBrowserVerificationEvidence(result: AgentResult): boolean {
+  return result.tests.some((test) => {
+    if (test.status !== "passed") {
+      return false;
+    }
+
+    const command = test.command.toLowerCase();
+    return (
+      command.includes("agent-browser") ||
+      command.includes("playwright") ||
+      command.includes("screenshot") ||
+      command.includes("snapshot")
+    );
+  });
 }
 
 function buildStatusCommentBody(input: {
