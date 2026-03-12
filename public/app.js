@@ -37,6 +37,10 @@ const supportSessionNode = document.querySelector("#support-session");
 const supportSessionCopyNode = document.querySelector("#support-session-copy");
 const supportSessionLink = document.querySelector("#support-session-link");
 const supportSignOutButton = document.querySelector("#support-signout-button");
+const requestAuthCopyNode = document.querySelector("#request-auth-copy");
+const requestAuthTierNode = document.querySelector("#request-auth-tier");
+const requestAuthLink = document.querySelector("#request-auth-link");
+const requestSignOutButton = document.querySelector("#request-signout-button");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
@@ -200,15 +204,6 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
-  const githubUsernameField = document.querySelector("#github-username");
-  if (githubUsernameField) {
-    githubUsernameField.addEventListener("input", () => {
-      if (githubUsernameField.getAttribute("aria-invalid") === "true") {
-        githubUsernameField.removeAttribute("aria-invalid");
-        setStatus("");
-      }
-    });
-  }
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -237,7 +232,11 @@ function initSupportSession() {
   }
 
   supportSignOutButton.addEventListener("click", onSupportSignOut);
+  if (requestSignOutButton) {
+    requestSignOutButton.addEventListener("click", onSupportSignOut);
+  }
   renderSupportSession();
+  renderRequestAuthPanel();
 }
 
 async function loadSupportSession() {
@@ -272,6 +271,7 @@ async function loadSupportSession() {
   }
 
   renderSupportSession();
+  renderRequestAuthPanel();
   renderQueueView();
   announceSupportSessionResult();
 }
@@ -462,27 +462,20 @@ async function onSubmit(event) {
 
   const formData = new FormData(form);
   const request = `${formData.get("request") ?? ""}`.trim();
-  const githubUsername = `${formData.get("githubUsername") ?? ""}`.trim();
   const website = `${formData.get("website") ?? ""}`;
   const scopePreference = `${formData.get("scopePreference") ?? "auto"}`;
-  const validationError = validateRequest(request, githubUsername);
+  const validationError = validateRequest(request);
 
   if (validationError) {
     setStatus(validationError, "error");
-    const isUsernameError = validationError.toLowerCase().includes("username");
-    const errorField = isUsernameError
-      ? document.querySelector("#github-username")
-      : requestField;
-    if (errorField) {
-      errorField.setAttribute("aria-invalid", "true");
-      errorField.focus();
-    }
+    requestField.setAttribute("aria-invalid", "true");
+    requestField.focus();
     submitButton.disabled = false;
     submitButton.textContent = SUBMIT_BUTTON_LABEL;
     return;
   }
 
-  const payload = buildPayload(request, website, githubUsername, scopePreference);
+  const payload = buildPayload(request, website, scopePreference);
 
   try {
     const response = await fetch("/api/requests", {
@@ -513,7 +506,7 @@ async function onSubmit(event) {
       url: data.url || "",
       title: summarizeRequest(request),
       createdAt: new Date().toISOString(),
-      githubUsername: normalizeGitHubUsername(githubUsername),
+      githubUsername: supportSession.authenticated ? normalizeGitHubUsername(supportSession.login) : null,
       status: "queued",
       statusDetail: "Submitted from this browser. Waiting for the public queue to refresh.",
       statusUpdatedAt: new Date().toISOString(),
@@ -531,12 +524,11 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, githubUsername, scopePreference = "auto") {
+function buildPayload(request, website, scopePreference = "auto") {
   const summary = summarizeRequest(request);
 
   return {
     website,
-    githubUsername: normalizeGitHubUsername(githubUsername),
     summary,
     problem: request,
     outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
@@ -566,14 +558,9 @@ function summarizeRequest(request) {
   return `${normalized.slice(0, 117).trimEnd()}...`;
 }
 
-function validateRequest(request, githubUsername) {
+function validateRequest(request) {
   if (isLowSignalText(request)) {
     return "Describe the request in plain language instead of repeated or placeholder text.";
-  }
-
-  const normalizedGitHubUsername = normalizeGitHubUsername(githubUsername);
-  if (normalizedGitHubUsername && !isValidGitHubUsername(normalizedGitHubUsername)) {
-    return "GitHub username must be 1 to 39 characters using letters, numbers, or single hyphens.";
   }
 
   return "";
@@ -865,7 +852,7 @@ function renderSupportSession() {
 
   if (supportSession.authenticated && supportSession.login) {
     supportSessionNode.dataset.state = "connected";
-    supportSessionCopyNode.textContent = `Support actions run through GitHub as @${supportSession.login}.`;
+    supportSessionCopyNode.textContent = `Signed in as @${supportSession.login}. Support actions and submission credit run through GitHub.`;
     supportSessionLink.hidden = false;
     supportSessionLink.href = supportSession.profileUrl || "https://github.com";
     supportSessionLink.textContent = "View profile";
@@ -877,7 +864,7 @@ function renderSupportSession() {
 
   supportSessionNode.dataset.state = supportSession.authAvailable ? "available" : "handoff";
   supportSessionCopyNode.textContent = supportSession.authAvailable
-    ? "Sign in with GitHub to support issues from the site."
+    ? "Sign in with GitHub to support issues from the site and get recognition for accepted contributions."
     : "Support counts come from GitHub. Website sign-in needs maintainer OAuth setup first.";
   supportSessionLink.hidden = false;
   supportSessionLink.href = supportSession.authAvailable
@@ -891,6 +878,39 @@ function renderSupportSession() {
     supportSessionLink.rel = "noreferrer";
   }
   supportSignOutButton.hidden = true;
+}
+
+function renderRequestAuthPanel() {
+  if (!requestAuthCopyNode || !requestAuthTierNode || !requestAuthLink || !requestSignOutButton) {
+    return;
+  }
+
+  if (supportSession.authenticated && supportSession.login) {
+    requestAuthCopyNode.textContent = `Requests from this browser will be attributed to @${supportSession.login}, and merged feature PRs can credit that account automatically.`;
+    requestAuthTierNode.textContent = "Trust tier: GitHub account";
+    requestAuthLink.hidden = false;
+    requestAuthLink.href = supportSession.profileUrl || "https://github.com";
+    requestAuthLink.textContent = "View GitHub profile";
+    requestAuthLink.target = "_blank";
+    requestAuthLink.rel = "noreferrer";
+    requestSignOutButton.hidden = false;
+    return;
+  }
+
+  requestAuthTierNode.textContent = "Trust tier: anonymous";
+  requestAuthCopyNode.textContent = supportSession.authAvailable
+    ? "Log in with GitHub to get recognition for your contributions. Login is optional for submitting requests."
+    : "Requests can still be submitted anonymously. GitHub login will unlock contributor recognition once maintainer OAuth setup is complete.";
+  requestAuthLink.hidden = false;
+  requestAuthLink.href = supportSession.authAvailable ? buildSupportAuthUrl() : "https://github.com/rayzhudev/openreactor";
+  requestAuthLink.textContent = supportSession.authAvailable ? "Log in with GitHub" : "View on GitHub";
+  requestAuthLink.target = supportSession.authAvailable ? "_self" : "_blank";
+  if (supportSession.authAvailable) {
+    requestAuthLink.removeAttribute("rel");
+  } else {
+    requestAuthLink.rel = "noreferrer";
+  }
+  requestSignOutButton.hidden = true;
 }
 
 function buildSupportAuthUrl() {

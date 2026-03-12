@@ -197,7 +197,9 @@ test("renders the redesign and submits a request through the mocked API", async 
   await expect(page.getByRole("link", { name: /reply on github to clarify/i })).toBeVisible();
   await expect(page.getByText("Radically improve the homepage art direction").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /leaderboard/i })).toBeVisible();
-  await expect(page.getByText(/support actions run through github as @supporter/i)).toBeVisible();
+  await expect(page.getByText(/signed in as @supporter\. support actions and submission credit run through github\./i)).toBeVisible();
+  await expect(page.getByText(/requests from this browser will be attributed to @supporter/i)).toBeVisible();
+  await expect(page.getByText(/trust tier: github account/i)).toBeVisible();
   await expect(page.getByText("5 supports").first()).toBeVisible();
   await expect(page.getByText("Requester").first()).toBeVisible();
 
@@ -208,7 +210,6 @@ test("renders the redesign and submits a request through the mocked API", async 
   await page.locator("#request").fill(
     "The landing page feels generic. Redesign it into a more editorial layout with stronger hierarchy while keeping the form and public queue on the same page."
   );
-  await page.locator("#github-username").fill("@designreviewer");
   await page.getByRole("button", { name: "Submit" }).click();
 
   await expect(page.locator("#form-status")).toContainText("Request queued as issue #777. Added to My requests.");

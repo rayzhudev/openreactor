@@ -255,6 +255,12 @@ textarea, input, button { font: inherit; }
   background: var(--surface);
 }
 
+.or-note--stack {
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
 .or-kicker {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
