@@ -476,6 +476,97 @@ textarea, input, button { font: inherit; }
   }
 }
 
+/* Auth user menu */
+.auth-user-menu {
+  position: relative;
+}
+
+.auth-user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-snug);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-user-button:hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+}
+
+.auth-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.auth-login {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-caret {
+  width: 0.6rem;
+  height: 0.6rem;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+}
+
+.auth-user-button[aria-expanded="true"] .auth-caret {
+  transform: rotate(180deg);
+}
+
+.auth-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 11rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+  z-index: 20;
+}
+
+.auth-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: none;
+  border-radius: calc(var(--radius-lg) - 2px);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.auth-dropdown-item:hover {
+  background: var(--surface-hover);
+}
+
+.auth-sign-out {
+  color: var(--queue-rejected);
+}
+
 @media (max-width: 47.99rem) {
   .or-shell {
     padding: 1rem 0.75rem 3rem;
