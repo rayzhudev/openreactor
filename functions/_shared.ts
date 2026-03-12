@@ -36,6 +36,8 @@ export interface Env {
   GITHUB_APP_INSTALLATION_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
   SESSION_SECRET?: string;
+  OPENREACTOR_STATUS_URL?: string;
+  OPENREACTOR_STATUS_TOKEN?: string;
 }
 
 interface NormalizedEnv {
@@ -49,6 +51,8 @@ interface NormalizedEnv {
   GITHUB_APP_INSTALLATION_ID: string;
   GITHUB_APP_PRIVATE_KEY: string;
   SESSION_SECRET: string;
+  OPENREACTOR_STATUS_URL: string;
+  OPENREACTOR_STATUS_TOKEN: string;
 }
 
 interface FeatureRequestInput {
@@ -202,6 +206,58 @@ export async function handleHealth(env: Env): Promise<Response> {
         }
       : null
   });
+}
+
+export async function handleOpenReactorStatus(env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+  if (!normalized.OPENREACTOR_STATUS_URL) {
+    return jsonResponse({
+      available: false,
+      error: "Live OpenReactor status is not configured yet."
+    });
+  }
+
+  try {
+    const headers = new Headers({
+      Accept: "application/json"
+    });
+    if (normalized.OPENREACTOR_STATUS_TOKEN) {
+      headers.set("Authorization", `Bearer ${normalized.OPENREACTOR_STATUS_TOKEN}`);
+    }
+
+    const response = await fetch(normalized.OPENREACTOR_STATUS_URL, {
+      headers,
+      cf: { cacheTtl: 0, cacheEverything: false }
+    } as RequestInit & {
+      cf: {
+        cacheTtl: number;
+        cacheEverything: boolean;
+      };
+    });
+    const text = await response.text();
+    const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+
+    if (!response.ok) {
+      return jsonResponse({
+        available: false,
+        error:
+          typeof data.error === "string"
+            ? data.error
+            : "Live OpenReactor status is temporarily unavailable."
+      });
+    }
+
+    return jsonResponse({
+      ...data,
+      available: true
+    });
+  } catch (error) {
+    console.error("Unable to load live OpenReactor status.", error);
+    return jsonResponse({
+      available: false,
+      error: "Live OpenReactor status is temporarily unavailable."
+    });
+  }
 }
 
 export async function handleSession(request: Request, env: Env): Promise<Response> {
@@ -1484,7 +1540,9 @@ function normalizeEnv(env: Env): NormalizedEnv {
     GITHUB_APP_CLIENT_SECRET: clean(env.GITHUB_APP_CLIENT_SECRET),
     GITHUB_APP_INSTALLATION_ID: clean(env.GITHUB_APP_INSTALLATION_ID),
     GITHUB_APP_PRIVATE_KEY: cleanPrivateKey(env.GITHUB_APP_PRIVATE_KEY),
-    SESSION_SECRET: clean(env.SESSION_SECRET)
+    SESSION_SECRET: clean(env.SESSION_SECRET),
+    OPENREACTOR_STATUS_URL: clean(env.OPENREACTOR_STATUS_URL),
+    OPENREACTOR_STATUS_TOKEN: clean(env.OPENREACTOR_STATUS_TOKEN)
   };
 }
 

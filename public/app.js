@@ -16,6 +16,14 @@ const queueArchivePagination = document.querySelector("#queue-archive-pagination
 const queueStatusNode = document.querySelector("#queue-status");
 const queueRefreshNoteNode = document.querySelector("#queue-refresh-note");
 const queueRepoLink = document.querySelector("#queue-repo-link");
+const openReactorLiveStatusNode = document.querySelector("#openreactor-live-status");
+const openReactorLiveRefreshNode = document.querySelector("#openreactor-live-refresh");
+const openReactorLiveReactorNode = document.querySelector("#openreactor-live-reactor");
+const openReactorLiveWatchdogNode = document.querySelector("#openreactor-live-watchdog");
+const openReactorLiveActiveNode = document.querySelector("#openreactor-live-active");
+const openReactorLiveBlockedNode = document.querySelector("#openreactor-live-blocked");
+const openReactorLiveAgentsNode = document.querySelector("#openreactor-live-agents");
+const openReactorLiveBlockersNode = document.querySelector("#openreactor-live-blockers");
 const leaderboardList = document.querySelector("#leaderboard-list");
 const leaderboardStatusNode = document.querySelector("#leaderboard-status");
 const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
@@ -50,6 +58,7 @@ const DEFAULT_QUEUE_PAGE = getQueuePageFromLocation();
 const DEPLOY_CHECK_INTERVAL_MS = 60_000;
 const DEPLOY_CHECK_PATHS = ["/index.html", "/app.js", "/styles.css"];
 const QUEUE_POLL_INTERVAL_MS = 30_000;
+const OPENREACTOR_STATUS_POLL_INTERVAL_MS = 15_000;
 const REACTORLE_WORD_LENGTH = 5;
 const REACTORLE_MAX_GUESSES = 6;
 const REACTORLE_STORAGE_KEY = "openreactor-reactorle-state";
@@ -148,7 +157,9 @@ function getReactorleKeyClasses(state) {
 
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
+let lastOpenReactorRefreshAt = 0;
 let queuePollTimer = 0;
+let openReactorStatusTimer = 0;
 let queueActiveItems = [];
 let queueArchivedItems = [];
 let myRequests = loadMyRequests();
@@ -169,6 +180,25 @@ let supportSession = {
   authenticated: false,
   login: "",
   profileUrl: ""
+};
+let openReactorStatus = {
+  available: false,
+  services: {
+    reactor: null,
+    watchdog: null
+  },
+  agents: {
+    activeCount: 0,
+    pendingRetryCount: 0,
+    maxConcurrentIssues: 0,
+    items: []
+  },
+  blockers: {
+    pausedCount: 0,
+    pausedIssues: [],
+    maintainerHandoffCount: 0,
+    maintainerHandoffs: []
+  }
 };
 
 initTopbarToggle();
@@ -222,8 +252,15 @@ async function boot() {
     hasPreviousPage: queueState.hasPreviousPage,
     hasNextPage: queueState.hasNextPage
   });
-  await Promise.all([loadRepoMeta(), loadSupportSession(), loadQueue(queueState.page), loadLeaderboard()]);
+  await Promise.all([
+    loadRepoMeta(),
+    loadSupportSession(),
+    loadQueue(queueState.page),
+    loadLeaderboard(),
+    loadOpenReactorStatus()
+  ]);
   startQueuePolling();
+  startOpenReactorStatusPolling();
 }
 
 function initSupportSession() {
@@ -1333,6 +1370,31 @@ async function loadLeaderboard() {
   }
 }
 
+async function loadOpenReactorStatus(options = {}) {
+  const { silent = false } = options;
+
+  if (!silent) {
+    setOpenReactorLiveStatus("Loading live OpenReactor metadata...");
+  }
+
+  try {
+    const response = await fetch("/api/openreactor-status", {
+      cache: "no-store"
+    });
+    const data = await readJsonResponse(response, "openreactor-status");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to load live OpenReactor metadata.");
+    }
+
+    renderOpenReactorStatus(data);
+  } catch (error) {
+    renderOpenReactorStatusError(
+      error instanceof Error ? error.message : "Unable to load live OpenReactor metadata."
+    );
+  }
+}
+
 async function loadRepoMeta() {
   try {
     const response = await fetch("/api/meta");
@@ -1357,6 +1419,57 @@ function renderRepoStarLink(repoUrl) {
 
   repoStarLink.hidden = true;
   repoStarLink.removeAttribute("href");
+}
+
+function renderOpenReactorStatus(data) {
+  markOpenReactorRefresh();
+
+  openReactorStatus = {
+    available: Boolean(data.available),
+    services: data.services || {
+      reactor: null,
+      watchdog: null
+    },
+    agents: data.agents || {
+      activeCount: 0,
+      pendingRetryCount: 0,
+      maxConcurrentIssues: 0,
+      items: []
+    },
+    blockers: data.blockers || {
+      pausedCount: 0,
+      pausedIssues: [],
+      maintainerHandoffCount: 0,
+      maintainerHandoffs: []
+    }
+  };
+
+  renderOpenReactorLivePanels();
+}
+
+function renderOpenReactorStatusError(message) {
+  openReactorStatus = {
+    available: false,
+    services: {
+      reactor: null,
+      watchdog: null
+    },
+    agents: {
+      activeCount: 0,
+      pendingRetryCount: 0,
+      maxConcurrentIssues: 0,
+      items: []
+    },
+    blockers: {
+      pausedCount: 0,
+      pausedIssues: [],
+      maintainerHandoffCount: 0,
+      maintainerHandoffs: []
+    }
+  };
+
+  renderOpenReactorLivePanels();
+  setOpenReactorLiveStatus(message, "error");
 }
 
 function renderQueue(data) {
@@ -1504,6 +1617,171 @@ function renderLeaderboardError(message) {
   setLeaderboardStatus(`${message} Try again later.`, "error");
 }
 
+function renderOpenReactorLivePanels() {
+  if (!openReactorLiveAgentsNode || !openReactorLiveBlockersNode) {
+    return;
+  }
+
+  const reactorService = openReactorStatus.services.reactor;
+  const watchdogService = openReactorStatus.services.watchdog;
+  const activeAgents = Array.isArray(openReactorStatus.agents.items)
+    ? openReactorStatus.agents.items
+    : [];
+  const maintainerHandoffs = Array.isArray(openReactorStatus.blockers.maintainerHandoffs)
+    ? openReactorStatus.blockers.maintainerHandoffs
+    : [];
+  const pausedIssues = Array.isArray(openReactorStatus.blockers.pausedIssues)
+    ? openReactorStatus.blockers.pausedIssues
+    : [];
+  const blockedCount = maintainerHandoffs.length + pausedIssues.length;
+
+  openReactorLiveReactorNode.textContent = formatServiceSummary(reactorService);
+  openReactorLiveWatchdogNode.textContent = formatServiceSummary(watchdogService);
+  openReactorLiveActiveNode.textContent = `${activeAgents.length}`;
+  openReactorLiveBlockedNode.textContent = `${blockedCount}`;
+  openReactorLiveRefreshNode.textContent = lastOpenReactorRefreshAt
+    ? `Updated ${formatRelativeRefreshTime(lastOpenReactorRefreshAt)}`
+    : "Waiting for the first status update...";
+
+  if (!openReactorStatus.available) {
+    setOpenReactorLiveStatus("Live OpenReactor metadata is not connected yet.", "error");
+  } else if (!activeAgents.length && !blockedCount) {
+    setOpenReactorLiveStatus("OpenReactor is idle right now. No agents are actively working or blocked.");
+  } else {
+    setOpenReactorLiveStatus(
+      `OpenReactor has ${activeAgents.length} active agent${activeAgents.length === 1 ? "" : "s"} and ${blockedCount} blocked item${blockedCount === 1 ? "" : "s"}.`
+    );
+  }
+
+  openReactorLiveAgentsNode.innerHTML = "";
+  if (!activeAgents.length) {
+    openReactorLiveAgentsNode.append(createOpenReactorEmptyState("No active agents right now."));
+  } else {
+    const fragment = document.createDocumentFragment();
+    for (const item of activeAgents) {
+      fragment.append(createOpenReactorAgentCard(item));
+    }
+    openReactorLiveAgentsNode.append(fragment);
+  }
+
+  openReactorLiveBlockersNode.innerHTML = "";
+  if (!maintainerHandoffs.length && !pausedIssues.length) {
+    openReactorLiveBlockersNode.append(createOpenReactorEmptyState("Nothing is currently blocked."));
+  } else {
+    const fragment = document.createDocumentFragment();
+    for (const handoff of maintainerHandoffs) {
+      fragment.append(createOpenReactorBlockerCard(handoff, "Maintainer action"));
+    }
+    for (const paused of pausedIssues) {
+      fragment.append(createOpenReactorBlockerCard(paused, "Paused"));
+    }
+    openReactorLiveBlockersNode.append(fragment);
+  }
+}
+
+function createOpenReactorAgentCard(item) {
+  const row = document.createElement("li");
+  row.className = "or-panel or-panel--tight grid gap-2";
+
+  const top = document.createElement("div");
+  top.className = "flex items-start justify-between gap-3 max-md:flex-col max-md:items-stretch";
+
+  const titleLink = document.createElement("a");
+  titleLink.className = "text-base font-semibold no-underline hover:text-[var(--accent-dark)]";
+  titleLink.href = item.issueUrl;
+  titleLink.target = "_blank";
+  titleLink.rel = "noreferrer";
+  titleLink.textContent = `#${item.issueNumber} ${item.issueTitle}`;
+
+  const badge = document.createElement("span");
+  badge.className = "or-badge or-badge--neutral";
+  badge.textContent = item.toolLabel || item.toolName || "Agent";
+
+  top.append(titleLink, badge);
+
+  const meta = document.createElement("p");
+  meta.className = "text-sm leading-snug text-[var(--ink-soft)]";
+  meta.textContent = [
+    item.provider ? `${item.provider}` : "",
+    item.primaryUse ? `${item.primaryUse}` : "",
+    item.iteration ? `iteration ${item.iteration}` : "",
+    item.branchName ? item.branchName : ""
+  ]
+    .filter(Boolean)
+    .join(" • ");
+
+  const timing = document.createElement("p");
+  timing.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
+  timing.textContent = item.lastHeartbeatAt
+    ? `Heartbeat ${formatIsoTimestamp(item.lastHeartbeatAt)}`
+    : "Heartbeat unavailable";
+
+  row.append(top, meta, timing);
+  return row;
+}
+
+function createOpenReactorBlockerCard(item, label) {
+  const row = document.createElement("li");
+  row.className = "or-panel or-panel--tight grid gap-2";
+
+  const heading = document.createElement("div");
+  heading.className = "flex items-start justify-between gap-3 max-md:flex-col max-md:items-stretch";
+
+  const title = document.createElement("span");
+  title.className = "text-base font-semibold";
+  title.textContent =
+    item.issueNumber && item.issueUrl
+      ? `#${item.issueNumber}`
+      : label;
+
+  if (item.issueUrl) {
+    const link = document.createElement("a");
+    link.className = "text-base font-semibold no-underline hover:text-[var(--accent-dark)]";
+    link.href = item.issueUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent =
+      item.issueTitle ? `#${item.issueNumber} ${item.issueTitle}` : `#${item.issueNumber}`;
+    heading.append(link);
+  } else {
+    heading.append(title);
+  }
+
+  const badge = document.createElement("span");
+  badge.className = "or-badge or-badge--neutral";
+  badge.textContent = label;
+  heading.append(badge);
+
+  const detail = document.createElement("p");
+  detail.className = "text-sm leading-relaxed text-[var(--ink-soft)]";
+  detail.textContent =
+    item.instructions ||
+    item.lastFailureClass ||
+    "OpenReactor is waiting before this item can move again.";
+
+  const meta = document.createElement("p");
+  meta.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
+  meta.textContent = [
+    item.prUrl ? `PR linked` : "",
+    item.autoHealAttempts ? `${item.autoHealAttempts} auto-heal attempts` : "",
+    item.repairIssueNumber ? `repair #${item.repairIssueNumber}` : "",
+    item.updatedAt ? `updated ${formatIsoTimestamp(item.updatedAt)}` : "",
+    item.lastEscalatedAt ? `escalated ${formatIsoTimestamp(item.lastEscalatedAt)}` : ""
+  ]
+    .filter(Boolean)
+    .join(" • ") || "Blocked item";
+
+  row.append(heading, detail, meta);
+  return row;
+}
+
+function createOpenReactorEmptyState(message) {
+  const row = document.createElement("li");
+  row.className = "or-empty-card";
+  row.textContent = message;
+  return row;
+}
+
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
   queueStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
@@ -1512,6 +1790,15 @@ function setQueueStatus(message, tone) {
 function setLeaderboardStatus(message, tone) {
   leaderboardStatusNode.textContent = message;
   leaderboardStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
+}
+
+function setOpenReactorLiveStatus(message, tone) {
+  if (!openReactorLiveStatusNode) {
+    return;
+  }
+
+  openReactorLiveStatusNode.textContent = message;
+  openReactorLiveStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
 }
 
 function setQueueRefreshNote(message) {
@@ -1538,6 +1825,26 @@ function stopQueuePolling() {
   queuePollTimer = 0;
 }
 
+function startOpenReactorStatusPolling() {
+  stopOpenReactorStatusPolling();
+  openReactorStatusTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+
+    void loadOpenReactorStatus({ silent: true });
+  }, OPENREACTOR_STATUS_POLL_INTERVAL_MS);
+}
+
+function stopOpenReactorStatusPolling() {
+  if (!openReactorStatusTimer) {
+    return;
+  }
+
+  window.clearInterval(openReactorStatusTimer);
+  openReactorStatusTimer = 0;
+}
+
 function onVisibilityChange() {
   if (document.visibilityState !== "visible") {
     return;
@@ -1547,6 +1854,10 @@ function onVisibilityChange() {
 
   if (Date.now() - lastQueueRefreshAt >= QUEUE_POLL_INTERVAL_MS) {
     void loadQueue(queueState.page, { silent: true });
+  }
+
+  if (Date.now() - lastOpenReactorRefreshAt >= OPENREACTOR_STATUS_POLL_INTERVAL_MS) {
+    void loadOpenReactorStatus({ silent: true });
   }
 }
 
@@ -1566,6 +1877,10 @@ function refreshQueueStatusCopy(
 
 function markQueueRefresh() {
   lastQueueRefreshAt = Date.now();
+}
+
+function markOpenReactorRefresh() {
+  lastOpenReactorRefreshAt = Date.now();
 }
 
 function formatPollInterval() {
@@ -2023,6 +2338,48 @@ function formatCommentCount(value) {
 function formatSupportCount(value) {
   const count = Number.isFinite(value) ? Math.max(0, value) : 0;
   return `${count} support${count === 1 ? "" : "s"}`;
+}
+
+function formatServiceSummary(service) {
+  if (!service || !service.activeState) {
+    return "Unknown";
+  }
+
+  if (service.active) {
+    return "Running";
+  }
+
+  if (service.activeState === "activating") {
+    return "Starting";
+  }
+
+  if (service.activeState === "failed") {
+    return "Failed";
+  }
+
+  if (service.activeState === "inactive" || service.activeState === "deactivating") {
+    return "Stopped";
+  }
+
+  return service.activeState;
+}
+
+function formatIsoTimestamp(value) {
+  if (!value) {
+    return "unknown";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "unknown";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
 }
 
 async function handleSupportAction(issueNumber, button) {

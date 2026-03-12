@@ -97,3 +97,9 @@
   maintainer action instead of merging a documented partial.
   Reason: maintainer-blocked features need a real waiting state in the workflow,
   not just handoff text inside an otherwise accepted PR.
+
+- Decision: expose local OpenReactor runtime state through a machine-local
+  read-only metadata service and let the website handle visualization.
+  Reason: the product should be able to show what OpenReactor is doing without
+  turning the website into the runtime control plane or exposing arbitrary local
+  state.

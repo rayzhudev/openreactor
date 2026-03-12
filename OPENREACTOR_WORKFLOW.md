@@ -32,6 +32,9 @@ maintainer consideration.
 - OpenReactor should supervise itself: stalled issues and repeated local
   runtime failures should be detected, classified, and either healed
   operationally or turned into concrete OpenReactor repair work.
+- OpenReactor should expose its own runtime metadata in a read-only way so the
+  product can visualize the workflow without the product becoming the control
+  plane for the workflow itself.
 - When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
   should leave a reviewable PR open, disable auto-merge, and mark the issue as
   waiting for maintainer action instead of merging a documented partial.
@@ -64,6 +67,20 @@ issue flow, it may open a maintainer-steered `openreactor-core` repair issue so
 the reactor can fix OpenReactor itself. After that repair merges, the watchdog
 is expected to refresh the local checkout and restart the local OpenReactor
 services.
+
+## Runtime visibility
+
+OpenReactor may publish a read-only runtime metadata feed from the local
+machine so the product can show:
+
+- which agents are currently running
+- which issues are stalled or paused
+- which items are waiting on maintainer action
+- whether the local reactor and watchdog services are healthy
+
+This visibility layer should expose metadata only. It should not expose secrets,
+terminal output, or arbitrary file contents, and it should not let the website
+control the local OpenReactor services.
 
 ## Documentation rule
 
