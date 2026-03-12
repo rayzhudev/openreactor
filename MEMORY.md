@@ -69,6 +69,11 @@
 - Decision: let the watchdog open maintainer-steered `openreactor-core` repair issues when it detects a concrete OpenReactor fault that blocks issue flow.
   Reason: OpenReactor should not only recover operationally. It should also be able to route concrete faults in its own workflow back through the same autonomous issue-to-PR loop, then refresh the local services after the repair merges.
 
+- Decision: branch new issue worktrees from freshly fetched `origin/main`
+  instead of the local `main` ref.
+  Reason: local `main` can lag behind remote and create avoidable merge
+  conflicts across concurrently running issue branches.
+
 - Decision: keep CSS minimal by convention rather than enforcing a hard byte budget through scripts.
   Reason: the tendency to add lots of CSS is what causes bad design. Agents should default to the fewest possible custom styles, leaning on Tailwind utilities and avoiding decorative flourishes like gradients, shadows, and backdrop blurs.
 
