@@ -16,12 +16,16 @@ Completion standards:
 - Do not mark an issue `accepted` if checks failed.
 - Do not mark an issue `accepted` unless at least one relevant check passed.
 - If checks cannot run, explain why in `progress.md` and do not claim full completion.
+- Do not mark an issue `accepted` if a maintainer-only action is still required before the feature can work as intended.
 - Prefer clean, reviewable commits over large speculative rewrites.
 - Use as many existing safety guards as the repo offers. If lint, tests, type checks, builds, browser verification, or schema checks exist and are relevant, run them.
 - Acceptance criteria must be satisfied, not merely attempted.
 
 For UI changes:
 
+- Browser verification is required when the accepted change touches rendered UI.
 - Use any browser or local verification tooling that exists in the repo.
 - Prefer `agent-browser` for local visual verification when the change affects rendered behavior.
-- If no browser test tooling exists, note that explicitly.
+- Check both desktop and narrow/mobile layouts for the changed surface.
+- Record the browser commands you ran in the final `tests` list and in `progress.md`.
+- Do not mark a UI issue `accepted` if you only inspected the diff or source code.

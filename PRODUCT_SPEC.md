@@ -35,14 +35,16 @@ A request should be rejected/deferred if:
 1. User submits feature request in web form.
 2. System creates GitHub issue using structured template.
 3. Request enters the reactor queue and is claimed with a GitHub label.
-4. Issue agent decides whether the request should be `accepted` or `rejected`.
-5. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
-6. On merge to `main`, the website deploys automatically.
+4. Lightweight triage classifies surface sensitivity and evidence strength, then decides whether to `reject`, `bank`, or dispatch the request.
+5. If dispatched, an issue agent decides whether the request should be `accepted`, `rejected`, or decomposed into smaller follow-up issues.
+6. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
+7. On merge to `main`, the website deploys automatically.
 
 ## 5) System Architecture (MVP)
 - Frontend: public website for request intake and queue visibility
 - Website backend: API/backend for intake and future product features that require stored data
 - Reactor runtime: machine-local agent orchestration loop that polls GitHub, claims issues, spawns fresh agents, and retries until resolution
+- Watchdog runtime: machine-local supervisor that monitors the reactor, stalled issues, and repeated startup failures, attempts operational self-healing, and can emit concrete OpenReactor repair issues when the workflow itself needs to be fixed
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
 - Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state
 - Persistence (planned): application database for website/backend features that require stored data
@@ -67,6 +69,7 @@ Each run receives:
 - `CONSTITUTION.md`
 - `ROADMAP.md`
 - `MEMORY.md`
+- `UI_SYSTEM.md` when the issue touches rendered UI
 - prompt files in `prompts/`
 - current issue body + labels + context
 - local run files such as `plan.json` and `progress.md`
@@ -77,12 +80,51 @@ Final issue outcomes are:
 
 Internal run outcomes may also include:
 - `retry`
+- `decomposed`
 
 Agent behavior requirements:
 - treat the issue as product feedback, not a binding implementation spec
+- classify the sensitivity of the affected surface and the evidence strength for acting now
+- bank worthwhile ideas when the evidence is too weak for the sensitivity level instead of rejecting them prematurely
 - reject requests that are harmful, incoherent, or not worth building
 - if accepted, choose the best product change even if it differs from the literal request
 - maintain issue comments/labels, testing notes, and PR linkage as part of the run
+
+## 7.1) Canonical GitHub Support Signal
+
+OpenReactor uses one public support signal in GitHub:
+
+- the count of `:+1:` reactions on the root issue body
+
+OpenReactor must not create parallel support state in labels, issue comments,
+PR comments, check runs, local run files, or product-side counters just to track
+"votes." Those surfaces may discuss support, but the canonical count stays the
+native GitHub reaction count on the issue itself.
+
+Support is evidence, not approval:
+
+- it can raise priority for a coherent in-scope request
+- it can help move an issue from weak evidence toward moderate or strong
+  evidence
+- it cannot by itself force acceptance or implementation
+
+Sensitivity changes how much support matters:
+
+- low-sensitivity requests may be meaningfully strengthened by even a small
+  amount of support
+- medium-sensitivity requests should usually need around 3 `:+1:` reactions
+  before support materially upgrades their evidence
+- high-sensitivity requests should usually need around 5 `:+1:` reactions
+  before support materially upgrades their evidence, and still need explicit
+  agent justification
+
+Hard limits:
+
+- support never overrides safety rules
+- support never overrides maintainer-only boundaries
+- support never makes a secret-dependent or unavailable-access request feasible
+- support never replaces the agent's product judgment about scope, coherence, or
+  risk
 
 ## 8) Backend Strategy
 Split the product backend from the agent runtime:
@@ -148,6 +190,7 @@ What is already live:
 3. GitHub issue creation from that form,
 4. a public queue view of submitted requests,
 5. and a first local `reactor/` loop for autonomous issue processing.
+6. and a local watchdog layer that supervises the reactor and stalled issue handling.
 
 The following are still deferred:
 

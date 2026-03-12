@@ -12,6 +12,7 @@
   },
   "include": [
     "reactor/**/*.ts",
+    "watchdog/**/*.ts",
     "functions/**/*.ts",
     "scripts/**/*.ts",
     "worker-configuration.d.ts"

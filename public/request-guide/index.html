@@ -4,128 +4,127 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenReactor Request Guide</title>
-    <meta
-      name="description"
-      content="How OpenReactor reviews requests and how to write a clear, high-signal feature request."
-    />
+    <meta name="description" content="How OpenReactor reviews requests and how to write a clear, high-signal feature request." />
     <script>
       try {
         const savedTheme = localStorage.getItem("openreactor-theme");
-
-        if (savedTheme === "light" || savedTheme === "dark") {
-          document.documentElement.dataset.theme = savedTheme;
-        } else {
-          document.documentElement.removeAttribute("data-theme");
-        }
+        if (savedTheme === "dark") document.documentElement.classList.add("dark");
+        else if (savedTheme === "light") document.documentElement.classList.add("light");
       } catch {}
     </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body class="guide-page">
-    <main class="guide-shell">
-      <nav class="top-nav" aria-label="Guide navigation">
-        <div class="theme-picker" role="group" aria-label="Color theme">
-          <span class="theme-picker-label">Theme</span>
-          <div class="theme-picker-options">
-            <button class="theme-option" type="button" data-theme-value="system">System</button>
-            <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
-            <button class="theme-option" type="button" data-theme-value="light">Light</button>
+  <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
+    <main class="or-shell">
+
+      <header class="or-topbar">
+        <p class="or-brand"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <nav class="or-nav" aria-label="Site navigation">
+          <a class="or-nav-link" href="/">Intake</a>
+          <a class="or-nav-link" href="/playground/">Playground</a>
+        </nav>
+        <button class="topbar-toggle or-button or-button--icon hidden max-md:flex shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
+          <div class="or-button-group" role="group" aria-label="Color theme">
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
           </div>
         </div>
-        <a class="top-nav-link" href="/">Back to intake</a>
-        <a class="top-nav-link" href="/#queue-title">View public queue</a>
-      </nav>
+      </header>
 
-      <section class="guide-hero panel" aria-labelledby="guide-title">
-        <div class="guide-hero-copy">
-          <p class="eyebrow">Request guide</p>
-          <h1 class="guide-title" id="guide-title">Write for product clarity, not approval gaming.</h1>
-          <p class="guide-summary">
-            OpenReactor does not accept requests because they use magic words. It accepts requests that are safe, scoped, and useful for the product. This guide shows how the review loop works and how to submit something an agent can act on in one pass.
-          </p>
-        </div>
-
-        <div class="guide-hero-aside">
-          <aside class="frog-card frog-card-guide" aria-label="OpenReactor mascot note">
-            <div class="frog-portrait" aria-hidden="true">
-              <span class="frog-eye frog-eye-left"></span>
-              <span class="frog-eye frog-eye-right"></span>
-              <span class="frog-mouth"></span>
-            </div>
-            <div class="frog-copy">
-              <p class="frog-card-kicker">Field mascot</p>
-              <p class="frog-card-title">Write it like a field note and the frog stays calm.</p>
-            </div>
-          </aside>
-          <div class="guide-stat">
-            <span class="guide-stat-label">Best default</span>
-            <strong class="guide-stat-value">One issue, one change</strong>
-          </div>
-          <div class="guide-stat">
-            <span class="guide-stat-label">What helps most</span>
-            <strong class="guide-stat-value">Specific problem + desired outcome</strong>
-          </div>
-          <div class="guide-stat">
-            <span class="guide-stat-label">What hurts most</span>
-            <strong class="guide-stat-value">Vague bundles of ideas</strong>
-          </div>
+      <section class="mb-8" aria-labelledby="guide-title">
+        <p class="or-kicker">Request guide</p>
+        <h1 class="mt-2 text-3xl md:text-4xl font-bold tracking-tight" id="guide-title">Write for product clarity, not approval gaming.</h1>
+        <p class="mt-3 text-[var(--ink-soft)] text-sm max-w-2xl leading-relaxed">
+          OpenReactor does not accept requests because they use magic words. It accepts requests that are safe, scoped, and useful for the product. This guide shows how the review loop works and how to submit something an agent can act on in one pass.
+        </p>
+        <div class="or-note mt-4 max-w-md" aria-label="OpenReactor mascot note">
+          <svg class="frog-portrait shrink-0" viewBox="0 0 180 140" role="img" aria-labelledby="frog-guide-title frog-guide-desc">
+            <title id="frog-guide-title">OpenReactor frog mascot</title>
+            <desc id="frog-guide-desc">A cheerful frog sticker with bright eyes.</desc>
+            <ellipse class="frog-shadow" cx="90" cy="121" rx="42" ry="10" />
+            <path class="frog-leg" d="M39 93c-14 7-20 19-16 27 5 8 17 6 31-4 12-8 18-17 16-24-2-8-13-8-31 1Z" />
+            <path class="frog-leg" d="M141 93c14 7 20 19 16 27-5 8-17 6-31-4-12-8-18-17-16-24 2-8 13-8 31 1Z" />
+            <rect class="frog-body" x="48" y="48" width="84" height="44" rx="22" />
+            <circle class="frog-head" cx="90" cy="65" r="30" />
+            <circle class="frog-eye" cx="71" cy="40" r="13" />
+            <circle class="frog-eye" cx="109" cy="40" r="13" />
+            <circle class="frog-eye-white" cx="71" cy="40" r="8" />
+            <circle class="frog-eye-white" cx="109" cy="40" r="8" />
+            <circle class="frog-pupil" cx="71" cy="41" r="3.5" />
+            <circle class="frog-pupil" cx="109" cy="41" r="3.5" />
+            <path class="frog-mouth" d="M76 74c4 5 9 7 14 7s10-2 14-7" />
+            <path class="frog-belly" d="M66 84c7 6 15 10 24 10s17-4 24-10" />
+            <circle class="frog-cheek" cx="61" cy="72" r="4.5" />
+            <circle class="frog-cheek" cx="119" cy="72" r="4.5" />
+          </svg>
+          <p class="text-sm font-medium text-[var(--ink-soft)]">Write it like a field note and the frog stays calm.</p>
         </div>
       </section>
 
-      <section class="guide-grid" aria-label="Guide details">
-        <article class="guide-card panel">
-          <p class="panel-kicker">How review works</p>
-          <h2>What happens after you submit</h2>
-          <ol class="guide-steps">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section class="or-panel" aria-labelledby="review-title">
+          <p class="or-kicker">How review works</p>
+          <h2 class="mt-2 text-xl font-semibold tracking-tight" id="review-title">What happens after you submit</h2>
+          <ol class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Your request becomes a public GitHub issue.</li>
             <li>An issue agent decides whether the request fits the product and current scope.</li>
             <li>If accepted, the agent may narrow or reinterpret the request into the best product change.</li>
             <li>If rejected, the issue stays public with the reason, so the queue remains inspectable.</li>
           </ol>
-          <p class="guide-note">
+          <p class="mt-4 text-[var(--ink-soft)] text-sm leading-relaxed">
             Acceptance is based on product fit, safety, and scope. It is not a promise that every well-written request ships exactly as written.
           </p>
-        </article>
+        </section>
 
-        <article class="guide-card panel">
-          <p class="panel-kicker">What to include</p>
-          <h2>The ingredients of a strong request</h2>
-          <ul class="guide-list">
+        <section class="or-panel" aria-labelledby="ingredients-title">
+          <p class="or-kicker">What to include</p>
+          <h2 class="mt-2 text-xl font-semibold tracking-tight" id="ingredients-title">The ingredients of a strong request</h2>
+          <ul class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Ask for one change only. Split separate ideas into separate issues.</li>
             <li>Name the problem, not just the feature. Explain what is missing or frustrating today.</li>
             <li>Describe the outcome you want users to see if the change ships.</li>
             <li>Add constraints when they matter, such as mobile support, copy limits, or no new infrastructure.</li>
             <li>Give a success test. State what would make you say the request is actually done.</li>
           </ul>
-        </article>
+        </section>
 
-        <article class="guide-card panel">
-          <p class="panel-kicker">What to avoid</p>
-          <h2>Common reasons requests lose signal</h2>
-          <ul class="guide-list">
+        <section class="or-panel" aria-labelledby="avoid-title">
+          <p class="or-kicker">What to avoid</p>
+          <h2 class="mt-2 text-xl font-semibold tracking-tight" id="avoid-title">Common reasons requests lose signal</h2>
+          <ul class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Bundling a landing page redesign, onboarding changes, and analytics into one request.</li>
             <li>Using broad prompts like "make it better" or "add more documentation" without saying where or why.</li>
             <li>Dictating implementation details when the real need is a user outcome.</li>
             <li>Depending on secrets, private services, or infrastructure the product does not have.</li>
             <li>Repeating filler text instead of describing a real problem in plain language.</li>
           </ul>
-        </article>
+        </section>
 
-        <article class="guide-card panel">
-          <p class="panel-kicker">Simple framing</p>
-          <h2>A format that works well</h2>
-          <div class="guide-template" aria-label="Request template">
+        <section class="or-panel" aria-labelledby="format-title">
+          <p class="or-kicker">Simple framing</p>
+          <h2 class="mt-2 text-xl font-semibold tracking-tight" id="format-title">A format that works well</h2>
+          <div class="mt-4 grid gap-2 text-[var(--ink-soft)] text-sm leading-relaxed">
             <p><strong>Summary:</strong> One sentence on the change you want.</p>
             <p><strong>Problem:</strong> What is broken, unclear, or missing right now?</p>
             <p><strong>Desired outcome:</strong> What should be true after the change?</p>
             <p><strong>Constraints:</strong> Any limits that matter?</p>
             <p><strong>Success criteria:</strong> How should OpenReactor judge completion?</p>
           </div>
-          <p class="guide-note">
+          <p class="mt-4 text-[var(--ink-soft)] text-sm leading-relaxed">
             The intake form uses one text field today. You do not need exact headings, but include these ingredients in the request body.
           </p>
-        </article>
-      </section>
+        </section>
+      </div>
+
+      <div class="mt-6 flex gap-3">
+        <a class="or-button or-button--secondary" href="/">Back to intake</a>
+        <a class="or-button or-button--secondary" href="/#queue-title">View public queue</a>
+      </div>
     </main>
     <script type="module" src="/app.js"></script>
   </body>
