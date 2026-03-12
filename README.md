@@ -23,11 +23,14 @@ In that loop:
 2. An agentic reactor decides what that request actually means for the product.
 3. The system can reject it, bank it for later, break it into smaller pieces,
    or implement it directly.
-4. If it is worth doing, the system opens real branches and pull requests and
+4. Discussion on the GitHub issue can refine the request over time, and
+   OpenReactor can pick that updated discussion back up instead of freezing the
+   original judgment forever.
+5. If it is worth doing, the system opens real branches and pull requests and
    carries the work forward.
-5. When changes merge, the product redeploys and the new state becomes the next
+6. When changes merge, the product redeploys and the new state becomes the next
    thing future agents build on.
-6. The system preserves memory about product direction, constraints, and
+7. The system preserves memory about product direction, constraints, and
    learnings so the loop gets smarter over time.
 
 That is the OpenReactor workflow: intake, judgment, implementation, verification,
@@ -173,10 +176,20 @@ The reactor currently:
 - creates a dedicated git worktree per issue from the latest `origin/main`
 - persists per-issue run files under `.openreactor/`
 - retries the same issue until it reaches a real terminal state
+- reconsiders banked, paused, or previously rejected issues when later
+  discussion materially refines the task or explicitly calls the bot back in,
+  even if the issue had only been parked in GitHub state and never reached a
+  local run
+- records and surfaces execution metadata such as provider, model, reasoning
+  effort, and duration in GitHub-visible status comments and PR bodies where
+  OpenReactor has that information directly
 
 The watchdog currently:
 
 - watches for stalled `or:running` issues based on run heartbeats
+- treats very high iteration counts as a workflow red flag and escalates them
+  into `openreactor-core` repair work instead of assuming more retries will
+  solve the problem
 - watches for `or:paused` issues that have stayed paused too long
 - restarts the reactor service when a running issue appears stalled
 - clears retryable paused issues back into the queue after a delay

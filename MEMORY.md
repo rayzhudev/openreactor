@@ -110,3 +110,28 @@
   Reason: homepage visualizations need a stable stage-oriented contract for
   intake, planning, execution, retry, blocked, and completed flow, while the
   metadata-only boundary still needs to stay intact.
+
+- Decision: treat GitHub issue discussion as live product input and allow later
+  comments to trigger re-triage of banked, paused, or previously rejected
+  issues.
+  Reason: worthwhile requests should be able to mature through discussion
+  instead of being frozen forever by their first wording.
+
+- Decision: discussion-driven re-triage should be keyed off live GitHub thread
+  state, not depend on whether a previous bank/reject step happened to persist
+  a local run record.
+  Reason: a product manager would revisit a maturing discussion thread based on
+  what people are saying now, even if no earlier local execution state exists.
+
+- Decision: surface OpenReactor execution metadata in GitHub-visible workflow
+  artifacts whenever the runtime knows it directly.
+  Reason: provider, model, reasoning effort, and duration are hard facts that
+  help explain how OpenReactor is operating without relying on vague narrative
+  alone.
+
+- Decision: once a running issue blows past roughly eight iterations without a
+  PR, the watchdog should treat it as a workflow fault and open concrete
+  OpenReactor repair work instead of assuming more retries are productive.
+  Reason: iteration counts that high are a clear signal that something is wrong
+  operationally, not just that the feature needs a little more time. The right
+  response is to fix the workflow, not just jiggle the process.

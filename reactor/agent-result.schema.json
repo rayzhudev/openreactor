@@ -15,6 +15,13 @@
       "type": "string",
       "minLength": 1
     },
+    "considerations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "branchName": {
       "type": ["string", "null"]
     },
@@ -91,6 +98,7 @@
     "issueNumber",
     "outcome",
     "summary",
+    "considerations",
     "branchName",
     "prUrl",
     "issueComment",

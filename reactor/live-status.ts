@@ -71,7 +71,7 @@ export async function readReactorLiveSnapshot(repoRoot: string): Promise<Reactor
 }
 
 async function writeJsonAtomically(filePath: string, data: unknown): Promise<void> {
-  const tempPath = `${filePath}.tmp`;
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
   await fs.writeFile(tempPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
   await fs.rename(tempPath, filePath);
 }

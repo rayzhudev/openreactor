@@ -6,6 +6,7 @@ export interface WatchdogConfig {
   statePath: string;
   pollIntervalMs: number;
   runningStallMs: number;
+  maxRunningIterationsBeforeReset: number;
   pausedRetryMs: number;
   pausedEscalationMs: number;
   serviceCooldownMs: number;
@@ -23,6 +24,10 @@ export function loadWatchdogConfig(repoRoot = process.cwd()): WatchdogConfig {
     statePath: path.join(stateDir, "state.json"),
     pollIntervalMs: numberFromEnv("OPENREACTOR_WATCHDOG_POLL_INTERVAL_MS", 120_000),
     runningStallMs: numberFromEnv("OPENREACTOR_WATCHDOG_RUNNING_STALL_MS", 15 * 60_000),
+    maxRunningIterationsBeforeReset: numberFromEnv(
+      "OPENREACTOR_WATCHDOG_MAX_RUNNING_ITERATIONS_BEFORE_RESET",
+      8
+    ),
     pausedRetryMs: numberFromEnv("OPENREACTOR_WATCHDOG_PAUSED_RETRY_MS", 20 * 60_000),
     pausedEscalationMs: numberFromEnv(
       "OPENREACTOR_WATCHDOG_PAUSED_ESCALATION_MS",

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 import process from "node:process";
 import { loadConfig as loadReactorConfig } from "../reactor/config";
 import { GitHubClient, type GitHubIssue } from "../reactor/github";
@@ -16,6 +17,7 @@ type FailureClass =
   | "auth"
   | "schema_mismatch"
   | "missing_binary"
+  | "runaway_iterations"
   | "service_unhealthy"
   | "github_api"
   | "unknown";
@@ -251,6 +253,11 @@ class Watchdog {
       return;
     }
 
+    if (record.iteration > this.config.maxRunningIterationsBeforeReset) {
+      await this.handleRunawayIterations(issue, issueState, record, serviceStatus, state, now);
+      return;
+    }
+
     const heartbeatAt = parseDate(record.lastHeartbeatAt) ?? parseDate(record.updatedAt) ?? now;
     const stalledForMs = now.getTime() - heartbeatAt.getTime();
     if (stalledForMs < this.config.runningStallMs) {
@@ -272,6 +279,67 @@ class Watchdog {
           `No heartbeat update was seen for ${formatDuration(stalledForMs)}.`,
           "The reactor should resume or re-claim the issue on startup."
         ].join("\n")
+      );
+    }
+  }
+
+  private async handleRunawayIterations(
+    issue: GitHubIssue,
+    issueState: IssueWatchdogState,
+    record: RunRecord,
+    serviceStatus: ServiceStatus,
+    state: WatchdogState,
+    now: Date
+  ): Promise<void> {
+    const threshold = this.config.maxRunningIterationsBeforeReset;
+    const openPullRequest = await this.github.findPullRequestByBranch(record.branchName, "open");
+    issueState.lastFailureClass = "runaway_iterations";
+
+    if (!issueState.repairIssueNumber) {
+      const repairIssueNumber = await this.ensureRepairIssue(
+        issue,
+        record,
+        {
+          className: "runaway_iterations",
+          retryable: false,
+          global: false,
+          requiresCodeChange: true
+        },
+        issueState,
+        now
+      );
+      if (repairIssueNumber) {
+        issueState.repairIssueNumber = repairIssueNumber;
+      }
+    }
+
+    await this.github.addLabels(issue.number, [this.reactorConfig.pausedLabel]);
+    await this.github.removeLabel(issue.number, this.reactorConfig.runningLabel);
+    issueState.autoHealAttempts += 1;
+    issueState.lastAutoHealAt = now.toISOString();
+
+    await this.upsertWatchdogComment(
+      issue.number,
+      [
+        "OpenReactor watchdog detected a runaway retry loop and escalated it into OpenReactor repair work.",
+        "",
+        `Observed iteration: ${record.iteration}.`,
+        `Threshold: ${threshold}.`,
+        `Auto-heal attempt: ${issueState.autoHealAttempts}/${this.config.maxAutoHealAttemptsPerIssue}.`,
+        issueState.repairIssueNumber
+          ? `Repair issue: #${issueState.repairIssueNumber}.`
+          : null,
+        openPullRequest
+          ? `An open PR already exists (${openPullRequest.html_url}), so the watchdog preserved the reviewable work while pausing the source issue.`
+          : "No open PR exists yet, so the source issue was paused while OpenReactor fixes the underlying workflow problem."
+      ].filter(Boolean).join("\n")
+    );
+
+    if (isServiceActive(serviceStatus)) {
+      await this.restartService(
+        state,
+        this.config.reactorServiceName,
+        `issue #${issue.number} exceeded safe iteration threshold (${record.iteration} > ${threshold}); pausing source issue and starting repair flow`
       );
     }
   }
@@ -530,6 +598,54 @@ class Watchdog {
     await fs.writeFile(this.config.statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
   }
 
+  private async resetIssueRuntime(
+    issueNumber: number,
+    branchName: string,
+    now: Date
+  ): Promise<void> {
+    const paths = issueRuntimePaths(this.reactorConfig, issueNumber);
+    const archiveRoot = path.join(
+      this.reactorConfig.repoRoot,
+      ".openreactor",
+      "archive",
+      `watchdog-runaway-issue-${issueNumber}-${timestampForPath(now)}`
+    );
+
+    await fs.mkdir(archiveRoot, { recursive: true });
+
+    try {
+      await fs.rename(paths.runDir, path.join(archiveRoot, "run"));
+    } catch {
+      // Ignore missing run directory.
+    }
+
+    try {
+      execFileSync(
+        "git",
+        ["-C", this.reactorConfig.repoRoot, "worktree", "remove", "--force", paths.worktreePath],
+        { stdio: "ignore" }
+      );
+    } catch {
+      // Ignore missing worktree.
+    }
+
+    try {
+      execFileSync("git", ["-C", this.reactorConfig.repoRoot, "worktree", "prune"], {
+        stdio: "ignore"
+      });
+    } catch {
+      // Ignore prune failures.
+    }
+
+    try {
+      execFileSync("git", ["-C", this.reactorConfig.repoRoot, "branch", "-D", branchName], {
+        stdio: "ignore"
+      });
+    } catch {
+      // Ignore missing branch.
+    }
+  }
+
   private currentHead(): string {
     return execFileSync("git", ["-C", this.reactorConfig.repoRoot, "rev-parse", "HEAD"], {
       encoding: "utf8"
@@ -739,6 +855,8 @@ function buildRepairIssueBody(
     "",
     `Source issue: #${sourceIssue.number} ${sourceIssue.html_url}`,
     `Failure class: ${failure.className}`,
+    record ? `Observed iteration: ${record.iteration}` : null,
+    record?.branchName ? `Source branch: ${record.branchName}` : null,
     record?.lastError ? `Failure detail: ${record.lastError}` : "Failure detail: _Unavailable_",
     "",
     "## Desired Outcome",
@@ -808,6 +926,10 @@ function formatDuration(durationMs: number): string {
     return `${hours} hour${hours === 1 ? "" : "s"}`;
   }
   return `${hours}h ${minutes}m`;
+}
+
+function timestampForPath(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 }
 
 function labelNames(issue: GitHubIssue): Set<string> {

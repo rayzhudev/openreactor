@@ -81,6 +81,9 @@ async function ensurePr(args: string[]): Promise<void> {
   const autoMerge = !hasFlag(args, "--no-auto-merge");
   const mergeMethod = optionalStringArg(args, "--merge-method") || "squash";
   const token = resolveGitHubToken();
+  const runDir = optionalRunDir(args);
+  const bodyPath = path.resolve(cwd, bodyFile);
+  const finalBodyPath = await preparePullRequestBody(bodyPath, runDir);
 
   await pushBranchWithToken({
     cwd,
@@ -111,6 +114,24 @@ async function ensurePr(args: string[]): Promise<void> {
 
   const existing = JSON.parse(existingJson) as Array<{ number: number; url: string }>;
   if (existing[0]) {
+    await execFileAsync(
+      "gh",
+      [
+        "pr",
+        "edit",
+        String(existing[0].number),
+        "--repo",
+        `${config.owner}/${config.repo}`,
+        "--title",
+        title,
+        "--body-file",
+        finalBodyPath
+      ],
+      {
+        env: process.env
+      }
+    );
+
     if (autoMerge) {
       await enableAutoMerge({
         owner: config.owner,
@@ -150,7 +171,7 @@ async function ensurePr(args: string[]): Promise<void> {
       "--title",
       title,
       "--body-file",
-      bodyFile
+      finalBodyPath
     ],
     {
       env: process.env
@@ -320,6 +341,15 @@ function resolveRunDir(args: string[]): string {
   throw new Error("Missing run directory. Pass --run-dir or set OPENREACTOR_RUN_DIR.");
 }
 
+function optionalRunDir(args: string[]): string {
+  const explicit = optionalStringArg(args, "--run-dir");
+  if (explicit) {
+    return explicit;
+  }
+
+  return process.env.OPENREACTOR_RUN_DIR?.trim() ?? "";
+}
+
 function requireNumberArg(args: string[], name: string): number {
   const value = requireStringArg(args, name);
   const parsed = Number.parseInt(value, 10);
@@ -402,6 +432,105 @@ function printHelp(): void {
       "  coauthor-trailer resolves a GitHub login to a GitHub-recognized Co-authored-by trailer using the account's user id."
     ].join("\n")
   );
+}
+
+async function preparePullRequestBody(bodyPath: string, runDir: string): Promise<string> {
+  const originalBody = await fs.readFile(bodyPath, "utf8");
+  if (originalBody.includes("<!-- openreactor:execution-footer -->")) {
+    return bodyPath;
+  }
+  const footer = runDir ? await buildExecutionFooter(runDir) : "";
+
+  const nextBody = footer
+    ? `${originalBody.trimEnd()}\n\n${footer}\n`
+    : originalBody;
+
+  if (nextBody === originalBody) {
+    return bodyPath;
+  }
+
+  const outputPath = path.join(path.dirname(bodyPath), `${path.basename(bodyPath, path.extname(bodyPath))}.openreactor${path.extname(bodyPath) || ".md"}`);
+  await fs.writeFile(outputPath, nextBody, "utf8");
+  return outputPath;
+}
+
+async function buildExecutionFooter(runDir: string): Promise<string> {
+  const runPath = path.join(runDir, "run.json");
+  type RunRecordSummary = {
+    triageExecution?: ExecutionSummary | null;
+    lastAgentExecution?: ExecutionSummary | null;
+    lastResult?: {
+      considerations?: string[] | null;
+    } | null;
+  };
+  let runRecord: RunRecordSummary | null = null;
+
+  try {
+    runRecord = JSON.parse(await fs.readFile(runPath, "utf8")) as RunRecordSummary;
+  } catch {
+    return "";
+  }
+
+  const lines = ["<!-- openreactor:execution-footer -->", "## OpenReactor Execution"];
+
+  if (runRecord?.triageExecution) {
+    lines.push(`- Triage: ${formatExecutionSummary(runRecord.triageExecution)}`);
+  }
+
+  if (runRecord?.lastAgentExecution) {
+    lines.push(`- Implementation: ${formatExecutionSummary(runRecord.lastAgentExecution)}`);
+  }
+
+  const considerations = (runRecord?.lastResult?.considerations ?? [])
+    .map((item: string) => item.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  if (considerations.length) {
+    lines.push("- Considered:");
+    lines.push(...considerations.map((item: string) => `  - ${item}`));
+  }
+
+  return lines.length > 2 ? lines.join("\n") : "";
+}
+
+interface ExecutionSummary {
+  providerLabel?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
+  serviceTier?: string | null;
+  toolLabel?: string | null;
+  durationMs?: number | null;
+}
+
+function formatExecutionSummary(execution: ExecutionSummary): string {
+  const parts = [
+    [execution.providerLabel, execution.model].filter(Boolean).join(" ").trim(),
+    execution.reasoningEffort ? `reasoning ${execution.reasoningEffort}` : "",
+    execution.serviceTier ? `service tier ${execution.serviceTier}` : "",
+    execution.toolLabel ? `tool ${execution.toolLabel}` : "",
+    typeof execution.durationMs === "number" ? `duration ${formatDurationMs(execution.durationMs)}` : ""
+  ].filter(Boolean);
+
+  return parts.join(" • ");
+}
+
+function formatDurationMs(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${totalSeconds}s`;
 }
 
 void main();

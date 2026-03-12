@@ -48,6 +48,12 @@ export interface GitHubIssueComment {
 export class GitHubClient {
   constructor(private readonly config: OrchestratorConfig) {}
 
+  async listRecentlyUpdatedIssues(state: "open" | "closed" | "all" = "all"): Promise<GitHubIssue[]> {
+    return this.request<GitHubIssue[]>(
+      `/repos/${this.config.owner}/${this.config.repo}/issues?state=${state}&sort=updated&direction=desc&per_page=100`
+    );
+  }
+
   async listOpenIssues(): Promise<GitHubIssue[]> {
     return this.request<GitHubIssue[]>(
       `/repos/${this.config.owner}/${this.config.repo}/issues?state=open&sort=created&direction=asc&per_page=100`
@@ -176,6 +182,18 @@ export class GitHubClient {
         body: JSON.stringify({
           state: "closed",
           state_reason: stateReason
+        })
+      }
+    );
+  }
+
+  async reopenIssue(issueNumber: number): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          state: "open"
         })
       }
     );

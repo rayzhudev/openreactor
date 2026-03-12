@@ -33,6 +33,7 @@ export interface OrchestratorConfig {
   claudeUiModel: string;
   claudeUiEffort: string;
   claudeUiBin: string;
+  botMentionAliases: string[];
 }
 
 export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
@@ -71,7 +72,16 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
     claudeUiModel: clean(process.env.OPENREACTOR_CLAUDE_UI_MODEL) || "sonnet",
     claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium",
-    claudeUiBin: clean(process.env.OPENREACTOR_CLAUDE_UI_BIN) || "claude"
+    claudeUiBin: clean(process.env.OPENREACTOR_CLAUDE_UI_BIN) || "claude",
+    botMentionAliases: listFromEnv(
+      "OPENREACTOR_BOT_MENTION_ALIASES",
+      [
+        "@openreactor",
+        "@openreactor[bot]",
+        "@open-reactor-bot",
+        "@open-reactor-bot[bot]"
+      ]
+    )
   };
 }
 
@@ -95,6 +105,20 @@ function numberFromEnv(name: string, fallback: number): number {
   }
 
   return value;
+}
+
+function listFromEnv(name: string, fallback: string[]): string[] {
+  const raw = clean(process.env[name]);
+  if (!raw) {
+    return fallback;
+  }
+
+  const values = raw
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return values.length ? values : fallback;
 }
 
 function compactToken(value?: string): string {
