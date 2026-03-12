@@ -572,4 +572,39 @@ textarea, input, button { font: inherit; }
     padding: 1rem 0.75rem 3rem;
   }
 }
+
+/* Snowfall animation for playground */
+.snowfall-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 50;
+}
+
+.snowflake {
+  position: absolute;
+  top: -8px;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0;
+  animation: snowfall linear forwards;
+}
+
+@keyframes snowfall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0);
+  }
+  10% {
+    opacity: var(--snow-opacity, 0.18);
+  }
+  90% {
+    opacity: var(--snow-opacity, 0.18);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) translateX(var(--snow-drift, 30px));
+  }
+}
 } /* end @layer components */

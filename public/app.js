@@ -2499,3 +2499,83 @@ function getQueuePageFromLocation() {
 
   return page;
 }
+
+/* --- Snowfall animation (playground only) --- */
+
+const SNOWFALL_STORAGE_KEY = "openreactor-snowfall";
+const SNOWFALL_MAX_FLAKES = 35;
+const SNOWFALL_SPAWN_INTERVAL_MS = 400;
+const snowfallToggle = document.querySelector("#snowfall-toggle");
+
+if (snowfallToggle) {
+  let snowfallContainer = null;
+  let snowfallTimer = null;
+  const savedSnow = localStorage.getItem(SNOWFALL_STORAGE_KEY);
+  const snowActive = savedSnow === "on";
+
+  function spawnSnowflake() {
+    if (!snowfallContainer) return;
+    if (snowfallContainer.childElementCount >= SNOWFALL_MAX_FLAKES) return;
+
+    const flake = document.createElement("div");
+    flake.className = "snowflake";
+    const size = 3 + Math.random() * 4;
+    const left = Math.random() * 100;
+    const duration = 6 + Math.random() * 6;
+    const drift = -30 + Math.random() * 60;
+    const opacity = 0.1 + Math.random() * 0.15;
+
+    flake.style.width = `${size}px`;
+    flake.style.height = `${size}px`;
+    flake.style.left = `${left}%`;
+    flake.style.animationDuration = `${duration}s`;
+    flake.style.setProperty("--snow-drift", `${drift}px`);
+    flake.style.setProperty("--snow-opacity", `${opacity}`);
+
+    flake.addEventListener("animationend", () => flake.remove());
+    snowfallContainer.appendChild(flake);
+  }
+
+  function startSnowfall() {
+    if (snowfallContainer) return;
+    snowfallContainer = document.createElement("div");
+    snowfallContainer.className = "snowfall-container";
+    snowfallContainer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(snowfallContainer);
+    snowfallTimer = setInterval(spawnSnowflake, SNOWFALL_SPAWN_INTERVAL_MS);
+  }
+
+  function stopSnowfall() {
+    if (snowfallTimer) {
+      clearInterval(snowfallTimer);
+      snowfallTimer = null;
+    }
+    if (snowfallContainer) {
+      snowfallContainer.remove();
+      snowfallContainer = null;
+    }
+  }
+
+  function setSnowfall(on) {
+    snowfallToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    if (on) {
+      snowfallToggle.style.background = "var(--accent-muted)";
+      snowfallToggle.style.color = "var(--accent-dark)";
+      startSnowfall();
+    } else {
+      snowfallToggle.style.background = "";
+      snowfallToggle.style.color = "";
+      stopSnowfall();
+    }
+    localStorage.setItem(SNOWFALL_STORAGE_KEY, on ? "on" : "off");
+  }
+
+  snowfallToggle.addEventListener("click", () => {
+    const isOn = snowfallToggle.getAttribute("aria-pressed") === "true";
+    setSnowfall(!isOn);
+  });
+
+  if (snowActive) {
+    setSnowfall(true);
+  }
+}

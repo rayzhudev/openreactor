@@ -43,10 +43,15 @@
       </header>
 
       <section class="mb-6" aria-labelledby="playground-title">
-        <h1 class="text-2xl font-bold tracking-tight" id="playground-title">Playground</h1>
-        <p class="mt-1 text-[var(--ink-soft)] text-sm max-w-xl">
-          Small, fun features that people build through OpenReactor requests.
-        </p>
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight" id="playground-title">Playground</h1>
+            <p class="mt-1 text-[var(--ink-soft)] text-sm max-w-xl">
+              Small, fun features that people build through OpenReactor requests.
+            </p>
+          </div>
+          <button id="snowfall-toggle" class="or-button or-button--ghost min-h-0 px-3 py-1.5 text-sm shrink-0" type="button" aria-pressed="false">Snow</button>
+        </div>
       </section>
 
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
