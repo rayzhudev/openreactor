@@ -41,6 +41,10 @@ const requestAuthCopyNode = document.querySelector("#request-auth-copy");
 const requestAuthTierNode = document.querySelector("#request-auth-tier");
 const requestAuthLink = document.querySelector("#request-auth-link");
 const requestSignOutButton = document.querySelector("#request-signout-button");
+const starPopupNode = document.querySelector("#star-popup");
+const starPopupConfirmButton = document.querySelector("#star-popup-confirm");
+const starPopupDismissButton = document.querySelector("#star-popup-dismiss");
+const starPopupCloseButton = document.querySelector("#star-popup-close");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
@@ -168,7 +172,8 @@ let supportSession = {
   authAvailable: false,
   authenticated: false,
   login: "",
-  profileUrl: ""
+  profileUrl: "",
+  viewerHasStarredRepo: false
 };
 
 initTopbarToggle();
@@ -235,6 +240,22 @@ function initSupportSession() {
   if (requestSignOutButton) {
     requestSignOutButton.addEventListener("click", onSupportSignOut);
   }
+  if (starPopupConfirmButton) {
+    starPopupConfirmButton.addEventListener("click", onStarRepository);
+  }
+  if (starPopupDismissButton) {
+    starPopupDismissButton.addEventListener("click", hideStarPopup);
+  }
+  if (starPopupCloseButton) {
+    starPopupCloseButton.addEventListener("click", hideStarPopup);
+  }
+  if (starPopupNode) {
+    starPopupNode.addEventListener("click", (event) => {
+      if (event.target === starPopupNode) {
+        hideStarPopup();
+      }
+    });
+  }
   renderSupportSession();
   renderRequestAuthPanel();
 }
@@ -259,14 +280,16 @@ async function loadSupportSession() {
       authAvailable: Boolean(data.authAvailable),
       authenticated: Boolean(data.authenticated),
       login: data.login || "",
-      profileUrl: data.profileUrl || ""
+      profileUrl: data.profileUrl || "",
+      viewerHasStarredRepo: Boolean(data.viewerHasStarredRepo)
     };
   } catch {
     supportSession = {
       authAvailable: false,
       authenticated: false,
       login: "",
-      profileUrl: ""
+      profileUrl: "",
+      viewerHasStarredRepo: false
     };
   }
 
@@ -936,6 +959,9 @@ function announceSupportSessionResult() {
 
   if (supportStatus === "connected") {
     setQueueStatus("GitHub sign-in connected. You can now support issues from the website.");
+    if (!supportSession.viewerHasStarredRepo) {
+      showStarPopup();
+    }
   } else if (supportStatus === "auth-error") {
     setQueueStatus("GitHub sign-in did not complete. Try again or support directly on GitHub.", "error");
   } else if (supportStatus === "auth-unavailable") {
@@ -944,6 +970,53 @@ function announceSupportSessionResult() {
 
   url.searchParams.delete("support");
   window.history.replaceState({}, "", url);
+}
+
+function showStarPopup() {
+  if (!starPopupNode || !supportSession.authenticated || supportSession.viewerHasStarredRepo) {
+    return;
+  }
+
+  starPopupNode.hidden = false;
+}
+
+function hideStarPopup() {
+  if (!starPopupNode) {
+    return;
+  }
+
+  starPopupNode.hidden = true;
+}
+
+async function onStarRepository() {
+  if (!starPopupConfirmButton) {
+    return;
+  }
+
+  const originalLabel = starPopupConfirmButton.textContent;
+  starPopupConfirmButton.disabled = true;
+  starPopupConfirmButton.textContent = "Starring...";
+
+  try {
+    const response = await fetch("/api/star", {
+      method: "POST",
+      credentials: "same-origin"
+    });
+    const data = await readJsonResponse(response, "star");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to star the repo.");
+    }
+
+    supportSession.viewerHasStarredRepo = true;
+    hideStarPopup();
+    setQueueStatus("OpenReactor starred on GitHub. Thanks for backing the project.");
+  } catch (error) {
+    setQueueStatus(error instanceof Error ? error.message : "Unable to star the repo.", "error");
+  } finally {
+    starPopupConfirmButton.disabled = false;
+    starPopupConfirmButton.textContent = originalLabel;
+  }
 }
 
 function setupReactorle() {

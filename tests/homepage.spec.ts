@@ -16,7 +16,8 @@ test.beforeEach(async ({ page }) => {
         authAvailable: true,
         authenticated: true,
         login: "supporter",
-        profileUrl: "https://github.com/supporter"
+        profileUrl: "https://github.com/supporter",
+        viewerHasStarredRepo: false
       })
     });
   });
@@ -29,6 +30,16 @@ test.beforeEach(async ({ page }) => {
         issueNumber: 101,
         supportCount: 6,
         viewerSupports: true
+      })
+    });
+  });
+
+  await page.route("**/api/star", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        starred: true
       })
     });
   });
@@ -206,6 +217,11 @@ test("renders the redesign and submits a request through the mocked API", async 
   await page.getByRole("button", { name: /support with github/i }).first().click();
   await expect(page.getByText("6 supports").first()).toBeVisible();
   await expect(page.getByText("Supported").first()).toBeVisible();
+
+  await page.goto("/?support=connected");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: /star openreactor on github/i }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
 
   await page.locator("#request").fill(
     "The landing page feels generic. Redesign it into a more editorial layout with stronger hierarchy while keeping the form and public queue on the same page."

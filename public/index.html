@@ -223,6 +223,23 @@
       </section>
     </main>
 
+    <div id="star-popup" class="or-popup-backdrop" hidden>
+      <div class="or-popup" role="dialog" aria-modal="true" aria-labelledby="star-popup-title" aria-describedby="star-popup-copy">
+        <button id="star-popup-close" class="or-button or-button--icon or-popup-close" type="button" aria-label="Close star popup">
+          <svg class="w-5 h-5 fill-none" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <p class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">GitHub connected</p>
+        <h2 id="star-popup-title" class="text-2xl font-semibold tracking-tight">Want to back OpenReactor too?</h2>
+        <p id="star-popup-copy" class="text-sm leading-relaxed text-[var(--ink-soft)]">
+          Starring the repo is optional, but it helps signal support for the project itself. Your requests and support actions already stay tied to your GitHub account.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <button id="star-popup-confirm" class="or-button or-button--primary" type="button">Star OpenReactor on GitHub</button>
+          <button id="star-popup-dismiss" class="or-button or-button--secondary" type="button">Maybe later</button>
+        </div>
+      </div>
+    </div>
+
     <div id="update-notice" class="fixed right-4 bottom-4 z-10" role="status" aria-live="polite" data-visible="false" hidden>
           <button id="update-notice-button" class="or-button or-button--secondary shadow-lg" type="button">Changes available. Reload page?</button>
     </div>

@@ -261,6 +261,35 @@ textarea, input, button { font: inherit; }
   flex-wrap: wrap;
 }
 
+.or-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 17, 23, 0.52);
+  z-index: 40;
+}
+
+.or-popup {
+  position: relative;
+  width: min(32rem, 100%);
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.or-popup-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
 .or-kicker {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);

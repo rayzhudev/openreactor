@@ -207,12 +207,17 @@ export async function handleHealth(env: Env): Promise<Response> {
 export async function handleSession(request: Request, env: Env): Promise<Response> {
   const normalized = normalizeEnv(env);
   const session = await readSupportSession(request, normalized);
+  const viewerHasStarredRepo =
+    session && isRepoConfigured(normalized)
+      ? await getViewerStarStatus(normalized, session.accessToken).catch(() => false)
+      : false;
 
   return jsonResponse({
     authAvailable: hasGitHubUserAuth(normalized),
     authenticated: Boolean(session),
     login: session?.login ?? null,
-    profileUrl: session?.profileUrl ?? null
+    profileUrl: session?.profileUrl ?? null,
+    viewerHasStarredRepo
   });
 }
 
@@ -357,6 +362,38 @@ export async function handleCreateSupport(request: Request, env: Env): Promise<R
     }
 
     return errorResponse("Unable to record support on GitHub.", 502, error);
+  }
+}
+
+export async function handleCreateStar(request: Request, env: Env): Promise<Response> {
+  const normalized = normalizeEnv(env);
+
+  if (!isRepoConfigured(normalized)) {
+    return jsonResponse({ error: "Repository metadata is not configured yet." }, 503);
+  }
+
+  const session = await readSupportSession(request, normalized);
+  if (!session) {
+    return jsonResponse({ error: "Sign in with GitHub to star the repo from the website." }, 401);
+  }
+
+  try {
+    await starRepository(normalized, session.accessToken);
+    return jsonResponse({
+      starred: true
+    });
+  } catch (error) {
+    if (isGithubAuthError(error)) {
+      return jsonResponse(
+        { error: "GitHub sign-in expired. Sign in again to star the repo." },
+        401,
+        {
+          "Set-Cookie": clearCookie(SESSION_COOKIE_NAME)
+        }
+      );
+    }
+
+    return errorResponse("Unable to star the repo on GitHub.", 502, error);
   }
 }
 
@@ -1162,6 +1199,41 @@ async function createIssueSupportReaction(
   throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
 }
 
+async function getViewerStarStatus(env: NormalizedEnv, accessToken: string): Promise<boolean> {
+  const response = await githubUserRequestRaw(
+    accessToken,
+    `/user/starred/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`
+  );
+
+  if (response.status === 204) {
+    return true;
+  }
+
+  if (response.status === 404) {
+    return false;
+  }
+
+  const detail = await safeErrorDetail(response);
+  throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+}
+
+async function starRepository(env: NormalizedEnv, accessToken: string): Promise<void> {
+  const response = await githubUserRequestRaw(
+    accessToken,
+    `/user/starred/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`,
+    {
+      method: "PUT"
+    }
+  );
+
+  if (response.status === 204) {
+    return;
+  }
+
+  const detail = await safeErrorDetail(response);
+  throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+}
+
 function getQueuePage(request: Request): number {
   const value = new URL(request.url).searchParams.get("page");
   const page = Number.parseInt(value ?? "1", 10);
@@ -1611,6 +1683,21 @@ async function githubAppRequest<T>(appJwt: string, path: string, init?: RequestI
 }
 
 async function githubUserRequest<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
+  const response = await githubUserRequestRaw(accessToken, path, init);
+
+  if (!response.ok) {
+    const detail = await safeErrorDetail(response);
+    throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function githubUserRequestRaw(
+  accessToken: string,
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/vnd.github+json");
   headers.set("Authorization", `Bearer ${accessToken}`);
@@ -1625,13 +1712,7 @@ async function githubUserRequest<T>(accessToken: string, path: string, init?: Re
     ...init,
     headers
   });
-
-  if (!response.ok) {
-    const detail = await safeErrorDetail(response);
-    throw new Error(`${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`);
-  }
-
-  return (await response.json()) as T;
+  return response;
 }
 
 async function exchangeGitHubUserCode(
