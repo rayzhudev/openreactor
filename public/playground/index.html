@@ -4,91 +4,58 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Playground - OpenReactor</title>
-    <meta
-      name="description"
-      content="Fun community features and experiments from OpenReactor."
-    />
+    <meta name="description" content="Fun community features and experiments from OpenReactor." />
     <script>
       try {
         const savedTheme = localStorage.getItem("openreactor-theme");
-
-        if (savedTheme === "light" || savedTheme === "dark") {
-          document.documentElement.dataset.theme = savedTheme;
-        } else {
-          document.documentElement.removeAttribute("data-theme");
-        }
+        if (savedTheme === "dark") document.documentElement.classList.add("dark");
+        else if (savedTheme === "light") document.documentElement.classList.add("light");
       } catch {}
     </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <main class="page-shell">
-      <header class="topbar">
-        <p class="brand-mark"><a class="brand-link" href="/">OpenReactor</a></p>
-        <nav class="site-nav" aria-label="Site navigation">
-          <a class="site-nav-link" href="/">Intake</a>
-          <a class="site-nav-link site-nav-link-active" href="/playground/" aria-current="page">Playground</a>
+  <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
+    <main class="max-w-5xl mx-auto px-4 pt-5 pb-16 max-md:px-3 max-md:pt-4 max-md:pb-12">
+
+      <header class="flex items-center justify-between gap-4 pb-4 mb-6 border-b border-[var(--line)] flex-wrap">
+        <p class="text-lg font-bold tracking-tight"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <nav class="flex items-center gap-1" aria-label="Site navigation">
+          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--accent-muted)]" href="/">Intake</a>
+          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--accent-dark)] bg-[var(--accent-muted)]" href="/playground/" aria-current="page">Playground</a>
         </nav>
-        <button class="topbar-toggle" type="button" aria-label="Toggle menu" aria-expanded="false">
-          <svg class="topbar-toggle-icon topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <svg class="topbar-toggle-icon topbar-toggle-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <button class="topbar-toggle hidden max-md:flex items-center justify-center w-10 h-10 p-0 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] cursor-pointer shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
-        <div class="topbar-actions">
-          <div class="theme-picker" role="group" aria-label="Color theme">
-            <span class="theme-picker-label">Theme</span>
-            <div class="theme-picker-options">
-              <button class="theme-option" type="button" data-theme-value="system">System</button>
-              <button class="theme-option" type="button" data-theme-value="dark">Dark</button>
-              <button class="theme-option" type="button" data-theme-value="light">Light</button>
-            </div>
+        <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
+          <div class="inline-flex gap-1 p-1 border border-[var(--line)] rounded-lg bg-[var(--surface)]" role="group" aria-label="Color theme">
+            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
+            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
+            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
           </div>
         </div>
       </header>
 
-      <section class="playground-hero" aria-labelledby="playground-title">
-        <p class="eyebrow">Community experiments</p>
-        <h1 class="playground-title" id="playground-title">Playground</h1>
-        <p class="playground-summary">
+      <section class="mb-6" aria-labelledby="playground-title">
+        <h1 class="text-2xl font-bold tracking-tight" id="playground-title">Playground</h1>
+        <p class="mt-1 text-[var(--ink-soft)] text-sm max-w-xl">
           Small, fun features that people build through OpenReactor requests.
-          Nothing mission-critical, just experiments worth keeping around.
         </p>
       </section>
 
-      <div class="playground-grid">
-        <section class="playground-card panel" aria-labelledby="reactorle-title">
-          <div class="reactorle-header">
-            <div>
-              <p class="panel-kicker">Daily mini puzzle</p>
-              <h2 id="reactorle-title">Reactorle</h2>
-            </div>
-            <p class="reactorle-badge">6 guesses</p>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="p-6 border border-[var(--line)] rounded-xl grid gap-4" aria-labelledby="reactorle-title">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-lg font-semibold tracking-tight" id="reactorle-title">Reactorle</h2>
+            <span class="px-2.5 py-1 rounded-lg bg-[var(--accent-muted)] text-[var(--accent-dark)] text-xs font-medium">6 guesses</span>
           </div>
-
-          <p class="reactorle-copy">
-            A Wordle-style five-letter puzzle. Type anywhere or use the on-screen keys.
-          </p>
-
-          <div
-            id="reactorle-status"
-            class="reactorle-status"
-            role="status"
-            aria-live="polite"
-          ></div>
-          <div
-            id="reactorle-board"
-            class="reactorle-board"
-            role="grid"
-            aria-label="Daily five-letter puzzle board"
-          ></div>
-          <div
-            id="reactorle-keyboard"
-            class="reactorle-keyboard"
-            aria-label="Puzzle keyboard"
-          ></div>
+          <p class="text-[var(--ink-soft)] text-sm">A five-letter puzzle. Type anywhere or use the on-screen keys.</p>
+          <div id="reactorle-status" class="min-h-6 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite"></div>
+          <div id="reactorle-board" class="grid gap-1.5" role="grid" aria-label="Daily five-letter puzzle board"></div>
+          <div id="reactorle-keyboard" class="grid gap-1.5" aria-label="Puzzle keyboard"></div>
         </section>
       </div>
     </main>
-
     <script type="module" src="/app.js"></script>
   </body>
 </html>

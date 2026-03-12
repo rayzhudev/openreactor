@@ -74,6 +74,74 @@ const BOARD_COLUMNS = [
   { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." }
 ];
 
+/* ── Tailwind class helpers ──────────────────────────────────────── */
+
+const CLS = {
+  pill: "px-3 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]",
+  pillSmall: "px-3 py-1.5 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]",
+};
+
+function getStatusBadgeClasses(status) {
+  const base = "w-fit px-2.5 py-0.5 rounded font-mono text-xs font-semibold tracking-wide uppercase";
+  switch (status) {
+    case "queued": return `${base} bg-[rgba(127,143,150,0.14)] text-[var(--queue-queued)]`;
+    case "in-progress": return `${base} bg-[rgba(184,92,56,0.12)] text-[var(--queue-progress)]`;
+    case "complete": return `${base} bg-[rgba(32,116,90,0.12)] text-[var(--queue-complete)]`;
+    case "rejected": return `${base} bg-[rgba(163,59,49,0.12)] text-[var(--queue-rejected)]`;
+    default: return `${base} bg-[rgba(127,143,150,0.14)] text-[var(--queue-queued)]`;
+  }
+}
+
+function getStatusBorderColor(status) {
+  switch (status) {
+    case "queued": return "var(--queue-queued)";
+    case "in-progress": return "var(--queue-progress)";
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--line-strong)";
+  }
+}
+
+function getArchiveDotColor(status) {
+  switch (status) {
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--ink-faint)";
+  }
+}
+
+function getArchiveStatusColor(status) {
+  switch (status) {
+    case "complete": return "var(--queue-complete)";
+    case "rejected": return "var(--queue-rejected)";
+    default: return "var(--ink-faint)";
+  }
+}
+
+function getReactorleTileClasses(state) {
+  const base = "flex items-center justify-center aspect-square border rounded-lg font-sans text-2xl font-bold uppercase";
+  switch (state) {
+    case "correct": return `${base} bg-[rgba(32,116,90,0.14)] border-[rgba(32,116,90,0.28)] text-[var(--queue-complete)]`;
+    case "present": return `${base} bg-[rgba(184,92,56,0.14)] border-[rgba(184,92,56,0.28)] text-[var(--queue-progress)]`;
+    case "absent": return `${base} bg-[rgba(127,143,150,0.14)] border-[var(--line)] text-[var(--queue-queued)]`;
+    case "active": return `${base} border-[rgba(184,92,56,0.38)] bg-[var(--surface)]`;
+    default: return `${base} border-[var(--line)] bg-[var(--surface)]`;
+  }
+}
+
+function getReactorleKeyClasses(state) {
+  const base = "min-h-10 border rounded-lg text-sm font-semibold cursor-pointer hover:bg-[var(--surface-hover)]";
+  switch (state) {
+    case "correct": return `${base} bg-[rgba(32,116,90,0.14)] border-[var(--line)] text-[var(--queue-complete)]`;
+    case "present": return `${base} bg-[rgba(184,92,56,0.14)] border-[var(--line)] text-[var(--queue-progress)]`;
+    case "absent": return `${base} bg-[rgba(127,143,150,0.14)] border-[var(--line)] text-[var(--queue-queued)]`;
+    case "wide": return `${base} col-span-2 border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]`;
+    default: return `${base} border-[var(--line)] bg-[var(--surface)] text-[var(--ink)]`;
+  }
+}
+
+/* ── State ───────────────────────────────────────────────────────── */
+
 let queueEtag = "";
 let lastQueueRefreshAt = 0;
 let queuePollTimer = 0;
@@ -109,7 +177,13 @@ function initTopbarToggle() {
       toggle.setAttribute("aria-expanded", String(!expanded));
       const actions = toggle.parentElement.querySelector(".topbar-actions, .top-nav-items");
       if (actions) {
-        actions.classList.toggle("topbar-actions--open", !expanded);
+        if (!expanded) {
+          actions.classList.remove("max-md:hidden");
+          actions.classList.add("max-md:flex");
+        } else {
+          actions.classList.add("max-md:hidden");
+          actions.classList.remove("max-md:flex");
+        }
       }
     });
   }
@@ -238,19 +312,21 @@ function applyTheme(theme) {
   try {
     if (theme === "dark" || theme === "light") {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
-      document.documentElement.dataset.theme = theme;
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
       return;
     }
 
     localStorage.removeItem(THEME_STORAGE_KEY);
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark", "light");
   } catch {
     if (theme === "dark" || theme === "light") {
-      document.documentElement.dataset.theme = theme;
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
       return;
     }
 
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark", "light");
   }
 }
 
@@ -542,7 +618,9 @@ function isLowSignalText(value) {
 
 function updateRequestCount(request) {
   requestCountNode.textContent = `${request.length} / 2000`;
-  requestCountNode.classList.toggle("request-count--near-limit", request.length > 1800);
+  const nearLimit = request.length > 1800;
+  requestCountNode.style.color = nearLimit ? "var(--queue-rejected)" : "";
+  requestCountNode.style.fontWeight = nearLimit ? "600" : "";
 }
 
 function loadMyRequests() {
@@ -661,7 +739,7 @@ function renderMyRequests() {
       "No saved requests in this browser yet. Submit one here and it will stay pinned for quick follow-up.";
 
     const empty = document.createElement("article");
-    empty.className = "my-requests-empty";
+    empty.className = "p-4 border border-[var(--line)] rounded-lg text-[var(--ink-soft)] text-sm";
     empty.textContent =
       "Rejected requests can be clarified directly on GitHub once they appear here. No separate account or inbox yet.";
     myRequestsList.append(empty);
@@ -675,7 +753,7 @@ function renderMyRequests() {
 
   for (const item of myRequests) {
     const row = document.createElement("article");
-    row.className = "queue-card my-request-card";
+    row.className = "block min-w-0 p-0 border-0 bg-transparent";
     row.append(createMyRequestCard(item));
     fragment.append(row);
   }
@@ -685,52 +763,51 @@ function renderMyRequests() {
 
 function createMyRequestCard(item) {
   const card = document.createElement("div");
-  card.className = "my-request-card-body";
+  card.className = "grid gap-2 p-4 border border-[var(--line)] rounded-lg h-full";
 
   const top = document.createElement("div");
-  top.className = "queue-item-top";
+  top.className = "flex items-center gap-2";
 
   const issue = document.createElement("span");
-  issue.className = "queue-item-issue";
+  issue.className = "text-xs font-semibold text-[var(--ink-faint)]";
   issue.textContent = `Issue #${item.number}`;
 
   const status = document.createElement("span");
-  status.className = "queue-item-status";
-  status.dataset.status = item.status;
+  status.className = getStatusBadgeClasses(item.status);
   status.textContent = formatStatus(item.status);
 
   top.append(issue, status);
 
   const title = document.createElement("h3");
-  title.className = "queue-item-title";
+  title.className = "text-base leading-snug";
   title.textContent = item.title;
 
   const meta = document.createElement("div");
-  meta.className = "queue-item-meta";
+  meta.className = "flex items-baseline gap-1.5 flex-wrap";
 
   if (item.githubUsername) {
     const username = document.createElement("span");
-    username.className = "queue-item-username";
+    username.className = "text-[var(--accent-dark)] text-sm font-medium";
     username.textContent = formatGitHubUsername(item.githubUsername);
     meta.append(username);
   }
 
   const submittedAt = document.createElement("time");
-  submittedAt.className = "queue-item-submitted-at";
+  submittedAt.className = "text-sm text-[var(--ink-faint)]";
   submittedAt.dateTime = item.createdAt;
   submittedAt.title = item.createdAt;
   submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
   meta.append(submittedAt);
 
   const detail = document.createElement("p");
-  detail.className = "my-request-detail";
+  detail.className = "text-[var(--ink-soft)] text-sm leading-relaxed";
   detail.textContent = getMyRequestDetail(item);
 
   const actions = document.createElement("div");
-  actions.className = "my-request-actions";
+  actions.className = "flex flex-wrap gap-2.5";
 
   const primary = document.createElement("a");
-  primary.className = "queue-link my-request-link";
+  primary.className = CLS.pill;
   primary.href = item.commentUrl || item.url || "#";
   primary.target = "_blank";
   primary.rel = "noreferrer";
@@ -738,6 +815,7 @@ function createMyRequestCard(item) {
 
   if (!item.commentUrl && !item.url) {
     primary.setAttribute("aria-disabled", "true");
+    primary.classList.add("opacity-50", "pointer-events-none");
   }
 
   actions.append(primary);
@@ -772,7 +850,10 @@ function getMyRequestDetail(item) {
 
 function setStatus(message, tone) {
   statusNode.textContent = message;
-  statusNode.className = tone ? `status-message ${tone}` : "status-message";
+  statusNode.className = "min-h-6 text-sm leading-normal";
+  if (tone === "success") statusNode.style.color = "var(--queue-complete)";
+  else if (tone === "error") statusNode.style.color = "var(--queue-rejected)";
+  else statusNode.style.color = "";
 }
 
 function renderSupportSession() {
@@ -949,7 +1030,7 @@ function renderReactorleBoard() {
 
   for (let rowIndex = 0; rowIndex < REACTORLE_MAX_GUESSES; rowIndex += 1) {
     const row = document.createElement("div");
-    row.className = "reactorle-row";
+    row.className = "grid grid-cols-5 gap-1.5";
     row.setAttribute("role", "row");
     const guess = getReactorleDisplayGuess(rowIndex);
     const evaluation =
@@ -959,21 +1040,21 @@ function renderReactorleBoard() {
 
     for (let columnIndex = 0; columnIndex < REACTORLE_WORD_LENGTH; columnIndex += 1) {
       const tile = document.createElement("div");
-      tile.className = "reactorle-tile";
       tile.setAttribute("role", "gridcell");
       tile.textContent = guess[columnIndex] ? guess[columnIndex].toUpperCase() : "";
 
-      const status = evaluation[columnIndex];
-      if (status) {
-        tile.dataset.state = status;
+      const tileStatus = evaluation[columnIndex];
+      let state = "empty";
+      if (tileStatus) {
+        state = tileStatus;
       } else if (
         rowIndex === reactorleState.guesses.length &&
         columnIndex < reactorleState.currentGuess.length
       ) {
-        tile.dataset.state = "active";
-      } else {
-        tile.dataset.state = "empty";
+        state = "active";
       }
+      tile.className = getReactorleTileClasses(state);
+      tile.dataset.state = state;
 
       row.append(tile);
     }
@@ -991,7 +1072,7 @@ function renderReactorleKeyboard() {
 
   for (const rowKeys of REACTORLE_KEYBOARD_ROWS) {
     const row = document.createElement("div");
-    row.className = "reactorle-keyboard-row";
+    row.className = "grid grid-cols-10 gap-1.5";
 
     if (rowKeys === REACTORLE_KEYBOARD_ROWS.at(-1)) {
       row.append(buildReactorleKey("Enter", "ENTER", "wide"));
@@ -1014,7 +1095,7 @@ function renderReactorleKeyboard() {
 function buildReactorleKey(label, value, state) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "reactorle-key";
+  button.className = getReactorleKeyClasses(state);
   button.dataset.state = state;
   button.textContent = label;
   button.addEventListener("click", () => updateReactorleGuess(value));
@@ -1341,59 +1422,14 @@ function renderQueueError(message) {
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
 }
 
-function animateCountUp(element, target, duration = 800) {
-  if (typeof target !== "number" || target <= 0) return;
-  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (prefersReduced) {
-    element.textContent = `${target}`;
-    return;
-  }
-  const start = performance.now();
-  function tick(now) {
-    const elapsed = now - start;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    element.textContent = `${Math.round(eased * target)}`;
-    if (progress < 1) requestAnimationFrame(tick);
-  }
-  element.textContent = "0";
-  requestAnimationFrame(tick);
-}
-
-let leaderboardCounterAnimated = false;
-
-function setupLeaderboardCounterObserver() {
-  if (leaderboardCounterAnimated) return;
-  const statsContainer = document.querySelector(".leaderboard-stats");
-  if (!statsContainer) return;
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && !leaderboardCounterAnimated) {
-          leaderboardCounterAnimated = true;
-          observer.disconnect();
-          const prs = parseInt(leaderboardTotalPrsNode.textContent, 10);
-          const authors = parseInt(leaderboardTotalAuthorsNode.textContent, 10);
-          if (prs > 0) animateCountUp(leaderboardTotalPrsNode, prs);
-          if (authors > 0) animateCountUp(leaderboardTotalAuthorsNode, authors);
-        }
-      }
-    },
-    { threshold: 0.3 }
-  );
-  observer.observe(statsContainer);
-}
-
 function renderLeaderboard(items, totals) {
   leaderboardList.innerHTML = "";
-  leaderboardStatsNode.classList.remove("loading");
   leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardTotalPrsNode.textContent = `${totals.mergedPullRequests || 0}`;
   leaderboardTotalAuthorsNode.textContent = `${totals.contributors || 0}`;
   leaderboardLatestMergeNode.textContent = totals.latestMergedAt
     ? formatShortDate(totals.latestMergedAt)
     : "No merges yet";
-  setupLeaderboardCounterObserver();
 
   if (!items.length) {
     leaderboardSummaryNode.textContent = "No merged pull requests yet.";
@@ -1407,27 +1443,27 @@ function renderLeaderboard(items, totals) {
 
   for (const [index, item] of items.entries()) {
     const row = document.createElement("li");
-    row.className = "leaderboard-item";
+    row.className = "grid grid-cols-[auto_minmax(0,1fr)] gap-4 p-4 border border-[var(--line)] rounded-lg";
 
     const rank = document.createElement("span");
-    rank.className = "leaderboard-rank";
+    rank.className = "inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--accent-muted)] text-[var(--accent-dark)] font-semibold text-sm";
     rank.textContent = `#${index + 1}`;
 
     const body = document.createElement("div");
-    body.className = "leaderboard-item-body";
+    body.className = "grid gap-1.5 min-w-0";
 
     const top = document.createElement("div");
-    top.className = "leaderboard-item-top";
+    top.className = "flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch";
 
     const profile = document.createElement("a");
-    profile.className = "leaderboard-profile";
+    profile.className = "min-w-0 text-base font-semibold no-underline hover:text-[var(--accent-dark)]";
     profile.href = item.profileUrl;
     profile.target = "_blank";
     profile.rel = "noreferrer";
     profile.textContent = `@${item.login}`;
 
     const badge = document.createElement("span");
-    badge.className = "leaderboard-badge";
+    badge.className = "w-fit px-2.5 py-1 rounded bg-[rgba(0,0,0,0.06)] text-[var(--ink-faint)] text-xs font-medium tracking-wide uppercase whitespace-nowrap";
     badge.textContent =
       item.creditSource === "issue-requester"
         ? "Requester"
@@ -1438,11 +1474,11 @@ function renderLeaderboard(items, totals) {
     top.append(profile, badge);
 
     const count = document.createElement("p");
-    count.className = "leaderboard-count";
+    count.className = "text-[var(--ink-soft)] text-sm leading-snug";
     count.textContent = `${item.mergedCount} merged PR${item.mergedCount === 1 ? "" : "s"}`;
 
     const latest = document.createElement("a");
-    latest.className = "leaderboard-latest";
+    latest.className = "min-w-0 overflow-hidden text-[var(--accent-dark)] text-sm font-medium leading-snug no-underline text-ellipsis whitespace-nowrap max-md:whitespace-normal hover:text-[var(--accent)]";
     latest.href = item.latestPullRequest.url;
     latest.target = "_blank";
     latest.rel = "noreferrer";
@@ -1459,7 +1495,6 @@ function renderLeaderboard(items, totals) {
 
 function renderLeaderboardError(message) {
   leaderboardList.innerHTML = "";
-  leaderboardStatsNode.classList.remove("loading");
   leaderboardStatsNode.setAttribute("aria-busy", "false");
   leaderboardSummaryNode.textContent = "Contributor data unavailable right now.";
   leaderboardTotalPrsNode.textContent = "\u2014";
@@ -1470,14 +1505,12 @@ function renderLeaderboardError(message) {
 
 function setQueueStatus(message, tone) {
   queueStatusNode.textContent = message;
-  queueStatusNode.className = tone ? `queue-status ${tone}` : "queue-status";
+  queueStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
 }
 
 function setLeaderboardStatus(message, tone) {
   leaderboardStatusNode.textContent = message;
-  leaderboardStatusNode.className = tone
-    ? `leaderboard-status ${tone}`
-    : "leaderboard-status";
+  leaderboardStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
 }
 
 function setQueueRefreshNote(message) {
@@ -1589,41 +1622,38 @@ function renderQueueBoard(items) {
   for (const column of BOARD_COLUMNS) {
     const lane = document.createElement("section");
     const columnItems = groupedItems.get(column.key) || [];
-    lane.className = columnItems.length
-      ? "queue-lane"
-      : "queue-lane queue-lane--empty";
-    lane.dataset.status = column.key;
+    lane.className = "grid gap-2 min-w-0 content-start p-4 border border-[var(--line)] rounded-lg";
 
     const header = document.createElement("div");
-    header.className = "queue-lane-header";
+    header.className = "flex items-center justify-between gap-3 px-0.5";
 
     const titleBlock = document.createElement("div");
-    titleBlock.className = "queue-lane-title-block";
+    titleBlock.className = "flex items-baseline gap-2";
 
     const heading = document.createElement("h3");
-    heading.className = "queue-lane-title";
+    heading.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
     heading.textContent = column.label;
 
     titleBlock.append(heading);
 
     const count = document.createElement("span");
-    count.className = "queue-lane-count";
+    count.className = "inline-flex items-center justify-center min-w-6 min-h-6 px-1.5 rounded bg-[rgba(0,0,0,0.06)] text-[var(--ink-soft)] text-xs font-semibold";
     count.textContent = String(groupedItems.get(column.key)?.length || 0);
 
     header.append(titleBlock, count);
 
     const list = document.createElement("ul");
-    list.className = "queue-lane-list";
+    list.className = "grid gap-2 list-none m-0 p-0";
 
     if (!columnItems.length) {
       const empty = document.createElement("li");
-      empty.className = "queue-lane-empty";
+      empty.className = "p-6 px-4 border border-dashed border-[var(--line-strong)] rounded-lg text-center text-[var(--ink-soft)] leading-relaxed";
       empty.textContent = "No requests here yet.";
       list.append(empty);
     } else {
       for (const item of columnItems) {
         const row = document.createElement("li");
-        row.className = "queue-card";
+        row.className = "block";
         row.append(createQueueCardLink(item));
         list.append(row);
       }
@@ -1643,14 +1673,16 @@ function renderQueueTable(items) {
 
   for (const item of items) {
     const row = document.createElement("tr");
+    row.className = "transition-colors hover:bg-[rgba(0,0,0,0.04)]";
 
     const issueCell = document.createElement("td");
-    issueCell.className = "queue-table-issue";
+    issueCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)] whitespace-nowrap font-mono text-xs font-semibold tracking-wide uppercase text-[var(--ink-faint)]";
     issueCell.textContent = `#${item.number}`;
 
     const titleCell = document.createElement("td");
+    titleCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
     const titleLink = document.createElement("a");
-    titleLink.className = "queue-table-link";
+    titleLink.className = "text-inherit no-underline";
     titleLink.href = item.commentUrl || item.url;
     titleLink.target = "_blank";
     titleLink.rel = "noreferrer";
@@ -1658,16 +1690,16 @@ function renderQueueTable(items) {
     titleCell.append(titleLink);
 
     const statusCell = document.createElement("td");
-    statusCell.className = "queue-table-status-cell";
+    statusCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)] whitespace-nowrap";
     const status = document.createElement("span");
-    status.className = "queue-item-status";
-    status.dataset.status = item.status;
+    status.className = getStatusBadgeClasses(item.status);
     status.textContent = formatStatus(item.status);
     statusCell.append(status);
 
     const submittedCell = document.createElement("td");
+    submittedCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
     const submittedTime = document.createElement("time");
-    submittedTime.className = "queue-table-time";
+    submittedTime.className = "text-[var(--ink-faint)] text-sm whitespace-nowrap";
     submittedTime.dateTime = item.createdAt;
     submittedTime.title = item.createdAt;
     const queueDetail = formatQueueDetail(item.statusDetail, item.statusUpdatedAt);
@@ -1675,6 +1707,7 @@ function renderQueueTable(items) {
     submittedCell.append(submittedTime);
 
     const supportCell = document.createElement("td");
+    supportCell.className = "p-[0.7rem_1rem] text-left border-b border-[var(--line)]";
     supportCell.append(createSupportControls(item, "compact"));
 
     row.append(issueCell, titleCell, statusCell, submittedCell, supportCell);
@@ -1699,29 +1732,29 @@ function renderQueueArchive(items, total = items.length) {
 
   for (const item of items) {
     const row = document.createElement("li");
-    row.className = "queue-archive-item";
+    row.className = "border-b border-[var(--line)] last:border-b-0";
 
     const link = document.createElement("a");
-    link.className = "queue-archive-link";
+    link.className = "grid grid-cols-[auto_1fr_auto] items-center gap-3 p-3 px-4 text-inherit no-underline transition-colors hover:bg-[rgba(0,0,0,0.04)]";
     link.href = item.commentUrl || item.url;
     link.target = "_blank";
     link.rel = "noreferrer";
 
     const issue = document.createElement("span");
-    issue.className = "queue-archive-issue";
+    issue.className = "text-sm font-semibold text-[var(--ink-faint)] min-w-14";
     issue.textContent = `#${item.number}`;
 
     const title = document.createElement("span");
-    title.className = "queue-archive-title";
+    title.className = "text-[0.95rem] leading-snug whitespace-nowrap overflow-hidden text-ellipsis";
     title.textContent = item.title;
 
     const statusWrap = document.createElement("span");
-    statusWrap.className = "queue-archive-status";
-    statusWrap.dataset.status = item.status;
+    statusWrap.className = "inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase whitespace-nowrap";
+    statusWrap.style.color = getArchiveStatusColor(item.status);
 
     const dot = document.createElement("span");
-    dot.className = "queue-archive-dot";
-    dot.dataset.status = item.status;
+    dot.className = "w-1.5 h-1.5 rounded-full shrink-0";
+    dot.style.background = getArchiveDotColor(item.status);
 
     const statusLabel = document.createElement("span");
     statusLabel.textContent = formatStatus(item.status);
@@ -1744,64 +1777,62 @@ function renderQueueArchive(items, total = items.length) {
 
 function createQueueCardLink(item) {
   const card = document.createElement("article");
-  card.className = "queue-card-body";
+  card.className = "grid gap-3";
   const link = document.createElement("a");
-  link.className = "queue-item-link";
+  link.className = "grid gap-2 h-full p-3 border border-[var(--line)] rounded-lg text-inherit no-underline hover:bg-[var(--surface-hover)]";
   link.href = item.commentUrl || item.url;
   link.target = "_blank";
   link.rel = "noreferrer";
-  link.dataset.status = item.status;
+  link.style.borderLeft = `3px solid ${getStatusBorderColor(item.status)}`;
 
   const top = document.createElement("div");
-  top.className = "queue-item-top";
+  top.className = "flex items-center gap-2";
 
   const title = document.createElement("span");
-  title.className = "queue-item-title";
+  title.className = "text-base leading-snug";
   title.textContent = item.title;
 
   const meta = document.createElement("div");
-  meta.className = "queue-item-meta";
+  meta.className = "flex items-baseline gap-1.5 flex-wrap";
 
   const issue = document.createElement("span");
-  issue.className = "queue-item-issue";
+  issue.className = "text-xs font-semibold text-[var(--ink-faint)]";
   issue.textContent = `Issue #${item.number}`;
 
   const status = document.createElement("span");
-  status.className = "queue-item-status";
-  status.dataset.status = item.status;
+  status.className = getStatusBadgeClasses(item.status);
   status.textContent = formatStatus(item.status);
 
   top.append(issue, status);
 
   if (item.githubUsername) {
     const username = document.createElement("span");
-    username.className = "queue-item-username";
+    username.className = "text-[var(--accent-dark)] text-sm font-medium";
     username.textContent = formatGitHubUsername(item.githubUsername);
     meta.append(username);
   }
 
   const submittedAt = document.createElement("time");
-  submittedAt.className = "queue-item-submitted-at";
+  submittedAt.className = "text-sm text-[var(--ink-faint)]";
   submittedAt.dateTime = item.createdAt;
   submittedAt.title = item.createdAt;
   submittedAt.textContent = formatSubmissionTimestamp(item.createdAt);
   meta.append(submittedAt);
 
   const discussion = document.createElement("div");
-  discussion.className = "queue-item-discussion";
+  discussion.className = "flex items-baseline gap-1 text-[0.82rem] text-[var(--ink-faint)]";
 
   const commentCount = document.createElement("span");
-  commentCount.className = "queue-item-comment-count";
+  commentCount.className = "font-semibold";
   commentCount.textContent = formatCommentCount(item.commentCount);
 
   const commentHint = document.createElement("span");
-  commentHint.className = "queue-item-comment-hint";
   commentHint.textContent = getQueueDiscussionHint(item);
 
   discussion.append(commentCount, commentHint);
 
   const cta = document.createElement("span");
-  cta.className = "queue-item-cta";
+  cta.className = "text-[var(--accent-dark)] text-sm font-medium";
   cta.textContent =
     item.status === "rejected" ? "Read the rejection and reply on GitHub" : "Open issue and comment on GitHub";
 
@@ -1812,17 +1843,19 @@ function createQueueCardLink(item) {
 
 function createSupportControls(item, mode = "default") {
   const support = document.createElement("div");
-  support.className = mode === "compact" ? "queue-support queue-support-compact" : "queue-support";
+  support.className = mode === "compact"
+    ? "flex items-center justify-between gap-3 min-w-56"
+    : "flex items-center justify-between gap-3 pt-0.5 border-t border-[var(--line)]";
 
   const summary = document.createElement("div");
-  summary.className = "queue-support-summary";
+  summary.className = "grid gap-0.5";
 
   const count = document.createElement("span");
-  count.className = "queue-support-count";
+  count.className = "text-[var(--ink)] text-sm font-semibold";
   count.textContent = formatSupportCount(item.supportCount);
 
   const hint = document.createElement("span");
-  hint.className = "queue-support-hint";
+  hint.className = "text-[var(--ink-faint)] text-xs leading-tight";
   hint.textContent = getSupportHint(item);
 
   summary.append(count, hint);
@@ -1833,7 +1866,7 @@ function createSupportControls(item, mode = "default") {
 function buildSupportAction(item, mode) {
   if (item.viewerSupports) {
     const status = document.createElement("span");
-    status.className = "queue-support-action queue-support-action-state";
+    status.className = `${CLS.pillSmall} border-[rgba(32,116,90,0.2)] bg-[rgba(32,116,90,0.1)] text-[var(--queue-complete)] cursor-default`;
     status.textContent = "Supported";
     return status;
   }
@@ -1841,7 +1874,7 @@ function buildSupportAction(item, mode) {
   if (supportSession.authenticated) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "queue-support-action";
+    button.className = `${CLS.pillSmall} cursor-pointer`;
     button.textContent = mode === "compact" ? "Support" : "Support with GitHub";
     button.addEventListener("click", () => {
       void handleSupportAction(item.number, button);
@@ -1850,7 +1883,7 @@ function buildSupportAction(item, mode) {
   }
 
   const link = document.createElement("a");
-  link.className = "queue-support-action";
+  link.className = CLS.pillSmall;
   link.href = supportSession.authAvailable ? buildSupportAuthUrl() : item.url;
   link.textContent = supportSession.authAvailable ? "Sign in to support" : "Support on GitHub";
 
