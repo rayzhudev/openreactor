@@ -6,6 +6,7 @@ import {
   isAgentToolName,
   type AgentToolName
 } from "./agent-tools";
+import { writeReactorLiveSnapshot } from "./live-status";
 import {
   GitHubClient,
   type GitHubIssue,
@@ -61,6 +62,7 @@ class Reactor {
   async start(once: boolean): Promise<void> {
     await ensureRuntimeDirectories(this.config);
     await this.ensureLabels();
+    await this.updateLiveStatus();
 
     await this.tick();
     if (once) {
@@ -79,6 +81,7 @@ class Reactor {
       activeRun.process.kill("SIGTERM");
       clearInterval(activeRun.heartbeatTimer);
     }
+    void this.updateLiveStatus();
   }
 
   private async ensureLabels(): Promise<void> {
@@ -215,6 +218,8 @@ class Reactor {
 
       await this.startIssue(issue, undefined, triageDecision);
     }
+
+    await this.updateLiveStatus();
   }
 
   private async triageIssue(issue: GitHubIssue): Promise<TriageResult | null> {
@@ -590,6 +595,7 @@ class Reactor {
       });
 
       this.activeRuns.set(issue.number, activeRun);
+      void this.updateLiveStatus();
       void this.handleRunCompletion(activeRun);
     } catch (error) {
       await this.handleStartFailure(issue, {
@@ -857,7 +863,48 @@ class Reactor {
       if (this.activeRuns.get(issueNumber) === activeRun) {
         this.activeRuns.delete(issueNumber);
       }
+      await this.updateLiveStatus();
     }
+  }
+
+  private async updateLiveStatus(): Promise<void> {
+    const activeAgents = Array.from(this.activeRuns.values()).map((activeRun) => {
+      const tool = getAgentTool(activeRun.record.agentTool);
+
+      return {
+        issueNumber: activeRun.issue.number,
+        issueTitle: activeRun.issue.title,
+        issueUrl: activeRun.issue.html_url,
+        branchName: activeRun.record.branchName,
+        iteration: activeRun.record.iteration,
+        toolName: tool.name,
+        toolLabel: tool.label,
+        provider: tool.provider,
+        primaryUse: tool.primaryUse,
+        sensitivity: activeRun.record.sensitivity,
+        evidenceStrength: activeRun.record.evidenceStrength,
+        startedAt: new Date(activeRun.startedAt).toISOString(),
+        updatedAt: activeRun.record.updatedAt,
+        lastHeartbeatAt: activeRun.record.lastHeartbeatAt,
+        status: activeRun.record.status,
+        summary: activeRun.record.lastResult?.summary ?? null,
+        runDir: activeRun.record.runDir
+      };
+    });
+
+    await writeReactorLiveSnapshot(this.config.repoRoot, {
+      generatedAt: new Date().toISOString(),
+      reactor: {
+        pid: process.pid,
+        dryRun: this.dryRun,
+        pollIntervalMs: this.config.pollIntervalMs,
+        maxConcurrentIssues: this.config.maxConcurrentIssues,
+        maxIterationRuntimeMs: this.config.maxIterationRuntimeMs,
+        activeRunCount: activeAgents.length,
+        pendingRetryCount: this.pendingRetries.size
+      },
+      activeAgents
+    });
   }
 
   private async validateAcceptedResult(

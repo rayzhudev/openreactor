@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenReactor live status service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ray/projects/openreactor
+ExecStart=/usr/bin/bash /home/ray/projects/openreactor/scripts/openreactor-status-service.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+Environment=HOME=/home/ray
+Environment=USER=ray
+
+[Install]
+WantedBy=default.target

@@ -182,6 +182,108 @@ test.beforeEach(async ({ page }) => {
       })
     });
   });
+
+  await page.route("**/api/openreactor-status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        available: true,
+        generatedAt: "2026-03-12T12:00:00.000Z",
+        repo: {
+          owner: "rayzhudev",
+          repo: "openreactor"
+        },
+        services: {
+          reactor: {
+            active: true,
+            activeState: "active",
+            subState: "running",
+            result: "success",
+            restarts: 1,
+            execMainPid: 4242,
+            snapshotGeneratedAt: "2026-03-12T12:00:00.000Z",
+            snapshotFresh: true
+          },
+          watchdog: {
+            active: true,
+            activeState: "active",
+            subState: "running",
+            result: "success",
+            restarts: 0,
+            execMainPid: 4343,
+            snapshotGeneratedAt: "2026-03-12T12:00:00.000Z",
+            snapshotFresh: true
+          }
+        },
+        agents: {
+          activeCount: 2,
+          pendingRetryCount: 1,
+          maxConcurrentIssues: 3,
+          items: [
+            {
+              issueNumber: 201,
+              issueTitle: "Polish the public queue cards",
+              issueUrl: "https://github.com/rayzhudev/openreactor/issues/201",
+              branchName: "openreactor/issue-201",
+              iteration: 2,
+              toolName: "spawn_claude_ui_agent",
+              toolLabel: "Claude UI agent",
+              provider: "claude",
+              primaryUse: "ui",
+              startedAt: "2026-03-12T11:50:00.000Z",
+              updatedAt: "2026-03-12T11:58:00.000Z",
+              lastHeartbeatAt: "2026-03-12T11:59:00.000Z",
+              status: "running"
+            },
+            {
+              issueNumber: 204,
+              issueTitle: "Expose contributor support state",
+              issueUrl: "https://github.com/rayzhudev/openreactor/issues/204",
+              branchName: "openreactor/issue-204",
+              iteration: 1,
+              toolName: "spawn_codex_issue_agent",
+              toolLabel: "Codex issue agent",
+              provider: "codex",
+              primaryUse: "general",
+              startedAt: "2026-03-12T11:55:00.000Z",
+              updatedAt: "2026-03-12T11:57:00.000Z",
+              lastHeartbeatAt: "2026-03-12T11:58:30.000Z",
+              status: "running"
+            }
+          ]
+        },
+        blockers: {
+          pausedCount: 1,
+          pausedIssues: [
+            {
+              issueNumber: 186,
+              issueUrl: "https://github.com/rayzhudev/openreactor/issues/186",
+              autoHealAttempts: 3,
+              lastFailureClass: "schema_mismatch",
+              lastAutoHealAt: "2026-03-12T11:40:00.000Z",
+              lastEscalatedAt: "2026-03-12T11:45:00.000Z",
+              repairIssueNumber: 188,
+              repairIssueUrl: "https://github.com/rayzhudev/openreactor/issues/188"
+            }
+          ],
+          maintainerHandoffCount: 1,
+          maintainerHandoffs: [
+            {
+              issueNumber: 143,
+              issueTitle: "Add GitHub login",
+              issueUrl: "https://github.com/rayzhudev/openreactor/issues/143",
+              branchName: "openreactor/issue-143",
+              updatedAt: "2026-03-12T11:35:00.000Z",
+              prUrl: "https://github.com/rayzhudev/openreactor/pull/147",
+              instructions: "Set GITHUB_APP_CLIENT_SECRET and SESSION_SECRET in Cloudflare Pages."
+            }
+          ]
+        }
+      })
+    });
+  });
 });
 
 test("renders the redesign and submits a request through the mocked API", async ({ page }) => {
@@ -191,6 +293,7 @@ test("renders the redesign and submits a request through the mocked API", async 
   await expect(page.getByRole("heading", { level: 2, name: /submit a request/i })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /my requests/i })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: /requests in the open/i })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /watch the system work/i })).toBeVisible();
   await expect(page.locator("#my-requests-list")).toContainText(
     "Rejected under the one-change-per-issue scope rule."
   );
@@ -202,6 +305,14 @@ test("renders the redesign and submits a request through the mocked API", async 
   await expect(page.getByText(/trust tier: github account/i)).toBeVisible();
   await expect(page.getByText("5 supports").first()).toBeVisible();
   await expect(page.getByText("Requester").first()).toBeVisible();
+  await expect(page.locator("#openreactor-live-reactor")).toContainText("Running");
+  await expect(page.locator("#openreactor-live-watchdog")).toContainText("Running");
+  await expect(page.locator("#openreactor-live-active")).toContainText("2");
+  await expect(page.locator("#openreactor-live-blocked")).toContainText("2");
+  await expect(page.locator("#openreactor-live-agents")).toContainText("Polish the public queue cards");
+  await expect(page.locator("#openreactor-live-agents")).toContainText("Claude UI agent");
+  await expect(page.locator("#openreactor-live-blockers")).toContainText("Maintainer action");
+  await expect(page.locator("#openreactor-live-blockers")).toContainText("schema_mismatch");
 
   await page.getByRole("button", { name: /support with github/i }).first().click();
   await expect(page.getByText("6 supports").first()).toBeVisible();

@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenReactor status tunnel
+After=network-online.target openreactor-status.service
+Wants=network-online.target openreactor-status.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ray/projects/openreactor
+ExecStart=/usr/bin/bash /home/ray/projects/openreactor/scripts/openreactor-status-tunnel.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+Environment=HOME=/home/ray
+Environment=USER=ray
+
+[Install]
+WantedBy=default.target

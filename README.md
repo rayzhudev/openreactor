@@ -86,6 +86,12 @@ watchdog process can now supervise that reactor, detect stalled issues and
 startup failure loops, and attempt limited self-healing before escalating to a
 maintainer.
 
+OpenReactor can also expose a read-only live metadata feed from this machine so
+the website can visualize what the local system is doing without giving the
+public site direct control over the runtime. That feed is limited to metadata
+such as active agents, stalled work, and service health. The visual rendering
+stays in the website.
+
 UI quality is now also treated as a system concern, not just an agent taste
 problem. The standing visual rules live in
 [UI_SYSTEM.md](/home/ray/projects/openreactor/UI_SYSTEM.md), and accepted UI
@@ -145,6 +151,19 @@ bun run watchdog
 bun run watchdog:once
 ```
 
+The local read-only status feed can be served with:
+
+```bash
+bun run openreactor-status
+```
+
+If the public website needs to reach that local feed from Cloudflare Pages, the
+repo also includes a dedicated tunnel wrapper:
+
+```bash
+bun run openreactor-status:tunnel
+```
+
 The reactor currently:
 
 - claims work with `or:running`
@@ -168,6 +187,15 @@ The watchdog currently:
   services after a merged OpenReactor repair PR
 - flags non-recoverable failures for maintainer attention instead of retrying forever
 
+The status service currently:
+
+- reads the reactor's live run snapshot from `.openreactor/live/`
+- reads watchdog pause and escalation state from `.openreactor/watchdog/`
+- exposes only metadata about active agents, stalled issues, maintainer handoffs, and local service health
+- is intended to be consumed by the website through `/api/openreactor-status`
+- should be exposed from this machine behind a token when the public site needs to reach it
+- can be published through a dedicated Cloudflare Tunnel hostname without exposing a raw public port
+
 The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself
 autonomous.
@@ -189,6 +217,9 @@ Useful environment variables:
 - `OPENREACTOR_CLAUDE_UI_MODEL`
 - `OPENREACTOR_CLAUDE_UI_EFFORT`
 - `OPENREACTOR_CLAUDE_UI_BIN`
+- `OPENREACTOR_STATUS_BIND_HOST`
+- `OPENREACTOR_STATUS_PORT`
+- `OPENREACTOR_STATUS_TOKEN`
 
 Leave the `*_SERVICE_TIER` variables unset unless you have a known-good tier for the installed Codex CLI and account. The default reactor behavior is to omit `service_tier` entirely.
 
