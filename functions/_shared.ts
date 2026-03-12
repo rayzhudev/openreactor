@@ -519,9 +519,15 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
     return jsonResponse({ error: validated.error }, 400);
   }
 
-  const fallbackUrl = buildIssueCreateUrl(normalized, validated, request);
+  const session = await readSupportSession(request, normalized);
+  const attributedRequest: ValidatedFeatureRequest = {
+    ...validated,
+    githubUsername: session?.login || validated.githubUsername
+  };
+
+  const fallbackUrl = buildIssueCreateUrl(normalized, attributedRequest, request);
   const labels = await getExistingLabels(normalized);
-  const body = buildIssueBody(validated, request);
+  const body = buildIssueBody(attributedRequest, request);
 
   if (!hasGitHubApiAuth(normalized)) {
     return jsonResponse(
@@ -540,7 +546,7 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
       {
         method: "POST",
         body: JSON.stringify({
-          title: `[Request] ${validated.summary}`,
+          title: `[Request] ${attributedRequest.summary}`,
           body,
           labels
         })
@@ -669,6 +675,7 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
   const submittedAt = new Date().toISOString();
   const origin = `${url.protocol}//${url.host}`;
   const desiredScope = describeScopePreference(input.scopePreference);
+  const submittedBy = input.name || (input.githubUsername ? `GitHub @${input.githubUsername}` : "_Anonymous_");
 
   return [
     REQUEST_MARKER,
@@ -695,7 +702,7 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     input.notes || "_None provided._",
     "",
     "## Submitted By",
-    input.name || "_Anonymous_",
+    submittedBy,
     "",
     "## GitHub Username",
     input.githubUsername ? `@${input.githubUsername}` : "_Not provided_",

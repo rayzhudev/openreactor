@@ -50,6 +50,13 @@
 - Decision: let signed-in website support actions write through to the same GitHub `:+1:` issue reaction instead of creating a website-side vote ledger.
   Reason: the queue can add a convenient support UI without splitting canonical support state away from GitHub.
 
+- Decision: use the signed-in GitHub session as the canonical contributor
+  identity for website submissions and remove the free-text GitHub username
+  field from intake.
+  Reason: free-text usernames are spoofable, while authenticated GitHub login
+  lets accepted work credit a real account without requiring login for all
+  submissions.
+
 - Decision: ship a browser-local `My requests` section before adding application-backed request history or inbox features.
   Reason: submitters need a lightweight way to find their own issues now, while durable per-user state still sits beyond the MVP cutline.
 

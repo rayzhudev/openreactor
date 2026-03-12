@@ -85,6 +85,26 @@
           <p class="text-[var(--ink-soft)] text-sm leading-relaxed">Keep the scope narrow. Name what feels broken or off, and say what better should feel like.</p>
 
           <form id="request-form" class="grid gap-4" novalidate>
+            <div id="request-auth-panel" class="or-note or-note--stack">
+              <div class="grid gap-1">
+                <p class="or-field-label">Contribution identity</p>
+                <p id="request-auth-copy" class="text-sm text-[var(--ink-soft)] leading-relaxed">
+                  Log in with GitHub to get recognition for your contributions. Login is optional for submitting requests.
+                </p>
+                <p id="request-auth-tier" class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">
+                  Trust tier: anonymous
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <a id="request-auth-link" class="or-button or-button--secondary" href="/api/auth/github?returnTo=/">
+                  Log in with GitHub
+                </a>
+                <button id="request-signout-button" class="or-button or-button--secondary" type="button" hidden>
+                  Sign out
+                </button>
+              </div>
+            </div>
+
             <label class="grid gap-1.5" for="request">
               <span class="or-field-label">Request</span>
               <textarea
@@ -113,20 +133,6 @@
                 <option value="50">Moderate change</option>
                 <option value="75">Significant change</option>
               </select>
-            </label>
-
-            <label class="grid gap-1.5" for="github-username">
-              <span class="or-field-label">GitHub username (optional)</span>
-              <input
-                id="github-username"
-                name="githubUsername"
-                class="or-input focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent aria-[invalid=true]:border-[var(--queue-rejected)]"
-                type="text"
-                inputmode="text"
-                autocomplete="username"
-                maxlength="40"
-                placeholder="@octocat"
-              />
             </label>
 
             <label class="absolute -left-[9999px] opacity-0 pointer-events-none" aria-hidden="true">

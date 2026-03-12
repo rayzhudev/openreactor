@@ -71,6 +71,7 @@ What is live now:
 - GitHub issue creation
 - public queue view backed by GitHub issues
 - GitHub-backed support counts and signed-in support actions when website OAuth is configured
+- signed-in GitHub attribution for website submissions, while anonymous submission still remains allowed
 - local reactor loop for autonomous issue handling
 
 The website/backend and the reactor are separate:
