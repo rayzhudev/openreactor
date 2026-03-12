@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { OrchestratorConfig } from "./config";
-import type { GitHubIssue } from "./github";
+import type { GitHubIssue, GitHubIssueComment } from "./github";
 import {
   DEFAULT_AGENT_TOOL,
   describeAgentToolsForPrompt,
@@ -24,6 +24,7 @@ export interface TriageResult {
   outcome: "reject" | "dispatch" | "bank";
   summary: string;
   issueComment: string | null;
+  considerations: string[];
   sensitivity: SurfaceSensitivity;
   evidenceStrength: EvidenceStrength;
   evidenceSummary: string;
@@ -51,6 +52,7 @@ export interface AgentResult {
   issueNumber: number;
   outcome: "accepted" | "rejected" | "retry" | "decomposed";
   summary: string;
+  considerations: string[];
   branchName?: string | null;
   prUrl?: string | null;
   issueComment?: string | null;
@@ -58,6 +60,21 @@ export interface AgentResult {
   humanHandoff?: HumanHandoff | null;
   decomposition?: DecompositionPlan | null;
   tests: AgentTestResult[];
+}
+
+export interface ExecutionMetadata {
+  stage: "triage" | "implementation";
+  providerKey: "codex" | "claude";
+  providerLabel: string;
+  model: string;
+  reasoningEffort: string;
+  serviceTier: string | null;
+  toolName?: AgentToolName | null;
+  toolLabel?: string | null;
+  primaryUse?: "general" | "planning" | "ui" | null;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
 }
 
 export interface RunRecord {
@@ -70,6 +87,7 @@ export interface RunRecord {
   evidenceSummary?: string;
   status:
     | "running"
+    | "banked"
     | "accepted"
     | "rejected"
     | "retry"
@@ -81,6 +99,9 @@ export interface RunRecord {
   createdAt: string;
   updatedAt: string;
   lastHeartbeatAt: string;
+  lastDiscussionCommentAt?: string;
+  triageExecution?: ExecutionMetadata | null;
+  lastAgentExecution?: ExecutionMetadata | null;
   worktreePath: string;
   runDir: string;
   lastResult: AgentResult | null;
@@ -109,6 +130,16 @@ export interface ActiveRun {
   resultPath: string;
   logPath: string;
   startedAt: number;
+  executionTemplate: {
+    providerKey: "codex" | "claude";
+    providerLabel: string;
+    model: string;
+    reasoningEffort: string;
+    serviceTier: string | null;
+    toolName: AgentToolName;
+    toolLabel: string;
+    primaryUse: "general" | "planning" | "ui";
+  };
   parseResult: () => Promise<AgentResult | null>;
 }
 
@@ -165,7 +196,8 @@ export async function writeIssueContext(
     sensitivity?: SurfaceSensitivity;
     evidenceStrength?: EvidenceStrength;
     evidenceSummary?: string;
-  }
+  },
+  discussionComments: GitHubIssueComment[] = []
 ): Promise<void> {
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
@@ -190,6 +222,10 @@ export async function writeIssueContext(
     "## Issue Body",
     "",
     issue.body ?? "_No body provided._",
+    "",
+    "## Recent Discussion",
+    "",
+    formatRecentDiscussion(discussionComments),
     "",
     "## Derived Guidance",
     "",
@@ -270,6 +306,8 @@ export async function createInitialRunRecord(
     createdAt: now,
     updatedAt: now,
     lastHeartbeatAt: now,
+    triageExecution: null,
+    lastAgentExecution: null,
     worktreePath: paths.worktreePath,
     runDir: paths.runDir,
     lastResult: null,
@@ -456,6 +494,16 @@ async function spawnCodexIssueAgent(input: {
     resultPath,
     logPath,
     startedAt: Date.now(),
+    executionTemplate: {
+      providerKey: "codex",
+      providerLabel: providerLabelFor("codex"),
+      model: config.agentModel,
+      reasoningEffort: config.agentReasoningEffort,
+      serviceTier: config.agentServiceTier ?? null,
+      toolName: "spawn_codex_issue_agent",
+      toolLabel: getAgentTool("spawn_codex_issue_agent").label,
+      primaryUse: getAgentTool("spawn_codex_issue_agent").primaryUse
+    },
     parseResult: () => parseAgentResult(resultPath)
   };
 }
@@ -536,6 +584,16 @@ async function spawnCodexPlannerAgent(input: {
     resultPath,
     logPath,
     startedAt: Date.now(),
+    executionTemplate: {
+      providerKey: "codex",
+      providerLabel: providerLabelFor("codex"),
+      model: config.agentModel,
+      reasoningEffort: config.agentReasoningEffort,
+      serviceTier: config.agentServiceTier ?? null,
+      toolName: "spawn_codex_planner_agent",
+      toolLabel: getAgentTool("spawn_codex_planner_agent").label,
+      primaryUse: getAgentTool("spawn_codex_planner_agent").primaryUse
+    },
     parseResult: () => parseAgentResult(resultPath)
   };
 }
@@ -615,6 +673,16 @@ async function spawnClaudeUiIssueAgent(input: {
     resultPath,
     logPath,
     startedAt: Date.now(),
+    executionTemplate: {
+      providerKey: "claude",
+      providerLabel: providerLabelFor("claude"),
+      model: config.claudeUiModel,
+      reasoningEffort: config.claudeUiEffort,
+      serviceTier: null,
+      toolName: "spawn_claude_ui_agent",
+      toolLabel: getAgentTool("spawn_claude_ui_agent").label,
+      primaryUse: getAgentTool("spawn_claude_ui_agent").primaryUse
+    },
     parseResult: () => parseClaudeAgentResult(stdoutChunks, resultPath)
   };
 }
@@ -624,10 +692,11 @@ export async function runIssueTriage(input: {
   issue: GitHubIssue;
   paths: IssueRuntimePaths;
   githubToken: string;
-}): Promise<{ result: TriageResult | null; exitCode: number | null }> {
+  comments?: GitHubIssueComment[];
+}): Promise<{ result: TriageResult | null; exitCode: number | null; execution: ExecutionMetadata }> {
   const { config, issue, paths, githubToken } = input;
   const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
-  const prompt = buildTriagePrompt(config, issue);
+  const prompt = buildTriagePrompt(config, issue, input.comments ?? []);
 
   await fs.mkdir(paths.runDir, { recursive: true });
   await fs.writeFile(paths.triagePromptPath, prompt, "utf8");
@@ -641,6 +710,8 @@ export async function runIssueTriage(input: {
     outputPath: paths.triageResultPath
   });
 
+  const startedAt = new Date().toISOString();
+  const startTimeMs = Date.now();
   const child = spawn("codex", args, {
     cwd: config.repoRoot,
     env: {
@@ -671,7 +742,24 @@ export async function runIssueTriage(input: {
 
   const exitCode = await waitForExit(child);
   const result = await parseTriageResult(paths.triageResultPath);
-  return { result, exitCode };
+  return {
+    result,
+    exitCode,
+    execution: {
+      stage: "triage",
+      providerKey: "codex",
+      providerLabel: providerLabelFor("codex"),
+      model: config.triageModel,
+      reasoningEffort: config.triageReasoningEffort,
+      serviceTier: config.triageServiceTier ?? null,
+      toolName: null,
+      toolLabel: null,
+      primaryUse: null,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startTimeMs
+    }
+  };
 }
 
 export async function finalizeIssueAgentRun(input: {
@@ -684,6 +772,11 @@ export async function finalizeIssueAgentRun(input: {
   const parsedResult = await input.activeRun.parseResult();
   input.activeRun.record.updatedAt = new Date().toISOString();
   input.activeRun.record.lastHeartbeatAt = input.activeRun.record.updatedAt;
+  input.activeRun.record.lastAgentExecution = buildExecutionMetadata(
+    input.activeRun.executionTemplate,
+    input.activeRun.startedAt,
+    Date.now()
+  );
   input.activeRun.record.lastResult = parsedResult;
   input.activeRun.record.status = parsedResult?.outcome ?? "failed";
   input.activeRun.record.lastError =
@@ -775,6 +868,7 @@ function buildAgentPrompt(
     "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
     "- If a maintainer-only step still blocks the feature, do not return accepted. Leave an open PR, disable auto-merge with `--no-auto-merge`, set humanHandoff.required=true, and return retry.",
+    "- Fill `considerations` with 2-6 short public-facing bullets covering the main tradeoffs, constraints, or observations that shaped your decision. Do not include hidden chain-of-thought.",
     ...(maintainerSteering
       ? [
           "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
@@ -789,7 +883,11 @@ function buildAgentPrompt(
   ].join("\n");
 }
 
-function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): string {
+function buildTriagePrompt(
+  config: OrchestratorConfig,
+  issue: GitHubIssue,
+  comments: GitHubIssueComment[]
+): string {
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
@@ -814,6 +912,9 @@ function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): stri
     "Issue body:",
     issue.body?.trim() || "_No body provided._",
     "",
+    "Recent issue discussion:",
+    formatRecentDiscussion(comments),
+    "",
     "Your job:",
     "- Classify the likely surface sensitivity of the request as `low`, `medium`, or `high`.",
     "- Classify the current evidence strength for making the change now as `weak`, `moderate`, or `strong`.",
@@ -825,6 +926,7 @@ function buildTriagePrompt(config: OrchestratorConfig, issue: GitHubIssue): stri
     "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable when the evidence is strong enough for the likely sensitivity.",
     "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage, especially for low-sensitivity experiments.",
     "- Treat admin or privileged internal changes as high sensitivity. Unless maintainer steering is explicit, do not dispatch those from random public feedback.",
+    "- Fill `considerations` with 2-5 short public-facing bullets describing the main factors that shaped your judgment. Do not include hidden chain-of-thought.",
     ...(maintainerSteering
       ? [
           "- This issue is maintainer steering because the structured GitHub Username matches the repo owner.",
@@ -874,6 +976,48 @@ function normalizeGitHubUsername(value: string | null): string | null {
   }
 
   return cleaned;
+}
+
+function formatRecentDiscussion(comments: GitHubIssueComment[]): string {
+  const discussionComments = comments
+    .filter((comment) => !comment.body.includes(RESULT_MARKER) && !comment.body.includes("<!-- openreactor:status -->"))
+    .slice(-8);
+
+  if (!discussionComments.length) {
+    return "_No discussion yet beyond the issue body._";
+  }
+
+  return discussionComments
+    .map((comment) => {
+      const author = comment.user?.login ? `@${comment.user.login}` : "Unknown";
+      return [`### ${author} — ${comment.updated_at}`, "", comment.body.trim() || "_No body provided._"].join("\n");
+    })
+    .join("\n\n");
+}
+
+function providerLabelFor(provider: "codex" | "claude"): string {
+  return provider === "claude" ? "Anthropic" : "OpenAI";
+}
+
+function buildExecutionMetadata(
+  template: ActiveRun["executionTemplate"],
+  startedAtMs: number,
+  completedAtMs: number
+): ExecutionMetadata {
+  return {
+    stage: "implementation",
+    providerKey: template.providerKey,
+    providerLabel: template.providerLabel,
+    model: template.model,
+    reasoningEffort: template.reasoningEffort,
+    serviceTier: template.serviceTier,
+    toolName: template.toolName,
+    toolLabel: template.toolLabel,
+    primaryUse: template.primaryUse,
+    startedAt: new Date(startedAtMs).toISOString(),
+    completedAt: new Date(completedAtMs).toISOString(),
+    durationMs: Math.max(0, completedAtMs - startedAtMs)
+  };
 }
 
 

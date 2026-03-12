@@ -18,6 +18,13 @@
     "issueComment": {
       "type": ["string", "null"]
     },
+    "considerations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "sensitivity": {
       "type": "string",
       "enum": ["low", "medium", "high"]
@@ -51,6 +58,7 @@
     "outcome",
     "summary",
     "issueComment",
+    "considerations",
     "sensitivity",
     "evidenceStrength",
     "evidenceSummary",

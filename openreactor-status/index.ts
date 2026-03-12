@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { loadConfig as loadReactorConfig } from "../reactor/config";
+import { GitHubClient, type GitHubIssue } from "../reactor/github";
 import {
   getOpenReactorStatusPaths,
   readReactorLiveSnapshot,
@@ -71,6 +72,7 @@ const MAX_STAGE_ITEMS = 8;
 
 const reactorConfig = loadReactorConfig();
 const statusConfig = loadOpenReactorStatusConfig();
+const github = new GitHubClient(reactorConfig);
 
 async function main(): Promise<void> {
   const server = createServer((request, response) => {
@@ -131,8 +133,10 @@ async function buildStatusPayload(): Promise<Record<string, unknown>> {
   const reactorSnapshot = await readReactorLiveSnapshot(reactorConfig.repoRoot);
   const watchdogState = await readWatchdogState();
   const runRecords = await listRunRecordSummaries();
-  const handoffs = await listMaintainerHandoffs();
-  const pausedIssues = listPausedIssues(watchdogState);
+  const openIssues = await github.listOpenIssues();
+  const openIssueMap = new Map(openIssues.map((issue) => [issue.number, issue] as const));
+  const handoffs = await listMaintainerHandoffs(openIssueMap);
+  const pausedIssues = listPausedIssues(watchdogState, openIssueMap);
   const reactorService = safeReadServiceStatus(statusConfig.reactorServiceName);
   const watchdogService = safeReadServiceStatus(statusConfig.watchdogServiceName);
   const now = new Date().toISOString();
@@ -194,7 +198,9 @@ async function readWatchdogState(): Promise<WatchdogStateFile | null> {
   }
 }
 
-async function listMaintainerHandoffs(): Promise<
+async function listMaintainerHandoffs(
+  openIssueMap: Map<number, GitHubIssue>
+): Promise<
   Array<{
     issueNumber: number;
     issueTitle: string;
@@ -228,6 +234,11 @@ async function listMaintainerHandoffs(): Promise<
       continue;
     }
 
+    const issue = openIssueMap.get(record.issueNumber);
+    if (!issue || !hasLabel(issue, "maintainer-action-required")) {
+      continue;
+    }
+
     const handoff = record.lastResult?.humanHandoff;
     if (record.status !== "waiting-maintainer" && !handoff?.required) {
       continue;
@@ -256,18 +267,22 @@ async function readRunRecordSummary(filePath: string): Promise<RunRecordSummary 
   }
 }
 
-function countPausedIssues(state: WatchdogStateFile | null): number {
-  return listPausedIssues(state).length;
-}
-
-function listPausedIssues(state: WatchdogStateFile | null): Array<Record<string, unknown>> {
+function listPausedIssues(
+  state: WatchdogStateFile | null,
+  openIssueMap: Map<number, GitHubIssue>
+): Array<Record<string, unknown>> {
   if (!state?.issues) {
     return [];
   }
 
   return Object.entries(state.issues)
-    .filter(([, issue]) => {
-      return Boolean(issue.lastFailureClass || issue.repairIssueNumber || issue.lastEscalatedAt);
+    .filter(([issueNumber, issue]) => {
+      if (!issue.lastFailureClass && !issue.repairIssueNumber && !issue.lastEscalatedAt) {
+        return false;
+      }
+
+      const currentIssue = openIssueMap.get(Number.parseInt(issueNumber, 10));
+      return Boolean(currentIssue && hasLabel(currentIssue, reactorConfig.pausedLabel));
     })
     .map(([issueNumber, issue]) => ({
       issueNumber: Number.parseInt(issueNumber, 10),
@@ -450,6 +465,11 @@ function buildLocalPipeline(input: {
       }
     ]
   };
+}
+
+function hasLabel(issue: GitHubIssue, labelName: string): boolean {
+  const normalized = labelName.trim().toLowerCase();
+  return issue.labels.some((label) => (label.name ?? "").trim().toLowerCase() === normalized);
 }
 
 function summarizeService(

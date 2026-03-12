@@ -7,6 +7,12 @@ it, opens work, updates docs, and helps the product evolve. It is not best
 thought of as a rigid constitution. It is a workflow and technique for making a
 product continuously improve itself.
 
+That includes treating GitHub issue discussion as live input. OpenReactor
+should not freeze an issue forever based only on the original body if later
+comments clarify, narrow, or otherwise improve the task.
+That reconsideration should come from the live GitHub thread itself, not only
+from whether some earlier local run happened to leave metadata on disk.
+
 ## OpenReactor control rule
 
 The OpenReactor core is maintainer-controlled.
@@ -32,9 +38,15 @@ maintainer consideration.
 - OpenReactor should supervise itself: stalled issues and repeated local
   runtime failures should be detected, classified, and either healed
   operationally or turned into concrete OpenReactor repair work.
+- Extremely high retry counts on one issue are themselves a failure signal.
+  OpenReactor should treat that as a workflow smell, not as normal progress,
+  and should route it into concrete OpenReactor repair work.
 - OpenReactor should expose its own runtime metadata in a read-only way so the
   product can visualize the workflow without the product becoming the control
   plane for the workflow itself.
+- OpenReactor should surface hard execution facts in public workflow artifacts
+  where possible, such as provider, model, reasoning effort, and runtime
+  duration, instead of relying only on narrative summaries.
 - When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
   should leave a reviewable PR open, disable auto-merge, and mark the issue as
   waiting for maintainer action instead of merging a documented partial.

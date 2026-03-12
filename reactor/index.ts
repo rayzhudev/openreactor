@@ -15,6 +15,7 @@ import {
 } from "./github";
 import {
   type AgentResult,
+  type ExecutionMetadata,
   createInitialRunRecord,
   ensureRemoteBranchExists,
   ensureIssueWorktree,
@@ -28,6 +29,7 @@ import {
   writeIssueContext,
   writeRunRecord,
   type ActiveRun,
+  type IssueRuntimePaths,
   type RunRecord,
   type TriageResult
 } from "./runner";
@@ -159,8 +161,17 @@ class Reactor {
   private async tick(): Promise<void> {
     await this.reconcileStaleActiveRuns();
 
+    const discussionRequeuedIssues = this.dryRun
+      ? []
+      : await this.requeueIssuesFromDiscussion();
     const issues = await this.github.listOpenIssues();
-    const candidates = issues.filter((issue) => this.isRelevantIssue(issue));
+    const candidates = Array.from(
+      new Map(
+        issues
+          .concat(discussionRequeuedIssues)
+          .map((issue) => [issue.number, issue] as const)
+      ).values()
+    ).filter((issue) => this.isRelevantIssue(issue));
 
     if (this.dryRun) {
       const eligible = candidates.filter((issue) => this.isEligibleForClaim(issue));
@@ -225,11 +236,13 @@ class Reactor {
   private async triageIssue(issue: GitHubIssue): Promise<TriageResult | null> {
     const paths = issueRuntimePaths(this.config, issue.number);
     const accessToken = await this.github.getAgentAccessToken();
-    const { result } = await runIssueTriage({
+    const comments = await this.github.listIssueComments(issue.number);
+    const { result, execution } = await runIssueTriage({
       config: this.config,
       issue,
       paths,
-      githubToken: accessToken
+      githubToken: accessToken,
+      comments
     });
     const maintainerSteering = Boolean(getMaintainerSteeringSignal(this.config, issue));
     const normalizedResult = normalizeTriageResult(result, maintainerSteering);
@@ -239,14 +252,24 @@ class Reactor {
     }
 
     if (normalizedResult?.outcome === "reject") {
+      await this.persistDormantIssueRecord(issue, paths, comments, "rejected", {
+        lastError: normalizedResult.summary,
+        triageExecution: execution
+      });
       await this.syncIssueStatusComment(issue.number, {
         status: "rejected",
         phase: "triage",
-        detail: "Rejected during lightweight triage as not worth pursuing in the current product direction."
+        detail: "Rejected during lightweight triage as not worth pursuing in the current product direction.",
+        execution
       });
       await this.github.createComment(
         issue.number,
-        normalizedResult.issueComment || normalizedResult.summary
+        formatPublicDecisionComment(
+          normalizedResult.issueComment || normalizedResult.summary,
+          normalizedResult.considerations,
+          execution,
+          "Triage"
+        )
       );
       await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
       await this.github.removeLabel(issue.number, this.config.runningLabel);
@@ -255,31 +278,44 @@ class Reactor {
     }
 
     if (normalizedResult?.outcome === "bank") {
+      await this.persistDormantIssueRecord(issue, paths, comments, "banked", {
+        lastError:
+          normalizedResult.bankReason ??
+          normalizedResult.summary,
+        triageExecution: execution
+      });
       await this.github.addLabels(issue.number, [FEEDBACK_BANK_LABEL]);
       await this.syncIssueStatusComment(issue.number, {
         status: "queued",
         phase: "banked",
         detail:
           normalizedResult.bankReason ??
-          `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`
+          `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`,
+        execution
       });
       await this.github.createComment(
         issue.number,
-        normalizedResult.issueComment ||
-          [
-            "OpenReactor banked this feedback for later consideration instead of acting on it immediately.",
-            "",
-            `Sensitivity: ${normalizedResult.sensitivity}`,
-            `Evidence strength: ${normalizedResult.evidenceStrength}`,
-            `Evidence summary: ${normalizedResult.evidenceSummary}`,
-            normalizedResult.bankReason ? `Reason: ${normalizedResult.bankReason}` : ""
-          ].filter(Boolean).join("\n")
+        formatPublicDecisionComment(
+          normalizedResult.issueComment ||
+            [
+              "OpenReactor banked this feedback for later consideration instead of acting on it immediately.",
+              "",
+              `Sensitivity: ${normalizedResult.sensitivity}`,
+              `Evidence strength: ${normalizedResult.evidenceStrength}`,
+              `Evidence summary: ${normalizedResult.evidenceSummary}`,
+              normalizedResult.bankReason ? `Reason: ${normalizedResult.bankReason}` : ""
+            ].filter(Boolean).join("\n"),
+          normalizedResult.considerations,
+          execution,
+          "Triage"
+        )
       );
       await this.github.removeLabel(issue.number, this.config.runningLabel);
       return null;
     }
 
     if (normalizedResult?.outcome === "dispatch") {
+      await this.persistTriageExecution(issue, paths, execution);
       await this.github.removeLabel(issue.number, FEEDBACK_BANK_LABEL);
       const toolName = isAgentToolName(normalizedResult.toolName)
         ? normalizedResult.toolName
@@ -295,7 +331,8 @@ class Reactor {
             `Sensitivity: ${normalizedResult.sensitivity}.`,
             `Evidence: ${normalizedResult.evidenceStrength}.`,
             normalizedResult.evidenceSummary
-          ].join(" ")
+          ].join(" "),
+        execution
       });
       return {
         ...normalizedResult,
@@ -308,6 +345,7 @@ class Reactor {
       outcome: "dispatch",
       summary: "Defaulted to dispatch because triage result was missing or incomplete.",
       issueComment: null,
+      considerations: ["Triage result was incomplete, so the reactor fell back to the default implementation path."],
       sensitivity: "medium",
       evidenceStrength: "moderate",
       evidenceSummary: "Fallback classification because the triage result was incomplete.",
@@ -315,6 +353,7 @@ class Reactor {
       toolName: DEFAULT_AGENT_TOOL,
       toolReason: "Fallback dispatch to the default implementation tool."
     };
+    await this.persistTriageExecution(issue, paths, execution);
     await this.syncGovernanceLabels(issue.number, fallbackResult);
     return fallbackResult;
   }
@@ -512,6 +551,85 @@ class Reactor {
     }
   }
 
+  private async requeueIssuesFromDiscussion(): Promise<GitHubIssue[]> {
+    const recentIssues = await this.github.listRecentlyUpdatedIssues("all");
+    const requeuedIssues: GitHubIssue[] = [];
+
+    for (const issue of recentIssues) {
+      if (this.activeRuns.has(issue.number) || this.pendingRetries.has(issue.number)) {
+        continue;
+      }
+
+      const labels = getLabelNames(issue);
+      if (labels.has(this.config.acceptedLabel) || labels.has(MAINTAINER_ACTION_REQUIRED_LABEL)) {
+        continue;
+      }
+
+      const discussionBlocked =
+        labels.has(FEEDBACK_BANK_LABEL) ||
+        labels.has(this.config.pausedLabel) ||
+        labels.has(this.config.rejectedLabel);
+      if (!discussionBlocked) {
+        continue;
+      }
+
+      const paths = issueRuntimePaths(this.config, issue.number);
+      const comments = await this.github.listIssueComments(issue.number);
+      const latestComment = findLatestRelevantDiscussionComment(comments);
+      if (!latestComment) {
+        continue;
+      }
+
+      const record = await readRunRecord(paths);
+      const lastSeenAt = this.lastSeenDiscussionTimestamp(issue, comments, record);
+      if (!isNewerIsoTimestamp(latestComment.updated_at, lastSeenAt)) {
+        continue;
+      }
+
+      const maintainerComment =
+        latestComment.user?.login?.toLowerCase() === this.config.owner.toLowerCase();
+      const botMentioned = commentMentionsBot(latestComment.body, this.config.botMentionAliases);
+      const allowRequeue =
+        labels.has(FEEDBACK_BANK_LABEL) ||
+        labels.has(this.config.pausedLabel) ||
+        maintainerComment ||
+        botMentioned;
+
+      if (!allowRequeue) {
+        continue;
+      }
+
+      if (issue.state === "closed") {
+        await this.github.reopenIssue(issue.number);
+      }
+
+      await this.github.removeLabel(issue.number, this.config.rejectedLabel);
+      await this.github.removeLabel(issue.number, FEEDBACK_BANK_LABEL);
+      await this.github.removeLabel(issue.number, this.config.pausedLabel);
+
+      const nextRecord = record ?? (await createInitialRunRecord(issue, paths));
+      nextRecord.status = "retry";
+      nextRecord.lastError = "";
+      nextRecord.lastDiscussionCommentAt = latestComment.updated_at;
+      nextRecord.updatedAt = new Date().toISOString();
+      nextRecord.lastHeartbeatAt = nextRecord.updatedAt;
+      await writeRunRecord(paths, nextRecord);
+
+      await this.syncIssueStatusComment(issue.number, {
+        status: "queued",
+        phase: "discussion",
+        detail:
+          botMentioned || maintainerComment
+            ? "New discussion explicitly requested retriage, so OpenReactor is reconsidering this issue."
+            : "New discussion refined the issue, so OpenReactor is reconsidering it."
+      });
+
+      requeuedIssues.push(await this.github.getIssue(issue.number));
+    }
+
+    return requeuedIssues;
+  }
+
   private isRelevantIssue(issue: GitHubIssue): boolean {
     if (issue.pull_request) {
       return false;
@@ -553,6 +671,63 @@ class Reactor {
     return true;
   }
 
+  private async persistDormantIssueRecord(
+    issue: GitHubIssue,
+    paths: IssueRuntimePaths,
+    comments: GitHubIssueComment[],
+    status: "banked" | "rejected",
+    input?: {
+      lastError?: string;
+      triageExecution?: ExecutionMetadata;
+    }
+  ): Promise<void> {
+    const record = (await readRunRecord(paths)) ?? (await createInitialRunRecord(issue, paths));
+    const latestComment = findLatestRelevantDiscussionComment(comments);
+    const now = new Date().toISOString();
+
+    record.status = status;
+    record.issueTitle = issue.title;
+    record.updatedAt = now;
+    record.lastHeartbeatAt = now;
+    record.lastDiscussionCommentAt =
+      latestComment?.updated_at ??
+      record.lastDiscussionCommentAt ??
+      issue.updated_at ??
+      issue.created_at;
+    record.triageExecution = input?.triageExecution ?? record.triageExecution ?? null;
+    record.lastError = input?.lastError ?? record.lastError;
+
+    await writeRunRecord(paths, record);
+  }
+
+  private async persistTriageExecution(
+    issue: GitHubIssue,
+    paths: IssueRuntimePaths,
+    execution: ExecutionMetadata
+  ): Promise<void> {
+    const record = (await readRunRecord(paths)) ?? (await createInitialRunRecord(issue, paths));
+    record.issueTitle = issue.title;
+    record.triageExecution = execution;
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    await writeRunRecord(paths, record);
+  }
+
+  private lastSeenDiscussionTimestamp(
+    issue: GitHubIssue,
+    comments: GitHubIssueComment[],
+    record: RunRecord | null
+  ): string {
+    if (record) {
+      return record.lastDiscussionCommentAt ?? record.updatedAt ?? record.createdAt;
+    }
+
+    return (
+      findLatestReactorCommentTimestamp(comments) ??
+      issue.created_at
+    );
+  }
+
   private async startIssue(
     issue: GitHubIssue,
     existingRecord?: RunRecord,
@@ -562,19 +737,23 @@ class Reactor {
     const agentTool = isAgentToolName(selectedTriage?.toolName)
       ? selectedTriage.toolName
       : existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
-    const record = existingRecord ?? (await createInitialRunRecord(issue, paths));
+    const record =
+      existingRecord ??
+      (await readRunRecord(paths)) ??
+      (await createInitialRunRecord(issue, paths));
     record.agentTool = agentTool;
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
     record.evidenceSummary = selectedTriage?.evidenceSummary ?? record.evidenceSummary;
 
     try {
+      const comments = await this.github.listIssueComments(issue.number);
       await ensureIssueWorktree(this.config, paths);
       await writeIssueContext(this.config, issue, paths, {
         sensitivity: record.sensitivity,
         evidenceStrength: record.evidenceStrength,
         evidenceSummary: record.evidenceSummary
-      });
+      }, comments);
       await writeRunRecord(paths, record);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
@@ -719,18 +898,24 @@ class Reactor {
             status: "queued",
             phase: "waiting-maintainer",
             iteration: activeRun.record.iteration,
-            detail: `Waiting on maintainer action before PR ${handoffValidation.pullRequest.html_url} can continue.`
+            detail: `Waiting on maintainer action before PR ${handoffValidation.pullRequest.html_url} can continue.`,
+            execution: activeRun.record.lastAgentExecution ?? undefined
           });
           await this.github.createComment(
             issueNumber,
-            [
-              result.issueComment || result.summary,
-              "",
-              `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
-              "",
-              "Maintainer action required:",
-              result.humanHandoff.instructions
-            ].join("\n")
+            formatPublicDecisionComment(
+              [
+                result.issueComment || result.summary,
+                "",
+                `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
+                "",
+                "Maintainer action required:",
+                result.humanHandoff.instructions
+              ].join("\n"),
+              result.considerations,
+              activeRun.record.lastAgentExecution,
+              "Implementation"
+            )
           );
           return;
         }
@@ -753,7 +938,8 @@ class Reactor {
             status: "complete",
             phase: "accepted",
             iteration: activeRun.record.iteration,
-            detail: `Accepted and linked to PR ${acceptedValidation.pullRequest.html_url}.`
+            detail: `Accepted and linked to PR ${acceptedValidation.pullRequest.html_url}.`,
+            execution: activeRun.record.lastAgentExecution ?? undefined
           });
           await this.github.addLabels(issueNumber, [this.config.acceptedLabel]);
           await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -766,7 +952,8 @@ class Reactor {
           status: "rejected",
           phase: "rejected",
           iteration: activeRun.record.iteration,
-          detail: result.summary
+          detail: result.summary,
+          execution: activeRun.record.lastAgentExecution ?? undefined
         });
         await this.github.addLabels(issueNumber, [this.config.rejectedLabel]);
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -795,18 +982,24 @@ class Reactor {
             status: "complete",
             phase: "planned",
             iteration: activeRun.record.iteration,
-            detail: `Decomposed into ${createdIssues.length} follow-up issues for execution.`
+            detail: `Decomposed into ${createdIssues.length} follow-up issues for execution.`,
+            execution: activeRun.record.lastAgentExecution ?? undefined
           });
           await this.github.createComment(
             issueNumber,
-            [
-              result.issueComment || result.summary,
-              "",
-              result.decomposition.overview,
-              "",
-              "Created follow-up issues:",
-              ...createdIssues.map((child) => `- #${child.number} ${child.title}: ${child.html_url}`)
-            ].join("\n")
+            formatPublicDecisionComment(
+              [
+                result.issueComment || result.summary,
+                "",
+                result.decomposition.overview,
+                "",
+                "Created follow-up issues:",
+                ...createdIssues.map((child) => `- #${child.number} ${child.title}: ${child.html_url}`)
+              ].join("\n"),
+              result.considerations,
+              activeRun.record.lastAgentExecution,
+              "Implementation"
+            )
           );
           await this.github.removeLabel(issueNumber, this.config.runningLabel);
           await this.github.closeIssue(issueNumber, "completed");
@@ -880,6 +1073,10 @@ class Reactor {
         toolName: tool.name,
         toolLabel: tool.label,
         provider: tool.provider,
+        providerLabel: activeRun.executionTemplate.providerLabel,
+        model: activeRun.executionTemplate.model,
+        reasoningEffort: activeRun.executionTemplate.reasoningEffort,
+        serviceTier: activeRun.executionTemplate.serviceTier,
         primaryUse: tool.primaryUse,
         sensitivity: activeRun.record.sensitivity,
         evidenceStrength: activeRun.record.evidenceStrength,
@@ -1007,6 +1204,7 @@ class Reactor {
       phase: string;
       detail: string;
       iteration?: number;
+      execution?: ExecutionMetadata;
     }
   ): Promise<void> {
     try {
@@ -1069,6 +1267,7 @@ function buildStatusCommentBody(input: {
   phase: string;
   detail: string;
   iteration?: number;
+  execution?: ExecutionMetadata;
 }): string {
   const lines = [
     STATUS_COMMENT_MARKER,
@@ -1083,7 +1282,69 @@ function buildStatusCommentBody(input: {
     lines.push(`Iteration: ${input.iteration}`);
   }
 
+  if (input.execution) {
+    lines.push(`Execution: ${formatExecutionLine(input.execution)}`);
+  }
+
   return lines.join("\n");
+}
+
+function formatPublicDecisionComment(
+  body: string,
+  considerations: string[] | null | undefined,
+  execution: ExecutionMetadata | null | undefined,
+  stageLabel: string
+): string {
+  const lines = [body.trim()];
+
+  const formattedConsiderations = formatConsiderations(considerations);
+  if (formattedConsiderations.length) {
+    lines.push("", "Considered:", ...formattedConsiderations);
+  }
+
+  if (execution) {
+    lines.push("", `_OpenReactor ${stageLabel}: ${formatExecutionLine(execution)}._`);
+  }
+
+  return lines.filter(Boolean).join("\n");
+}
+
+function formatConsiderations(considerations: string[] | null | undefined): string[] {
+  return (considerations ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((item) => `- ${item}`);
+}
+
+function formatExecutionLine(execution: ExecutionMetadata): string {
+  const parts = [
+    `${execution.providerLabel} ${execution.model}`,
+    `reasoning ${execution.reasoningEffort}`,
+    execution.serviceTier ? `service tier ${execution.serviceTier}` : null,
+    execution.toolLabel ? `tool ${execution.toolLabel}` : null,
+    `duration ${formatDurationMs(execution.durationMs)}`
+  ].filter(Boolean);
+
+  return parts.join(" • ");
+}
+
+function formatDurationMs(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${totalSeconds}s`;
 }
 
 function hasConflictingMergeState(value?: string | null): boolean {
@@ -1252,6 +1513,65 @@ function formatError(error: unknown): string {
   }
 
   return String(error);
+}
+
+function findLatestRelevantDiscussionComment(
+  comments: GitHubIssueComment[]
+): GitHubIssueComment | null {
+  const relevant = comments.filter((comment) => isRelevantDiscussionComment(comment));
+  return relevant.at(-1) ?? null;
+}
+
+function findLatestReactorCommentTimestamp(comments: GitHubIssueComment[]): string | null {
+  const reactorComments = comments.filter((comment) => {
+    const body = comment.body?.trim() ?? "";
+    const login = comment.user?.login?.toLowerCase() ?? "";
+    return (
+      body.includes(STATUS_COMMENT_MARKER) ||
+      body.includes("<!-- openreactor:agent-result -->") ||
+      login.endsWith("[bot]")
+    );
+  });
+
+  return reactorComments.at(-1)?.updated_at ?? null;
+}
+
+function isRelevantDiscussionComment(comment: GitHubIssueComment): boolean {
+  const body = comment.body?.trim() ?? "";
+  if (!body) {
+    return false;
+  }
+
+  if (body.includes(STATUS_COMMENT_MARKER) || body.includes("<!-- openreactor:agent-result -->")) {
+    return false;
+  }
+
+  const login = comment.user?.login?.toLowerCase() ?? "";
+  if (login.endsWith("[bot]")) {
+    return false;
+  }
+
+  return true;
+}
+
+function commentMentionsBot(body: string, aliases: string[]): boolean {
+  const normalizedBody = body.toLowerCase();
+  return aliases.some((alias) => normalizedBody.includes(alias.toLowerCase()));
+}
+
+function isNewerIsoTimestamp(left: string, right: string): boolean {
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+
+  if (!Number.isFinite(leftTime)) {
+    return false;
+  }
+
+  if (!Number.isFinite(rightTime)) {
+    return true;
+  }
+
+  return leftTime > rightTime;
 }
 
 async function sleep(ms: number): Promise<void> {

@@ -11,6 +11,8 @@ Rules:
 - Read `prompts/product-context.md`, `prompts/issue-agent.md`, `CONSTITUTION.md`,
   `PRODUCT_CONSTITUTION.md`, `OPENREACTOR_WORKFLOW.md`, and `ROADMAP.md` before
   deciding.
+- Treat the issue body and the recent issue discussion together as the current
+  request. Comments can refine, narrow, or materially update the task.
 - Classify the request's likely surface sensitivity as `low`, `medium`, or `high`.
 - Classify the current evidence strength for acting now as `weak`, `moderate`,
   or `strong`.
@@ -26,6 +28,9 @@ Rules:
 - Bank an issue when the direction may be worthwhile but should not be acted on
   yet because the evidence is too weak for its likely sensitivity, the product
   is not ready for it yet, or the feedback should accumulate first.
+- If the issue was previously too vague or too large, but the newer discussion
+  now narrows it into something actionable, prefer dispatch or decomposition
+  over repeating the earlier rejection/banking decision.
 - Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially
   valuable when the evidence is strong enough for the likely sensitivity.
 - Small, fun, silly feature requests (mini-games, easter eggs, playful
@@ -57,8 +62,13 @@ Rules:
 - If structured issue metadata marks the request as maintainer steering, do not
   reject or bank it solely for roadmap, product-direction, or constitution-fit
   reasons.
+- If a recent comment explicitly calls OpenReactor back into the issue, treat
+  that as evidence that the discussion should be reconsidered, not ignored.
 - Do not reject a request solely because it may require human account setup,
   API keys, OAuth configuration, or another human-only prerequisite. Dispatch it
   if the direction is worthwhile.
 - Do not implement code, edit files, open PRs, or mutate GitHub state yourself.
+- Provide concise public-facing reasoning in the structured `considerations`
+  field. Keep it to the main product factors you considered; do not emit hidden
+  chain-of-thought.
 - Return only the structured JSON result requested by the reactor.
