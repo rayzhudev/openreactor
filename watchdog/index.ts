@@ -60,6 +60,8 @@ class Watchdog {
   private readonly config = loadWatchdogConfig(this.reactorConfig.repoRoot);
   private readonly github = new GitHubClient(this.reactorConfig);
   private stopped = false;
+  private stopTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopSignal = createStopSignal();
 
   async start(once: boolean): Promise<void> {
     await fs.mkdir(this.config.stateDir, { recursive: true });
@@ -70,13 +72,36 @@ class Watchdog {
     }
 
     while (!this.stopped) {
-      await sleep(this.config.pollIntervalMs);
+      await this.waitForNextTick();
+      if (this.stopped) {
+        break;
+      }
       await this.tick();
     }
   }
 
   stop(): void {
+    if (this.stopped) {
+      return;
+    }
     this.stopped = true;
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer);
+      this.stopTimer = null;
+    }
+    this.stopSignal.resolve();
+  }
+
+  private async waitForNextTick(): Promise<void> {
+    await Promise.race([
+      this.stopSignal.promise,
+      new Promise<void>((resolve) => {
+        this.stopTimer = setTimeout(() => {
+          this.stopTimer = null;
+          resolve();
+        }, this.config.pollIntervalMs);
+      })
+    ]);
   }
 
   private async tick(): Promise<void> {
@@ -791,6 +816,28 @@ function labelNames(issue: GitHubIssue): Set<string> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createStopSignal(): {
+  promise: Promise<void>;
+  resolve: () => void;
+} {
+  let resolved = false;
+  let resolvePromise = () => {};
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      resolve();
+    };
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise
+  };
 }
 
 async function main(): Promise<void> {
