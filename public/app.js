@@ -33,14 +33,14 @@ const queuePageLabelNode = document.querySelector("#queue-page-label");
 const updateNotice = document.querySelector("#update-notice");
 const updateNoticeButton = document.querySelector("#update-notice-button");
 const themeOptionNodes = Array.from(document.querySelectorAll(".theme-option"));
-const supportSessionNode = document.querySelector("#support-session");
-const supportSessionCopyNode = document.querySelector("#support-session-copy");
-const supportSessionLink = document.querySelector("#support-session-link");
-const supportSignOutButton = document.querySelector("#support-signout-button");
-const requestAuthCopyNode = document.querySelector("#request-auth-copy");
-const requestAuthTierNode = document.querySelector("#request-auth-tier");
-const requestAuthLink = document.querySelector("#request-auth-link");
-const requestSignOutButton = document.querySelector("#request-signout-button");
+const authSignInNode = document.querySelector("#auth-sign-in");
+const authUserMenuNode = document.querySelector("#auth-user-menu");
+const authUserButton = document.querySelector("#auth-user-button");
+const authAvatarNode = document.querySelector("#auth-avatar");
+const authLoginNode = document.querySelector("#auth-login");
+const authDropdownNode = document.querySelector("#auth-dropdown");
+const authProfileLink = document.querySelector("#auth-profile-link");
+const authSignOutButton = document.querySelector("#auth-sign-out");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const THEME_STORAGE_KEY = "openreactor-theme";
@@ -227,20 +227,29 @@ async function boot() {
 }
 
 function initSupportSession() {
-  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+  if (!authSignInNode || !authUserMenuNode) {
     return;
   }
 
-  supportSignOutButton.addEventListener("click", onSupportSignOut);
-  if (requestSignOutButton) {
-    requestSignOutButton.addEventListener("click", onSupportSignOut);
+  if (authSignOutButton) {
+    authSignOutButton.addEventListener("click", onSupportSignOut);
+  }
+  if (authUserButton && authDropdownNode) {
+    authUserButton.addEventListener("click", toggleAuthDropdown);
+    document.addEventListener("click", (e) => {
+      if (!authUserMenuNode.contains(e.target)) {
+        closeAuthDropdown();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeAuthDropdown();
+    });
   }
   renderSupportSession();
-  renderRequestAuthPanel();
 }
 
 async function loadSupportSession() {
-  if (!supportSessionNode) {
+  if (!authSignInNode) {
     return;
   }
 
@@ -271,7 +280,6 @@ async function loadSupportSession() {
   }
 
   renderSupportSession();
-  renderRequestAuthPanel();
   renderQueueView();
   announceSupportSessionResult();
 }
@@ -844,73 +852,46 @@ function setStatus(message, tone) {
 }
 
 function renderSupportSession() {
-  if (!supportSessionNode || !supportSessionCopyNode || !supportSessionLink || !supportSignOutButton) {
+  if (!authSignInNode || !authUserMenuNode) {
     return;
   }
-
-  supportSessionNode.hidden = false;
 
   if (supportSession.authenticated && supportSession.login) {
-    supportSessionNode.dataset.state = "connected";
-    supportSessionCopyNode.textContent = `Signed in as @${supportSession.login}. Support actions and submission credit run through GitHub.`;
-    supportSessionLink.hidden = false;
-    supportSessionLink.href = supportSession.profileUrl || "https://github.com";
-    supportSessionLink.textContent = "View profile";
-    supportSessionLink.target = "_blank";
-    supportSessionLink.rel = "noreferrer";
-    supportSignOutButton.hidden = false;
+    authSignInNode.hidden = true;
+    authUserMenuNode.hidden = false;
+    if (authAvatarNode) {
+      authAvatarNode.src = `https://github.com/${encodeURIComponent(supportSession.login)}.png?size=48`;
+      authAvatarNode.alt = `@${supportSession.login}`;
+    }
+    if (authLoginNode) {
+      authLoginNode.textContent = supportSession.login;
+    }
+    if (authProfileLink) {
+      authProfileLink.href = supportSession.profileUrl || `https://github.com/${encodeURIComponent(supportSession.login)}`;
+    }
     return;
   }
 
-  supportSessionNode.dataset.state = supportSession.authAvailable ? "available" : "handoff";
-  supportSessionCopyNode.textContent = supportSession.authAvailable
-    ? "Sign in with GitHub to support issues from the site and get recognition for accepted contributions."
-    : "Support counts come from GitHub. Website sign-in needs maintainer OAuth setup first.";
-  supportSessionLink.hidden = false;
-  supportSessionLink.href = supportSession.authAvailable
-    ? buildSupportAuthUrl()
-    : "https://github.com/rayzhudev/openreactor/issues";
-  supportSessionLink.textContent = supportSession.authAvailable ? "Sign in with GitHub" : "Support on GitHub";
-  supportSessionLink.target = supportSession.authAvailable ? "_self" : "_blank";
+  authUserMenuNode.hidden = true;
   if (supportSession.authAvailable) {
-    supportSessionLink.removeAttribute("rel");
+    authSignInNode.hidden = false;
+    authSignInNode.href = buildSupportAuthUrl();
   } else {
-    supportSessionLink.rel = "noreferrer";
+    authSignInNode.hidden = true;
   }
-  supportSignOutButton.hidden = true;
 }
 
-function renderRequestAuthPanel() {
-  if (!requestAuthCopyNode || !requestAuthTierNode || !requestAuthLink || !requestSignOutButton) {
-    return;
-  }
+function toggleAuthDropdown() {
+  if (!authDropdownNode || !authUserButton) return;
+  const open = authDropdownNode.hidden;
+  authDropdownNode.hidden = !open;
+  authUserButton.setAttribute("aria-expanded", String(open));
+}
 
-  if (supportSession.authenticated && supportSession.login) {
-    requestAuthCopyNode.textContent = `Requests from this browser will be attributed to @${supportSession.login}, and merged feature PRs can credit that account automatically.`;
-    requestAuthTierNode.textContent = "Trust tier: GitHub account";
-    requestAuthLink.hidden = false;
-    requestAuthLink.href = supportSession.profileUrl || "https://github.com";
-    requestAuthLink.textContent = "View GitHub profile";
-    requestAuthLink.target = "_blank";
-    requestAuthLink.rel = "noreferrer";
-    requestSignOutButton.hidden = false;
-    return;
-  }
-
-  requestAuthTierNode.textContent = "Trust tier: anonymous";
-  requestAuthCopyNode.textContent = supportSession.authAvailable
-    ? "Log in with GitHub to get recognition for your contributions. Login is optional for submitting requests."
-    : "Requests can still be submitted anonymously. GitHub login will unlock contributor recognition once maintainer OAuth setup is complete.";
-  requestAuthLink.hidden = false;
-  requestAuthLink.href = supportSession.authAvailable ? buildSupportAuthUrl() : "https://github.com/rayzhudev/openreactor";
-  requestAuthLink.textContent = supportSession.authAvailable ? "Log in with GitHub" : "View on GitHub";
-  requestAuthLink.target = supportSession.authAvailable ? "_self" : "_blank";
-  if (supportSession.authAvailable) {
-    requestAuthLink.removeAttribute("rel");
-  } else {
-    requestAuthLink.rel = "noreferrer";
-  }
-  requestSignOutButton.hidden = true;
+function closeAuthDropdown() {
+  if (!authDropdownNode || !authUserButton) return;
+  authDropdownNode.hidden = true;
+  authUserButton.setAttribute("aria-expanded", "false");
 }
 
 function buildSupportAuthUrl() {

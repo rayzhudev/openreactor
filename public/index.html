@@ -32,11 +32,6 @@
           <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
         <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
-          <div id="support-session" class="or-note flex-wrap" hidden>
-            <p id="support-session-copy" class="max-w-96 text-[var(--ink-soft)] text-sm leading-snug">Sign in with GitHub to support issues from the site.</p>
-            <a id="support-session-link" class="or-button or-button--secondary" href="/api/auth/github?returnTo=/">Sign in with GitHub</a>
-            <button id="support-signout-button" class="or-button or-button--secondary" type="button" hidden>Sign out</button>
-          </div>
           <div class="or-button-group" role="group" aria-label="Color theme">
             <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
             <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
@@ -51,6 +46,23 @@
             </svg>
             <span>Star on GitHub</span>
           </a>
+          <a id="auth-sign-in" class="repo-star-link" href="/api/auth/github?returnTo=/" hidden>
+            <svg class="repo-star-gh" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
+            </svg>
+            <span>Sign in</span>
+          </a>
+          <div id="auth-user-menu" class="auth-user-menu" hidden>
+            <button id="auth-user-button" class="auth-user-button" type="button" aria-expanded="false" aria-haspopup="true">
+              <img id="auth-avatar" class="auth-avatar" src="" alt="" width="24" height="24" />
+              <span id="auth-login" class="auth-login"></span>
+              <svg class="auth-caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div id="auth-dropdown" class="auth-dropdown" hidden>
+              <a id="auth-profile-link" class="auth-dropdown-item" href="#" target="_blank" rel="noreferrer">Your GitHub profile</a>
+              <button id="auth-sign-out" class="auth-dropdown-item auth-sign-out" type="button">Sign out</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -93,26 +105,6 @@
           <p class="text-[var(--ink-soft)] text-sm leading-relaxed">Keep the scope narrow. Name what feels broken or off, and say what better should feel like.</p>
 
           <form id="request-form" class="grid gap-4" novalidate>
-            <div id="request-auth-panel" class="or-note or-note--stack">
-              <div class="grid gap-1">
-                <p class="or-field-label">Contribution identity</p>
-                <p id="request-auth-copy" class="text-sm text-[var(--ink-soft)] leading-relaxed">
-                  Log in with GitHub to get recognition for your contributions. Login is optional for submitting requests.
-                </p>
-                <p id="request-auth-tier" class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">
-                  Trust tier: anonymous
-                </p>
-              </div>
-              <div class="flex flex-wrap items-center gap-3">
-                <a id="request-auth-link" class="or-button or-button--secondary" href="/api/auth/github?returnTo=/">
-                  Log in with GitHub
-                </a>
-                <button id="request-signout-button" class="or-button or-button--secondary" type="button" hidden>
-                  Sign out
-                </button>
-              </div>
-            </div>
-
             <label class="grid gap-1.5" for="request">
               <span class="or-field-label">Request</span>
               <textarea
