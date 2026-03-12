@@ -19,30 +19,30 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
-    <main class="max-w-5xl mx-auto px-4 pt-5 pb-16 max-md:px-3 max-md:pt-4 max-md:pb-12">
+    <main class="or-shell">
 
-      <header class="flex items-center justify-between gap-4 pb-4 mb-6 border-b border-[var(--line)] flex-wrap">
-        <p class="text-lg font-bold tracking-tight">OpenReactor</p>
-        <nav class="flex items-center gap-1" aria-label="Site navigation">
-          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--accent-dark)] bg-[var(--accent-muted)]" href="/" aria-current="page">Intake</a>
-          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--accent-muted)] transition-colors" href="/playground/">Playground</a>
+      <header class="or-topbar">
+        <p class="or-brand">OpenReactor</p>
+        <nav class="or-nav" aria-label="Site navigation">
+          <a class="or-nav-link or-nav-link--active" href="/" aria-current="page">Intake</a>
+          <a class="or-nav-link" href="/playground/">Playground</a>
         </nav>
-        <button class="topbar-toggle hidden max-md:flex items-center justify-center w-10 h-10 p-0 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] cursor-pointer shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+        <button class="topbar-toggle or-button or-button--icon hidden max-md:flex shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
           <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
         <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
-          <div id="support-session" class="flex flex-wrap items-center gap-2.5 px-3 py-2 border border-[var(--line)] rounded-lg bg-[var(--surface)]" hidden>
+          <div id="support-session" class="or-note flex-wrap" hidden>
             <p id="support-session-copy" class="max-w-96 text-[var(--ink-soft)] text-sm leading-snug">Sign in with GitHub to support issues from the site.</p>
-            <a id="support-session-link" class="px-3 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="/api/auth/github?returnTo=/">Sign in with GitHub</a>
-            <button id="support-signout-button" class="px-3 py-2 rounded-lg text-sm font-medium border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] cursor-pointer hover:bg-[var(--surface-hover)]" type="button" hidden>Sign out</button>
+            <a id="support-session-link" class="or-button or-button--secondary" href="/api/auth/github?returnTo=/">Sign in with GitHub</a>
+            <button id="support-signout-button" class="or-button or-button--secondary" type="button" hidden>Sign out</button>
           </div>
-          <div class="inline-flex gap-1 p-1 border border-[var(--line)] rounded-lg bg-[var(--surface)]" role="group" aria-label="Color theme">
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
+          <div class="or-button-group" role="group" aria-label="Color theme">
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
           </div>
-          <a id="repo-star-link" class="px-3 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="#" target="_blank" rel="noreferrer" hidden>Star on GitHub</a>
+          <a id="repo-star-link" class="or-button or-button--secondary" href="#" target="_blank" rel="noreferrer" hidden>Star on GitHub</a>
         </div>
       </header>
 
@@ -55,7 +55,7 @@
             accepted work ships through public PRs, and the product learns as
             it goes.
           </p>
-          <div class="flex items-center gap-3 p-3 border border-[var(--line)] rounded-lg bg-[var(--surface)]" aria-label="OpenReactor mascot note">
+          <div class="or-note" aria-label="OpenReactor mascot note">
             <svg class="frog-portrait shrink-0" viewBox="0 0 180 140" role="img" aria-labelledby="frog-title frog-desc">
               <title id="frog-title">OpenReactor frog mascot</title>
               <desc id="frog-desc">A cheerful frog sticker with bright eyes.</desc>
@@ -77,20 +77,20 @@
             </svg>
             <p class="text-sm font-medium text-[var(--ink-soft)]">Guarding the quality bar, one ribbit at a time.</p>
           </div>
-          <a class="w-fit px-4 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="/request-guide/">Read the request guide</a>
+          <a class="or-button or-button--secondary w-fit" href="/request-guide/">Read the request guide</a>
         </div>
 
-        <section class="grid gap-4 p-6 border border-[var(--line)] rounded-xl content-start" aria-labelledby="intake-title">
+        <section class="or-panel content-start" aria-labelledby="intake-title">
           <h2 class="text-xl font-semibold tracking-tight" id="intake-title">Submit a request.</h2>
           <p class="text-[var(--ink-soft)] text-sm leading-relaxed">Keep the scope narrow. Name what feels broken or off, and say what better should feel like.</p>
 
           <form id="request-form" class="grid gap-4" novalidate>
             <label class="grid gap-1.5" for="request">
-              <span class="text-xs font-medium tracking-wide uppercase">Request</span>
+              <span class="or-field-label">Request</span>
               <textarea
                 id="request"
                 name="request"
-                class="w-full p-3 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent aria-[invalid=true]:border-[var(--queue-rejected)] placeholder:text-[var(--ink-faint)] min-h-48 resize-y leading-relaxed max-md:min-h-40"
+                class="or-textarea focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent aria-[invalid=true]:border-[var(--queue-rejected)] leading-relaxed max-md:min-h-40"
                 rows="7"
                 maxlength="2000"
                 minlength="20"
@@ -102,11 +102,11 @@
             <p id="request-count" class="text-[var(--ink-faint)] text-sm text-right" aria-live="polite">0 / 2000</p>
 
             <label class="grid gap-1.5" for="scope-preference">
-              <span class="text-xs font-medium tracking-wide uppercase">Desired scope</span>
+              <span class="or-field-label">Desired scope</span>
               <select
                 id="scope-preference"
                 name="scopePreference"
-                class="w-full p-3 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent appearance-none cursor-pointer"
+                class="or-select focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent appearance-none cursor-pointer"
               >
                 <option value="auto" selected>Auto (agent decides)</option>
                 <option value="25">Minimal change</option>
@@ -116,11 +116,11 @@
             </label>
 
             <label class="grid gap-1.5" for="github-username">
-              <span class="text-xs font-medium tracking-wide uppercase">GitHub username (optional)</span>
+              <span class="or-field-label">GitHub username (optional)</span>
               <input
                 id="github-username"
                 name="githubUsername"
-                class="w-full p-3 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent aria-[invalid=true]:border-[var(--queue-rejected)] placeholder:text-[var(--ink-faint)]"
+                class="or-input focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent aria-[invalid=true]:border-[var(--queue-rejected)]"
                 type="text"
                 inputmode="text"
                 autocomplete="username"
@@ -136,7 +136,7 @@
 
             <div class="flex items-center justify-between gap-4 pt-3 border-t border-[var(--line)] max-md:flex-col max-md:items-stretch">
               <p class="text-[var(--ink-soft)] text-sm leading-relaxed">The agent may reinterpret your wording into the best small product move.</p>
-              <button class="px-5 py-3 rounded-lg text-sm font-semibold tracking-wide uppercase bg-[var(--accent)] text-white cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-wait max-md:w-full" id="submit-button" type="submit">Submit</button>
+              <button class="or-button or-button--primary px-5 py-3 uppercase tracking-wide disabled:opacity-50 disabled:cursor-wait max-md:w-full" id="submit-button" type="submit">Submit</button>
             </div>
 
             <p id="form-status" class="min-h-6 text-sm leading-normal" role="status" aria-live="polite"></p>
@@ -144,22 +144,22 @@
         </section>
       </section>
 
-      <section class="mb-4 p-6 border border-[var(--line)] rounded-xl" aria-labelledby="my-requests-title">
+      <section class="or-panel or-panel--plain mb-4" aria-labelledby="my-requests-title">
         <h2 class="text-xl font-semibold tracking-tight" id="my-requests-title">My requests</h2>
         <p class="mt-1 text-[var(--ink-soft)] text-sm">Requests submitted from this browser stay pinned here.</p>
         <p id="my-requests-status" class="min-h-6 mt-3 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Checking this browser for saved requests...</p>
         <div id="my-requests-list" class="grid grid-cols-2 max-md:grid-cols-1 gap-3 mt-2"></div>
       </section>
 
-      <section class="mb-4 p-6 border border-[var(--line)] rounded-xl" aria-labelledby="queue-title">
+      <section class="or-panel or-panel--plain mb-4" aria-labelledby="queue-title">
         <div class="flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
           <h2 class="text-xl font-semibold tracking-tight" id="queue-title">Requests in the open</h2>
           <div class="flex items-center gap-3 max-md:flex-col max-md:items-stretch">
-            <div class="inline-flex p-1 border border-[var(--line)] rounded-lg bg-[var(--surface)]" role="group" aria-label="Queue layout">
-              <button id="queue-view-board" class="queue-view-button px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] aria-pressed:bg-[var(--accent-muted)] aria-pressed:text-[var(--accent-dark)]" type="button" data-view="board" aria-pressed="true">Board</button>
-              <button id="queue-view-list" class="queue-view-button px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] aria-pressed:bg-[var(--accent-muted)] aria-pressed:text-[var(--accent-dark)]" type="button" data-view="list" aria-pressed="false">List</button>
+            <div class="or-button-group" role="group" aria-label="Queue layout">
+              <button id="queue-view-board" class="queue-view-button or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 aria-pressed:bg-[var(--accent-muted)] aria-pressed:text-[var(--accent-dark)]" type="button" data-view="board" aria-pressed="true">Board</button>
+              <button id="queue-view-list" class="queue-view-button or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 aria-pressed:bg-[var(--accent-muted)] aria-pressed:text-[var(--accent-dark)]" type="button" data-view="list" aria-pressed="false">List</button>
             </div>
-            <a id="queue-repo-link" class="px-3 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="#" target="_blank" rel="noreferrer" hidden>View on GitHub</a>
+            <a id="queue-repo-link" class="or-button or-button--secondary" href="#" target="_blank" rel="noreferrer" hidden>View on GitHub</a>
           </div>
         </div>
         <p id="queue-status" class="min-h-6 mt-3 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading queue...</p>
@@ -186,14 +186,14 @@
           </summary>
           <ul id="queue-archive-list" class="grid gap-0 m-0 p-0 list-none border-t border-[var(--line)]"></ul>
           <nav id="queue-archive-pagination" class="flex items-center justify-center gap-3 p-3 border-t border-[var(--line)] flex-wrap" aria-label="Archive pages">
-            <button id="queue-newer" class="px-4 py-2 border border-[var(--line)] rounded-lg text-sm font-medium cursor-pointer hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-default max-md:flex-1" type="button">Newer</button>
+            <button id="queue-newer" class="or-button or-button--secondary disabled:opacity-40 disabled:cursor-default max-md:flex-1" type="button">Newer</button>
             <p id="queue-page-label" class="text-[var(--ink-soft)] text-sm max-md:w-full max-md:text-center max-md:-order-1" aria-live="polite">Archive page 1</p>
-            <button id="queue-older" class="px-4 py-2 border border-[var(--line)] rounded-lg text-sm font-medium cursor-pointer hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:cursor-default max-md:flex-1" type="button">Older</button>
+            <button id="queue-older" class="or-button or-button--secondary disabled:opacity-40 disabled:cursor-default max-md:flex-1" type="button">Older</button>
           </nav>
         </details>
       </section>
 
-      <section class="p-6 border border-[var(--line)] rounded-xl" aria-labelledby="leaderboard-title">
+      <section class="or-panel or-panel--plain" aria-labelledby="leaderboard-title">
         <div class="flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
           <h2 class="text-xl font-semibold tracking-tight" id="leaderboard-title">Leaderboard</h2>
           <p id="leaderboard-summary" class="text-[var(--ink-soft)] text-sm text-right max-md:text-left">Loading leaderboard...</p>
@@ -218,7 +218,7 @@
     </main>
 
     <div id="update-notice" class="fixed right-4 bottom-4 z-10" role="status" aria-live="polite" data-visible="false" hidden>
-      <button id="update-notice-button" class="px-4 py-2 rounded-lg text-sm font-medium border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--ink)] shadow-lg cursor-pointer hover:bg-[var(--surface-hover)]" type="button">Changes available. Reload page?</button>
+          <button id="update-notice-button" class="or-button or-button--secondary shadow-lg" type="button">Changes available. Reload page?</button>
     </div>
 
     <script type="module" src="/app.js"></script>

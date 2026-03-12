@@ -15,34 +15,34 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
-    <main class="max-w-5xl mx-auto px-4 pt-5 pb-16 max-md:px-3 max-md:pt-4 max-md:pb-12">
+    <main class="or-shell">
 
-      <header class="flex items-center justify-between gap-4 pb-4 mb-6 border-b border-[var(--line)] flex-wrap">
-        <p class="text-lg font-bold tracking-tight"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
-        <nav class="flex items-center gap-1" aria-label="Site navigation">
-          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--accent-muted)]" href="/">Intake</a>
-          <a class="px-3 py-2 rounded-lg text-sm font-medium no-underline text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--accent-muted)]" href="/playground/">Playground</a>
+      <header class="or-topbar">
+        <p class="or-brand"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <nav class="or-nav" aria-label="Site navigation">
+          <a class="or-nav-link" href="/">Intake</a>
+          <a class="or-nav-link" href="/playground/">Playground</a>
         </nav>
-        <button class="topbar-toggle hidden max-md:flex items-center justify-center w-10 h-10 p-0 border border-[var(--line)] rounded-lg bg-[var(--surface)] text-[var(--ink)] cursor-pointer shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+        <button class="topbar-toggle or-button or-button--icon hidden max-md:flex shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
           <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
         <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
-          <div class="inline-flex gap-1 p-1 border border-[var(--line)] rounded-lg bg-[var(--surface)]" role="group" aria-label="Color theme">
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
-            <button class="theme-option px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer text-[var(--ink-soft)] hover:text-[var(--ink)] hover:bg-[var(--surface-hover)] data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
+          <div class="or-button-group" role="group" aria-label="Color theme">
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system">System</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark">Dark</button>
+            <button class="theme-option or-button or-button--ghost min-h-0 px-3 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light">Light</button>
           </div>
         </div>
       </header>
 
       <section class="mb-8" aria-labelledby="guide-title">
-        <p class="text-xs font-medium tracking-wide uppercase text-[var(--accent-dark)]">Request guide</p>
+        <p class="or-kicker">Request guide</p>
         <h1 class="mt-2 text-3xl md:text-4xl font-bold tracking-tight" id="guide-title">Write for product clarity, not approval gaming.</h1>
         <p class="mt-3 text-[var(--ink-soft)] text-sm max-w-2xl leading-relaxed">
           OpenReactor does not accept requests because they use magic words. It accepts requests that are safe, scoped, and useful for the product. This guide shows how the review loop works and how to submit something an agent can act on in one pass.
         </p>
-        <div class="flex items-center gap-3 mt-4 p-3 border border-[var(--line)] rounded-lg bg-[var(--surface)] max-w-md" aria-label="OpenReactor mascot note">
+        <div class="or-note mt-4 max-w-md" aria-label="OpenReactor mascot note">
           <svg class="frog-portrait shrink-0" viewBox="0 0 180 140" role="img" aria-labelledby="frog-guide-title frog-guide-desc">
             <title id="frog-guide-title">OpenReactor frog mascot</title>
             <desc id="frog-guide-desc">A cheerful frog sticker with bright eyes.</desc>
@@ -67,8 +67,8 @@
       </section>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <section class="p-6 border border-[var(--line)] rounded-xl" aria-labelledby="review-title">
-          <p class="text-xs font-medium tracking-wide uppercase text-[var(--accent-dark)]">How review works</p>
+        <section class="or-panel" aria-labelledby="review-title">
+          <p class="or-kicker">How review works</p>
           <h2 class="mt-2 text-xl font-semibold tracking-tight" id="review-title">What happens after you submit</h2>
           <ol class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Your request becomes a public GitHub issue.</li>
@@ -81,8 +81,8 @@
           </p>
         </section>
 
-        <section class="p-6 border border-[var(--line)] rounded-xl" aria-labelledby="ingredients-title">
-          <p class="text-xs font-medium tracking-wide uppercase text-[var(--accent-dark)]">What to include</p>
+        <section class="or-panel" aria-labelledby="ingredients-title">
+          <p class="or-kicker">What to include</p>
           <h2 class="mt-2 text-xl font-semibold tracking-tight" id="ingredients-title">The ingredients of a strong request</h2>
           <ul class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Ask for one change only. Split separate ideas into separate issues.</li>
@@ -93,8 +93,8 @@
           </ul>
         </section>
 
-        <section class="p-6 border border-[var(--line)] rounded-xl" aria-labelledby="avoid-title">
-          <p class="text-xs font-medium tracking-wide uppercase text-[var(--accent-dark)]">What to avoid</p>
+        <section class="or-panel" aria-labelledby="avoid-title">
+          <p class="or-kicker">What to avoid</p>
           <h2 class="mt-2 text-xl font-semibold tracking-tight" id="avoid-title">Common reasons requests lose signal</h2>
           <ul class="mt-4 grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
             <li>Bundling a landing page redesign, onboarding changes, and analytics into one request.</li>
@@ -105,8 +105,8 @@
           </ul>
         </section>
 
-        <section class="p-6 border border-[var(--line)] rounded-xl" aria-labelledby="format-title">
-          <p class="text-xs font-medium tracking-wide uppercase text-[var(--accent-dark)]">Simple framing</p>
+        <section class="or-panel" aria-labelledby="format-title">
+          <p class="or-kicker">Simple framing</p>
           <h2 class="mt-2 text-xl font-semibold tracking-tight" id="format-title">A format that works well</h2>
           <div class="mt-4 grid gap-2 text-[var(--ink-soft)] text-sm leading-relaxed">
             <p><strong>Summary:</strong> One sentence on the change you want.</p>
@@ -122,8 +122,8 @@
       </div>
 
       <div class="mt-6 flex gap-3">
-        <a class="px-4 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="/">Back to intake</a>
-        <a class="px-4 py-2 rounded-lg text-sm font-medium no-underline border border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-hover)]" href="/#queue-title">View public queue</a>
+        <a class="or-button or-button--secondary" href="/">Back to intake</a>
+        <a class="or-button or-button--secondary" href="/#queue-title">View public queue</a>
       </div>
     </main>
     <script type="module" src="/app.js"></script>

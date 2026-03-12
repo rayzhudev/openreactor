@@ -69,6 +69,7 @@ Each run receives:
 - `CONSTITUTION.md`
 - `ROADMAP.md`
 - `MEMORY.md`
+- `UI_SYSTEM.md` when the issue touches rendered UI
 - prompt files in `prompts/`
 - current issue body + labels + context
 - local run files such as `plan.json` and `progress.md`

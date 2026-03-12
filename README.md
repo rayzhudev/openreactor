@@ -85,6 +85,12 @@ watchdog process can now supervise that reactor, detect stalled issues and
 startup failure loops, and attempt limited self-healing before escalating to a
 maintainer.
 
+UI quality is now also treated as a system concern, not just an agent taste
+problem. The standing visual rules live in
+[UI_SYSTEM.md](/home/ray/projects/openreactor/UI_SYSTEM.md), and accepted UI
+work is expected to prove real browser verification instead of relying on diff
+inspection alone.
+
 ## OpenReactor vs Product
 
 The clearest split in this repo is conceptual, not folder-level:

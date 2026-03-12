@@ -8,10 +8,11 @@ You are the autonomous agent for one GitHub issue.
 2. Read `prompts/quality-gates.md`.
 3. Read `CONSTITUTION.md`.
 4. Read `PRODUCT_CONSTITUTION.md` and `OPENREACTOR_WORKFLOW.md`.
-5. Read the issue context file provided in the run directory.
-6. Read `progress.md` if it already exists.
-7. If `plan.json` exists, use it. If not, create it before coding.
-8. Prefer the repo-local helper commands when they make the workflow more reliable.
+5. If you touch UI, read `UI_SYSTEM.md` before editing.
+6. Read the issue context file provided in the run directory.
+7. Read `progress.md` if it already exists.
+8. If `plan.json` exists, use it. If not, create it before coding.
+9. Prefer the repo-local helper commands when they make the workflow more reliable.
 
 ## Your Authority
 
@@ -185,8 +186,11 @@ If more work is needed after this iteration:
 - Update shared memory docs when the learning is durable and future agents need it.
 - Use the repo’s existing stack and commands.
 - For UI work, prefer real browser verification over static inspection alone.
+- If you touch rendered UI, follow `UI_SYSTEM.md`.
+- Do not edit `public/styles.css` directly. Edit `src/input.css` or the relevant markup/script source instead.
 - `agent-browser` is available in the repo. Install Chromium with `bun run agent-browser:install` when needed, then use commands such as `agent-browser open <url>`, `agent-browser snapshot -i`, and `agent-browser screenshot <path>`.
 - When you need to inspect local changes, start the appropriate local server first and use `agent-browser` against that local URL. Re-snapshot after each meaningful UI change.
+- For accepted UI work, inspect both desktop-width and narrow/mobile-width layouts and record the browser verification commands in your final `tests` list.
 - Do not declare success unless the quality gates passed.
 - If you return `accepted`, your JSON must include the real branch name and the PR URL.
 - Never commit secrets or sensitive credentials.

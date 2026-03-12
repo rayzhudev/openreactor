@@ -71,3 +71,10 @@
   outright.
   Reason: strong numeric or absolute requests often carry a valid product
   signal even when the literal target would be counterproductive.
+
+- Decision: treat UI quality as a governed system concern by requiring agents
+  to follow `UI_SYSTEM.md` and provide browser verification evidence for
+  accepted rendered-UI changes.
+  Reason: frontend quality decays quickly when autonomous changes rely only on
+  local code edits and taste drift, so the reactor needs both a shared visual
+  baseline and runtime enforcement.
