@@ -354,11 +354,41 @@ button {
   color: #fff9f2;
 }
 
+.repo-star-link {
+  border-color: rgba(255, 183, 27, 0.35) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 183, 27, 0.12), rgba(255, 210, 100, 0.06)),
+    var(--control-bg) !important;
+}
+
+.repo-star-link:hover,
+.repo-star-link:focus-visible {
+  border-color: rgba(255, 183, 27, 0.55) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 183, 27, 0.22), rgba(255, 210, 100, 0.12)),
+    var(--control-bg) !important;
+  box-shadow:
+    0 2px 12px rgba(255, 183, 27, 0.18),
+    var(--shadow-soft) !important;
+}
+
 .repo-star-icon {
   width: 1rem;
   height: 1rem;
   fill: currentColor;
   flex: none;
+}
+
+.repo-star-star {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: rgb(255, 183, 27);
+  flex: none;
+  transition: transform 280ms ease;
+}
+
+.repo-star-link:hover .repo-star-star {
+  transform: scale(1.2) rotate(15deg);
 }
 
 .feed-link {
