@@ -92,8 +92,12 @@ implementable task.
 
 ## Maintainer steering
 
-If an intake issue declares a `GitHub Username` that matches the repository
-owner, agents should treat it as maintainer steering.
+If a trusted issue signal marks the request as maintainer steering, agents
+should treat it as maintainer steering. Trusted signals include:
+
+- the real GitHub issue author matching the repository owner
+- the `maintainer-steered` label applied by trusted OpenReactor intake or
+  decomposition flows
 
 Maintainer-steered issues may exceed the normal product-direction filters when
 they are explicit requests to move the product in a new direction or make a

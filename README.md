@@ -78,6 +78,8 @@ What is live now:
 - public queue view backed by GitHub issues
 - GitHub-backed support counts and signed-in support actions when website OAuth is configured
 - signed-in GitHub attribution for website submissions, while anonymous submission still remains allowed
+- trusted maintainer steering and authenticated submitter identity propagation
+  through decomposed child issues
 - local reactor loop for autonomous issue handling
 
 The website/backend and the reactor are separate:

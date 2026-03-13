@@ -19,6 +19,8 @@ const SESSION_COOKIE_NAME = "openreactor_session";
 const AUTH_STATE_COOKIE_NAME = "openreactor_auth_state";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const AUTH_STATE_TTL_SECONDS = 10 * 60;
+const MAINTAINER_STEERED_LABEL = "maintainer-steered";
+const AUTHENTICATED_SUBMITTER_LABEL = "submitter:github-authenticated";
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
@@ -94,6 +96,9 @@ interface GitHubIssue {
   state: "open" | "closed";
   pull_request?: Record<string, unknown>;
   labels?: Array<{ name?: string }>;
+  user?: {
+    login?: string;
+  };
   reactions?: {
     "+1"?: number;
   };
@@ -720,14 +725,17 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
   }
 
   const session = await readSupportSession(request, normalized);
+  const trustedLabels = getTrustedSubmissionLabels(normalized, session);
   const attributedRequest: ValidatedFeatureRequest = {
     ...validated,
-    githubUsername: session?.login || validated.githubUsername
+    githubUsername: session?.login ?? ""
   };
 
   const fallbackUrl = buildIssueCreateUrl(normalized, attributedRequest, request);
-  const labels = await getExistingLabels(normalized);
-  const body = buildIssueBody(attributedRequest, request);
+  const labels = await getExistingLabels(normalized, trustedLabels);
+  const body = buildIssueBody(attributedRequest, request, {
+    authenticatedGithubLogin: session?.login ?? null
+  });
 
   if (!hasGitHubApiAuth(normalized)) {
     return jsonResponse(
@@ -870,12 +878,19 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
   };
 }
 
-function buildIssueBody(input: ValidatedFeatureRequest, request: Request): string {
+function buildIssueBody(
+  input: ValidatedFeatureRequest,
+  request: Request,
+  options: { authenticatedGithubLogin?: string | null } = {}
+): string {
   const url = new URL(request.url);
   const submittedAt = new Date().toISOString();
   const origin = `${url.protocol}//${url.host}`;
   const desiredScope = describeScopePreference(input.scopePreference);
   const submittedBy = input.name || (input.githubUsername ? `GitHub @${input.githubUsername}` : "_Anonymous_");
+  const submissionIdentity = options.authenticatedGithubLogin
+    ? `Authenticated GitHub session (@${options.authenticatedGithubLogin})`
+    : "Unauthenticated / anonymous";
 
   return [
     REQUEST_MARKER,
@@ -906,6 +921,9 @@ function buildIssueBody(input: ValidatedFeatureRequest, request: Request): strin
     "",
     "## GitHub Username",
     input.githubUsername ? `@${input.githubUsername}` : "_Not provided_",
+    "",
+    "## Submission Identity",
+    submissionIdentity,
     "",
     "## Contact",
     input.contact || "_Not provided_",
@@ -938,14 +956,31 @@ function describeScopePreference(value: ScopePreference): string {
   return `${value} / 100 — ${labels[value]}`;
 }
 
-async function getExistingLabels(env: Env): Promise<string[]> {
+function getTrustedSubmissionLabels(
+  env: NormalizedEnv,
+  session: SupportSession | null
+): string[] {
+  if (!session?.login) {
+    return [];
+  }
+
+  const labels = [AUTHENTICATED_SUBMITTER_LABEL];
+  if (session.login.toLowerCase() === env.GITHUB_OWNER.toLowerCase()) {
+    labels.push(MAINTAINER_STEERED_LABEL);
+  }
+
+  return labels;
+}
+
+async function getExistingLabels(env: Env, extraLabels: string[] = []): Promise<string[]> {
   const normalized = normalizeEnv(env);
   const configuredLabels = normalized.GITHUB_LABELS
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const requestedLabels = Array.from(new Set([...configuredLabels, ...extraLabels]));
 
-  if (!configuredLabels.length || !isRepoConfigured(normalized)) {
+  if (!requestedLabels.length || !isRepoConfigured(normalized)) {
     return [];
   }
 
@@ -956,7 +991,7 @@ async function getExistingLabels(env: Env): Promise<string[]> {
     );
 
     const available = new Set(labels.map((label) => label.name).filter(Boolean));
-    return configuredLabels.filter((label) => available.has(label));
+    return requestedLabels.filter((label) => available.has(label));
   } catch {
     return [];
   }
@@ -1227,6 +1262,18 @@ function extractStatusField(body: string, label: string): string {
 }
 
 function getIssueGitHubUsername(issue: GitHubIssue): string | null {
+  const authorLogin = normalizeGitHubUsername(issue.user?.login);
+  if (authorLogin && !/\[bot\]$/i.test(authorLogin)) {
+    return authorLogin;
+  }
+
+  if (
+    !issueHasLabel(issue, AUTHENTICATED_SUBMITTER_LABEL) &&
+    !issueHasLabel(issue, MAINTAINER_STEERED_LABEL)
+  ) {
+    return null;
+  }
+
   const value = getIssueSectionValue(issue.body, "GitHub Username");
 
   if (!value || /^_not provided_$/i.test(value)) {
@@ -1246,6 +1293,12 @@ function getIssueSectionValue(body: string | undefined, heading: string): string
   const match = body.match(new RegExp(`^## ${escapedHeading}\\n([\\s\\S]*?)(?:\\n## |$)`, "m"));
 
   return clean(match?.[1]);
+}
+
+function issueHasLabel(issue: Pick<GitHubIssue, "labels">, labelName: string): boolean {
+  return (issue.labels ?? []).some(
+    (label) => (label.name ?? "").toLowerCase() === labelName.toLowerCase()
+  );
 }
 
 async function listRequestIssues(env: Env): Promise<GitHubIssue[]> {

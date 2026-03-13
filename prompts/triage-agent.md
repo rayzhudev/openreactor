@@ -73,9 +73,9 @@ Rules:
 - If an `openreactor-core` issue is clearly a watchdog-generated repair request
   for a concrete OpenReactor failure, treat it as actionable internal repair
   work rather than banking it as a vague proposal.
-- If structured issue metadata marks the request as maintainer steering, do not
-  reject or bank it solely for roadmap, product-direction, or constitution-fit
-  reasons.
+- If trusted issue metadata or the real GitHub issue author marks the request
+  as maintainer steering, do not reject or bank it solely for roadmap,
+  product-direction, or constitution-fit reasons.
 - If a recent comment explicitly calls OpenReactor back into the issue, treat
   that as evidence that the discussion should be reconsidered, not ignored.
 - Do not reject a request solely because it may require human account setup,

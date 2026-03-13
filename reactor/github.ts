@@ -18,6 +18,9 @@ export interface GitHubIssue {
   state: string;
   created_at: string;
   updated_at: string;
+  user?: {
+    login?: string;
+  };
   labels: Array<{ name?: string }>;
   pull_request?: Record<string, unknown>;
 }
