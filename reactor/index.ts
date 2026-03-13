@@ -117,6 +117,16 @@ class Reactor {
       "OpenReactor rejected this issue as not worth implementing."
     );
     await this.github.ensureLabel(
+      this.config.maintainerSteeredLabel,
+      "5319e7",
+      "Trusted signal that this issue is maintainer-steered and may exceed normal product-direction filters."
+    );
+    await this.github.ensureLabel(
+      this.config.authenticatedSubmitterLabel,
+      "0e8a16",
+      "Trusted signal that the submitter identity came from an authenticated GitHub account."
+    );
+    await this.github.ensureLabel(
       SENSITIVITY_LABELS.low,
       "0e8a16",
       "This request likely affects a low-sensitivity surface such as a side page or isolated experiment."
@@ -976,12 +986,18 @@ class Reactor {
           await writeRunRecord(paths, activeRun.record);
         } else {
           const createdIssues = [];
+          const inheritedLabels = getInheritedTrustedLabels(this.config, activeRun.issue);
           for (const child of result.decomposition.childIssues) {
             const title = normalizeDecomposedIssueTitle(child.title);
-            const body = ensureParentLinkInDecomposedIssueBody(activeRun.issue, child.body);
+            const body = ensureInheritedIssueMetadata(
+              this.config,
+              activeRun.issue,
+              ensureParentLinkInDecomposedIssueBody(activeRun.issue, child.body)
+            );
             const createdIssue = await this.github.createIssue({
               title,
-              body
+              body,
+              labels: inheritedLabels
             });
             createdIssues.push(createdIssue);
           }
@@ -1447,15 +1463,24 @@ function getLabelNames(issue: GitHubIssue): Set<string> {
 }
 
 function getMaintainerSteeringSignal(
-  config: Pick<OrchestratorConfig, "owner">,
-  issue: Pick<GitHubIssue, "body">
+  config: Pick<OrchestratorConfig, "owner" | "maintainerSteeredLabel">,
+  issue: Pick<GitHubIssue, "body" | "labels" | "user">
 ): { username: string } | null {
-  const username = normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
-  if (!username) {
+  const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
+  if (authorLogin && authorLogin.toLowerCase() === config.owner.toLowerCase()) {
+    return { username: authorLogin };
+  }
+
+  if (!issueHasLabel(issue, config.maintainerSteeredLabel)) {
     return null;
   }
 
-  return username.toLowerCase() === config.owner.toLowerCase() ? { username } : null;
+  const username = normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
+  if (username && username.toLowerCase() === config.owner.toLowerCase()) {
+    return { username };
+  }
+
+  return { username: config.owner };
 }
 
 function readStructuredIssueField(body: string | null | undefined, field: string): string | null {
@@ -1480,6 +1505,83 @@ function normalizeGitHubUsername(value: string | null): string | null {
   }
 
   return cleaned;
+}
+
+function issueHasLabel(
+  issue: Pick<GitHubIssue, "labels">,
+  labelName: string
+): boolean {
+  return issue.labels.some(
+    (label) => (label.name ?? "").trim().toLowerCase() === labelName.toLowerCase()
+  );
+}
+
+function getInheritedTrustedLabels(
+  config: Pick<
+    OrchestratorConfig,
+    "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
+  >,
+  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+): string[] {
+  const inherited = new Set<string>();
+  if (getTrustedSubmitterUsername(config, issue)) {
+    inherited.add(config.authenticatedSubmitterLabel);
+  }
+  if (getMaintainerSteeringSignal(config, issue)) {
+    inherited.add(config.maintainerSteeredLabel);
+  }
+  return Array.from(inherited);
+}
+
+function ensureInheritedIssueMetadata(
+  config: Pick<
+    OrchestratorConfig,
+    "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
+  >,
+  issue: Pick<GitHubIssue, "body" | "labels" | "user">,
+  childBody: string
+): string {
+  const githubUsername =
+    readStructuredIssueField(issue.body, "GitHub Username") ??
+    getTrustedSubmitterUsername(config, issue);
+  const submissionIdentity = readStructuredIssueField(issue.body, "Submission Identity");
+  const additions: string[] = [];
+
+  if (githubUsername && !/## GitHub Username/i.test(childBody)) {
+    additions.push("## GitHub Username", githubUsername.trim(), "");
+  }
+
+  if (submissionIdentity && !/## Submission Identity/i.test(childBody)) {
+    additions.push("## Submission Identity", submissionIdentity.trim(), "");
+  }
+
+  if (!additions.length) {
+    return childBody;
+  }
+
+  return `${childBody.trim()}\n\n${additions.join("\n").trim()}\n`;
+}
+
+function getTrustedSubmitterUsername(
+  config: Pick<
+    OrchestratorConfig,
+    "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
+  >,
+  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+): string | null {
+  const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
+  if (authorLogin && !/\[bot\]$/i.test(authorLogin)) {
+    return authorLogin;
+  }
+
+  if (
+    issueHasLabel(issue, config.authenticatedSubmitterLabel) ||
+    issueHasLabel(issue, config.maintainerSteeredLabel)
+  ) {
+    return normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
+  }
+
+  return null;
 }
 
 function normalizeTriageResult(

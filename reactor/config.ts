@@ -15,6 +15,8 @@ export interface OrchestratorConfig {
   pausedLabel: string;
   acceptedLabel: string;
   rejectedLabel: string;
+  maintainerSteeredLabel: string;
+  authenticatedSubmitterLabel: string;
   featureRequestMarker: string;
   branchPrefix: string;
   owner: string;
@@ -53,6 +55,11 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     pausedLabel: clean(process.env.OPENREACTOR_PAUSED_LABEL) || "or:paused",
     acceptedLabel: clean(process.env.OPENREACTOR_ACCEPTED_LABEL) || "accepted",
     rejectedLabel: clean(process.env.OPENREACTOR_REJECTED_LABEL) || "rejected",
+    maintainerSteeredLabel:
+      clean(process.env.OPENREACTOR_MAINTAINER_STEERED_LABEL) || "maintainer-steered",
+    authenticatedSubmitterLabel:
+      clean(process.env.OPENREACTOR_AUTHENTICATED_SUBMITTER_LABEL) ||
+      "submitter:github-authenticated",
     featureRequestMarker: "<!-- openreactor:feature-request -->",
     branchPrefix: clean(process.env.OPENREACTOR_BRANCH_PREFIX) || "openreactor/issue-",
     owner: resolveOwner(repoRoot, localEnv),

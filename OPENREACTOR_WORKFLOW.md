@@ -31,6 +31,8 @@ maintainer consideration.
   policy.
 - OpenReactor changes should usually come from maintainer steering or
   explicitly labeled OpenReactor issues.
+- Trusted maintainer steering should come from real GitHub authorship or
+  trusted OpenReactor-applied labels, not from free-text body fields.
 - Readability and recoverability matter more than cleverness in core runtime
   code.
 - OpenReactor should be allowed to evolve as a process, not frozen as a rigid

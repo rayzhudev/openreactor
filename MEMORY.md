@@ -41,8 +41,11 @@
 
 - Decision: credit merged issue-loop PRs on the public leaderboard to the requester's optional GitHub username when the issue body provides one.
   Reason: issue-branch PR authors are often the reactor bot, so public contribution credit should follow the request attribution captured in the issue itself.
-- Decision: treat issues whose structured `GitHub Username` matches the repo owner as maintainer steering.
-  Reason: maintainer requests should be able to push the product in sharper new directions without being rejected solely for normal constitution-fit or roadmap-fit heuristics, while still preserving hard safety and feasibility limits.
+- Decision: treat trusted maintainer signals as the source of maintainer
+  steering, not raw issue-body text.
+  Reason: free-text usernames are spoofable. Maintainer steering should come
+  from the real GitHub issue author matching the repo owner or from trusted
+  labels applied by OpenReactor intake/decomposition flows.
 
 - Decision: treat native GitHub `:+1:` reactions on the root issue body as the canonical support signal, with higher support expected before it materially upgrades evidence on higher-sensitivity requests.
   Reason: popularity should stay GitHub-native and visible without creating parallel vote state, while still remaining subordinate to safety, maintainer boundaries, and secret-dependent feasibility limits.
@@ -56,6 +59,11 @@
   Reason: free-text usernames are spoofable, while authenticated GitHub login
   lets accepted work credit a real account without requiring login for all
   submissions.
+
+- Decision: preserve trusted submitter and maintainer-steering metadata when
+  decomposing a parent issue into child issues.
+  Reason: child issues should inherit the same trust posture as the parent
+  request instead of being reclassified as random public feedback.
 
 - Decision: ship a browser-local `My requests` section before adding application-backed request history or inbox features.
   Reason: submitters need a lightweight way to find their own issues now, while durable per-user state still sits beyond the MVP cutline.
