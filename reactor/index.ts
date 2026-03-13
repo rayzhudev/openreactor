@@ -35,6 +35,7 @@ import {
 } from "./runner";
 
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
+const DECISION_COMMENT_MARKER = "<!-- openreactor:decision -->";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
 const MAINTAINER_ACTION_REQUIRED_LABEL = "maintainer-action-required";
@@ -1323,6 +1324,7 @@ function formatPublicDecisionComment(
   stageLabel: string
 ): string {
   const lines = [body.trim()];
+  lines.unshift(DECISION_COMMENT_MARKER, "");
 
   const formattedConsiderations = formatConsiderations(considerations);
   if (formattedConsiderations.length) {
@@ -1662,6 +1664,8 @@ function findLatestReactorCommentTimestamp(comments: GitHubIssueComment[]): stri
     const login = comment.user?.login?.toLowerCase() ?? "";
     return (
       body.includes(STATUS_COMMENT_MARKER) ||
+      body.includes(DECISION_COMMENT_MARKER) ||
+      body.includes("<!-- openreactor:watchdog -->") ||
       body.includes("<!-- openreactor:agent-result -->") ||
       login.endsWith("[bot]")
     );
@@ -1676,7 +1680,12 @@ function isRelevantDiscussionComment(comment: GitHubIssueComment): boolean {
     return false;
   }
 
-  if (body.includes(STATUS_COMMENT_MARKER) || body.includes("<!-- openreactor:agent-result -->")) {
+  if (
+    body.includes(STATUS_COMMENT_MARKER) ||
+    body.includes(DECISION_COMMENT_MARKER) ||
+    body.includes("<!-- openreactor:watchdog -->") ||
+    body.includes("<!-- openreactor:agent-result -->")
+  ) {
     return false;
   }
 

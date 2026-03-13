@@ -131,12 +131,11 @@
   Reason: a product manager would revisit a maturing discussion thread based on
   what people are saying now, even if no earlier local execution state exists.
 
-- Decision: closed issues should only be revived by discussion when there is an
-  explicit new call-in, such as a bot mention.
-  Reason: maintainers also comment when closing duplicates or superseded issues.
-  Treating any maintainer comment as a reopen signal causes closed duplicate
-  issues to get revived by mistake.
-
+- Decision: all reactor-authored decision comments should carry an explicit
+  OpenReactor marker and be excluded from discussion-trigger logic.
+  Reason: comment authorship alone is not a strong enough filter. OpenReactor
+  should never mistake its own decision narrative for new human discussion,
+  even if future integrations post through a non-bot identity.
 - Decision: surface OpenReactor execution metadata in GitHub-visible workflow
   artifacts whenever the runtime knows it directly.
   Reason: provider, model, reasoning effort, and duration are hard facts that
