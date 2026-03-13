@@ -85,12 +85,16 @@
           <div class="flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
             <div class="grid gap-1">
               <p class="or-kicker">OpenReactor Live</p>
-              <h2 class="text-xl font-semibold tracking-tight" id="openreactor-live-title">System status</h2>
+              <h2 class="text-xl font-semibold tracking-tight" id="openreactor-live-title">Watch the system work</h2>
             </div>
             <p id="openreactor-live-refresh" class="text-[var(--ink-soft)] text-sm text-right max-md:text-left">Waiting for the first status update...</p>
           </div>
-          <p id="openreactor-live-status" class="min-h-6 mt-3 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading live OpenReactor metadata...</p>
-          <div class="grid grid-cols-4 max-md:grid-cols-2 gap-3 mt-3" aria-label="OpenReactor live statistics">
+          <p class="mt-2 text-[var(--ink-soft)] text-sm leading-relaxed">Requests flow through these stages as OpenReactor decides what to build, assigns agents, and ships accepted work.</p>
+          <p id="openreactor-live-status" class="min-h-6 mt-2 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading live OpenReactor metadata...</p>
+
+          <div id="openreactor-pipeline" class="or-pipeline mt-4" aria-label="OpenReactor pipeline stages"></div>
+
+          <div class="grid grid-cols-4 max-md:grid-cols-2 gap-3 mt-4" aria-label="OpenReactor service health">
             <div class="p-3 border border-[var(--line)] rounded-lg">
               <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Reactor</span>
               <strong id="openreactor-live-reactor" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
