@@ -12,6 +12,10 @@ should not freeze an issue forever based only on the original body if later
 comments clarify, narrow, or otherwise improve the task.
 That reconsideration should come from the live GitHub thread itself, not only
 from whether some earlier local run happened to leave metadata on disk.
+For issues that are already closed, OpenReactor should only revive them when
+there is an explicit new call-in, such as a direct bot mention. A generic
+maintainer comment on a closed issue is not enough by itself, because maintainers
+also use comments to close duplicates or mark issues superseded.
 
 ## OpenReactor control rule
 
