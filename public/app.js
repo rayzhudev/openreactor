@@ -24,6 +24,7 @@ const openReactorLiveActiveNode = document.querySelector("#openreactor-live-acti
 const openReactorLiveBlockedNode = document.querySelector("#openreactor-live-blocked");
 const openReactorLiveAgentsNode = document.querySelector("#openreactor-live-agents");
 const openReactorLiveBlockersNode = document.querySelector("#openreactor-live-blockers");
+const openReactorPipelineNode = document.querySelector("#openreactor-pipeline");
 const leaderboardList = document.querySelector("#leaderboard-list");
 const leaderboardStatusNode = document.querySelector("#leaderboard-status");
 const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
@@ -198,7 +199,8 @@ let openReactorStatus = {
     pausedIssues: [],
     maintainerHandoffCount: 0,
     maintainerHandoffs: []
-  }
+  },
+  pipeline: null
 };
 
 initTopbarToggle();
@@ -1441,9 +1443,11 @@ function renderOpenReactorStatus(data) {
       pausedIssues: [],
       maintainerHandoffCount: 0,
       maintainerHandoffs: []
-    }
+    },
+    pipeline: data.pipeline || null
   };
 
+  renderPipeline();
   renderOpenReactorLivePanels();
 }
 
@@ -1465,9 +1469,11 @@ function renderOpenReactorStatusError(message) {
       pausedIssues: [],
       maintainerHandoffCount: 0,
       maintainerHandoffs: []
-    }
+    },
+    pipeline: null
   };
 
+  renderPipeline();
   renderOpenReactorLivePanels();
   setOpenReactorLiveStatus(message, "error");
 }
@@ -1615,6 +1621,95 @@ function renderLeaderboardError(message) {
   leaderboardTotalAuthorsNode.textContent = "\u2014";
   leaderboardLatestMergeNode.textContent = "Unavailable";
   setLeaderboardStatus(`${message} Try again later.`, "error");
+}
+
+function renderPipeline() {
+  if (!openReactorPipelineNode) return;
+
+  const pipeline = openReactorStatus.pipeline;
+  const stages = Array.isArray(pipeline?.stages) ? pipeline.stages : [];
+
+  if (!stages.length) {
+    openReactorPipelineNode.innerHTML = "";
+    const empty = document.createElement("p");
+    empty.className = "text-sm text-[var(--ink-faint)]";
+    empty.textContent = "Pipeline stages will appear when the status API responds.";
+    openReactorPipelineNode.append(empty);
+    return;
+  }
+
+  openReactorPipelineNode.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i];
+    const items = Array.isArray(stage.items) ? stage.items : [];
+    const isAvailable = Boolean(stage.available);
+    const hasItems = stage.itemCount > 0 || items.length > 0;
+    const count = stage.itemCount ?? items.length;
+
+    const card = document.createElement("div");
+    card.className = "or-pipeline-stage" + (isAvailable ? "" : " or-pipeline-stage--offline") + (hasItems && isAvailable ? " or-pipeline-stage--active" : "");
+
+    const header = document.createElement("div");
+    header.className = "flex items-center justify-between gap-2";
+
+    const label = document.createElement("span");
+    label.className = "text-xs font-medium tracking-wide uppercase" + (isAvailable ? " text-[var(--ink-soft)]" : " text-[var(--ink-faint)]");
+    label.textContent = stage.label || stage.key;
+
+    const badge = document.createElement("span");
+    badge.className = "or-count-chip" + (hasItems && isAvailable ? " or-count-chip--accent" : "");
+    badge.textContent = `${count}`;
+
+    header.append(label, badge);
+    card.append(header);
+
+    if (!isAvailable && stage.error) {
+      const err = document.createElement("p");
+      err.className = "text-xs text-[var(--ink-faint)] mt-1 leading-snug";
+      err.textContent = "Offline";
+      card.append(err);
+    } else if (isAvailable && items.length > 0) {
+      const list = document.createElement("ul");
+      list.className = "or-pipeline-items";
+      const visible = items.slice(0, 3);
+      for (const item of visible) {
+        const li = document.createElement("li");
+        li.className = "or-pipeline-item";
+        if (item.issueUrl) {
+          const link = document.createElement("a");
+          link.className = "or-pipeline-item-link";
+          link.href = item.issueUrl;
+          link.target = "_blank";
+          link.rel = "noreferrer";
+          link.textContent = item.issueTitle
+            ? `#${item.issueNumber} ${item.issueTitle}`
+            : `#${item.issueNumber}`;
+          li.append(link);
+        } else {
+          li.textContent = item.issueTitle || item.issueNumber || "Item";
+        }
+        list.append(li);
+      }
+      if (items.length > 3) {
+        const more = document.createElement("li");
+        more.className = "text-xs text-[var(--ink-faint)]";
+        more.textContent = `+${items.length - 3} more`;
+        list.append(more);
+      }
+      card.append(list);
+    } else if (isAvailable && count === 0) {
+      const empty = document.createElement("p");
+      empty.className = "text-xs text-[var(--ink-faint)] mt-1";
+      empty.textContent = "Empty";
+      card.append(empty);
+    }
+
+    fragment.append(card);
+  }
+
+  openReactorPipelineNode.append(fragment);
 }
 
 function renderOpenReactorLivePanels() {
