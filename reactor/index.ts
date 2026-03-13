@@ -605,11 +605,13 @@ class Reactor {
       const maintainerComment =
         latestComment.user?.login?.toLowerCase() === this.config.owner.toLowerCase();
       const botMentioned = commentMentionsBot(latestComment.body, this.config.botMentionAliases);
+      const closedIssueExplicitRetrigger = issue.state !== "closed" || botMentioned;
       const allowRequeue =
-        labels.has(FEEDBACK_BANK_LABEL) ||
-        labels.has(this.config.pausedLabel) ||
-        maintainerComment ||
-        botMentioned;
+        closedIssueExplicitRetrigger &&
+        (labels.has(FEEDBACK_BANK_LABEL) ||
+          labels.has(this.config.pausedLabel) ||
+          maintainerComment ||
+          botMentioned);
 
       if (!allowRequeue) {
         continue;
