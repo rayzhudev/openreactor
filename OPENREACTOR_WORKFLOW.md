@@ -40,6 +40,10 @@ maintainer consideration.
 - OpenReactor should supervise itself: stalled issues and repeated local
   runtime failures should be detected, classified, and either healed
   operationally or turned into concrete OpenReactor repair work.
+- OpenReactor should periodically exercise its own workflow through an
+  automated **Autonomous Test Run** so regressions in the issue-to-PR loop are
+  caught through a real canary run, not only by waiting for production feature
+  work to fail.
 - Extremely high retry counts on one issue are themselves a failure signal.
   OpenReactor should treat that as a workflow smell, not as normal progress,
   and should route it into concrete OpenReactor repair work.
@@ -95,6 +99,30 @@ machine so the product can show:
 This visibility layer should expose metadata only. It should not expose secrets,
 terminal output, or arbitrary file contents, and it should not let the website
 control the local OpenReactor services.
+
+## Autonomous Test Run
+
+OpenReactor includes a named self-test technique: the **Autonomous Test Run**.
+
+Its purpose is to run a small, deliberate OpenReactor-core issue through the
+same workflow that normal work uses:
+
+- issue creation
+- trusted maintainer steering
+- triage
+- implementation
+- PR creation
+- merge readiness
+- documentation updates
+
+The command is:
+
+```bash
+bun run openreactor:self-test
+```
+
+The Autonomous Test Run should stay minimal and safe. It is a canary for the
+workflow, not a place to smuggle in broad OpenReactor refactors.
 
 ## Documentation rule
 

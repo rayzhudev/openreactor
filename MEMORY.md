@@ -143,3 +143,9 @@
   Reason: iteration counts that high are a clear signal that something is wrong
   operationally, not just that the feature needs a little more time. The right
   response is to fix the workflow, not just jiggle the process.
+
+- Decision: formalize a repeatable OpenReactor canary issue as the
+  **Autonomous Test Run**.
+  Reason: OpenReactor needs a named automated test-run technique that exercises
+  the full issue-to-PR workflow end to end, so regressions are caught by a
+  real run instead of only by waiting for ordinary feature work to expose them.
