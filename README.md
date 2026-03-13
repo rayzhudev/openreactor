@@ -32,6 +32,8 @@ In that loop:
    thing future agents build on.
 7. The system preserves memory about product direction, constraints, and
    learnings so the loop gets smarter over time.
+8. The system can run a small end-to-end canary issue called the Factory Pass
+   to prove the loop still works in practice.
 
 That is the OpenReactor workflow: intake, judgment, implementation, verification,
 deployment, and memory all connected into one continuous system.
@@ -204,6 +206,23 @@ The watchdog currently:
 - fast-forwards the local checkout to `origin/main` and restarts the local
   services after a merged OpenReactor repair PR
 - flags non-recoverable failures for maintainer attention instead of retrying forever
+
+## Factory Pass
+
+The Factory Pass is OpenReactor's deliberate end-to-end canary run.
+
+It exists to push one small, safe issue through the real workflow so the
+system can expose regressions in claiming, triage, implementation, PR creation,
+and merge readiness before those failures become hard to notice.
+
+Open or reuse the current Factory Pass issue with:
+
+```bash
+bun run openreactor:self-test
+```
+
+That command only creates or reuses the issue. The actual work still flows
+through the normal reactor like any other maintainer-steered OpenReactor task.
 
 The status service currently:
 

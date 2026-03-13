@@ -221,7 +221,8 @@ class Reactor {
         status: "in-progress",
         phase: "triage",
         detail:
-          "Claimed by the reactor. Starting lightweight triage before dispatching the request to the best implementation agent."
+          "Claimed by the reactor. Starting lightweight triage before dispatching the request to the best implementation agent.",
+        issue
       });
       let triageDecision: TriageResult | null = null;
       try {
@@ -270,7 +271,8 @@ class Reactor {
         status: "rejected",
         phase: "triage",
         detail: "Rejected during lightweight triage as not worth pursuing in the current product direction.",
-        execution
+        execution,
+        issue
       });
       await this.github.createComment(
         issue.number,
@@ -278,7 +280,8 @@ class Reactor {
           normalizedResult.issueComment || normalizedResult.summary,
           normalizedResult.considerations,
           execution,
-          "Triage"
+          "Triage",
+          buildTrustSummaryLines(this.config, issue)
         )
       );
       await this.github.addLabels(issue.number, [this.config.rejectedLabel]);
@@ -304,7 +307,8 @@ class Reactor {
               `Banked for later because the current evidence is ${normalizedResult.evidenceStrength} for a ${normalizedResult.sensitivity}-sensitivity change.`,
             `Target surface: ${normalizedResult.targetSurface}.`
           ].join(" "),
-        execution
+        execution,
+        issue
       });
       await this.github.createComment(
         issue.number,
@@ -318,10 +322,11 @@ class Reactor {
               `Evidence strength: ${normalizedResult.evidenceStrength}`,
               `Evidence summary: ${normalizedResult.evidenceSummary}`,
               normalizedResult.bankReason ? `Reason: ${normalizedResult.bankReason}` : ""
-            ].filter(Boolean).join("\n"),
+          ].filter(Boolean).join("\n"),
           normalizedResult.considerations,
           execution,
-          "Triage"
+          "Triage",
+          buildTrustSummaryLines(this.config, issue)
         )
       );
       await this.github.removeLabel(issue.number, this.config.runningLabel);
@@ -347,7 +352,8 @@ class Reactor {
             `Evidence: ${normalizedResult.evidenceStrength}.`,
             normalizedResult.evidenceSummary
           ].join(" "),
-        execution
+        execution,
+        issue
       });
       return {
         ...normalizedResult,
@@ -637,7 +643,8 @@ class Reactor {
         detail:
           botMentioned || maintainerComment
             ? "New discussion explicitly requested retriage, so OpenReactor is reconsidering this issue."
-            : "New discussion refined the issue, so OpenReactor is reconsidering it."
+            : "New discussion refined the issue, so OpenReactor is reconsidering it.",
+        issue
       });
 
       requeuedIssues.push(await this.github.getIssue(issue.number));
@@ -779,7 +786,8 @@ class Reactor {
         iteration: record.iteration + 1,
         detail: existingRecord
           ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
-          : "Full issue agent is reviewing the request and deciding the best product change."
+          : "Full issue agent is reviewing the request and deciding the best product change.",
+        issue
       });
 
       const accessToken = await this.github.getAgentAccessToken();
@@ -856,7 +864,8 @@ class Reactor {
         phase: "paused",
         detail:
           `Automatic handling paused after ${nextStartFailureCount} ${input.phase} failures. ` +
-          `Remove ${this.config.pausedLabel} to retry after fixing the infrastructure problem.`
+          `Remove ${this.config.pausedLabel} to retry after fixing the infrastructure problem.`,
+        issue
       });
       await this.github.createComment(
         issue.number,
@@ -873,13 +882,14 @@ class Reactor {
       return;
     }
 
-    await this.syncIssueStatusComment(issue.number, {
-      status: "queued",
-      phase: "retrying",
-      detail:
-        `The reactor hit a ${input.phase} error and will retry automatically ` +
-        `(${nextStartFailureCount}/${this.config.maxStartFailuresPerIssue}). ${failureMessage}`
-    });
+      await this.syncIssueStatusComment(issue.number, {
+        status: "queued",
+        phase: "retrying",
+        detail:
+          `The reactor hit a ${input.phase} error and will retry automatically ` +
+          `(${nextStartFailureCount}/${this.config.maxStartFailuresPerIssue}). ${failureMessage}`,
+        issue
+      });
   }
 
   private async handleRunCompletion(activeRun: ActiveRun): Promise<void> {
@@ -917,7 +927,8 @@ class Reactor {
             phase: "waiting-maintainer",
             iteration: activeRun.record.iteration,
             detail: `Waiting on maintainer action before PR ${handoffValidation.pullRequest.html_url} can continue.`,
-            execution: activeRun.record.lastAgentExecution ?? undefined
+            execution: activeRun.record.lastAgentExecution ?? undefined,
+            issue: activeRun.issue
           });
           await this.github.createComment(
             issueNumber,
@@ -928,11 +939,12 @@ class Reactor {
                 `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
                 "",
                 "Maintainer action required:",
-                result.humanHandoff.instructions
+              result.humanHandoff.instructions
               ].join("\n"),
               result.considerations,
               activeRun.record.lastAgentExecution,
-              "Implementation"
+              "Implementation",
+              buildTrustSummaryLines(this.config, activeRun.issue)
             )
           );
           return;
@@ -957,7 +969,8 @@ class Reactor {
             phase: "accepted",
             iteration: activeRun.record.iteration,
             detail: `Accepted and linked to PR ${acceptedValidation.pullRequest.html_url}.`,
-            execution: activeRun.record.lastAgentExecution ?? undefined
+            execution: activeRun.record.lastAgentExecution ?? undefined,
+            issue: activeRun.issue
           });
           await this.github.addLabels(issueNumber, [this.config.acceptedLabel]);
           await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -971,7 +984,8 @@ class Reactor {
           phase: "rejected",
           iteration: activeRun.record.iteration,
           detail: result.summary,
-          execution: activeRun.record.lastAgentExecution ?? undefined
+          execution: activeRun.record.lastAgentExecution ?? undefined,
+          issue: activeRun.issue
         });
         await this.github.addLabels(issueNumber, [this.config.rejectedLabel]);
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -986,7 +1000,9 @@ class Reactor {
           await writeRunRecord(paths, activeRun.record);
         } else {
           const createdIssues = [];
+          let reusedExistingIssue = false;
           const inheritedLabels = getInheritedTrustedLabels(this.config, activeRun.issue);
+          const existingIssues = await this.github.listRecentlyUpdatedIssues("all");
           for (const child of result.decomposition.childIssues) {
             const title = normalizeDecomposedIssueTitle(child.title);
             const body = ensureInheritedIssueMetadata(
@@ -994,11 +1010,18 @@ class Reactor {
               activeRun.issue,
               ensureParentLinkInDecomposedIssueBody(activeRun.issue, child.body)
             );
-            const createdIssue = await this.github.createIssue({
-              title,
-              body,
-              labels: inheritedLabels
-            });
+            const existingIssue = findExistingDecomposedIssue(existingIssues, activeRun.issue, title);
+            let createdIssue: GitHubIssue;
+            if (existingIssue) {
+              reusedExistingIssue = true;
+              createdIssue = existingIssue;
+            } else {
+              createdIssue = await this.github.createIssue({
+                title,
+                body,
+                labels: inheritedLabels
+              });
+            }
             createdIssues.push(createdIssue);
           }
 
@@ -1007,7 +1030,8 @@ class Reactor {
             phase: "planned",
             iteration: activeRun.record.iteration,
             detail: `Decomposed into ${createdIssues.length} follow-up issues for execution.`,
-            execution: activeRun.record.lastAgentExecution ?? undefined
+            execution: activeRun.record.lastAgentExecution ?? undefined,
+            issue: activeRun.issue
           });
           await this.github.createComment(
             issueNumber,
@@ -1017,12 +1041,13 @@ class Reactor {
                 "",
                 result.decomposition.overview,
                 "",
-                "Created follow-up issues:",
+                reusedExistingIssue ? "Follow-up issues:" : "Created follow-up issues:",
                 ...createdIssues.map((child) => `- #${child.number} ${child.title}: ${child.html_url}`)
               ].join("\n"),
               result.considerations,
               activeRun.record.lastAgentExecution,
-              "Implementation"
+              "Implementation",
+              buildTrustSummaryLines(this.config, activeRun.issue)
             )
           );
           await this.github.removeLabel(issueNumber, this.config.runningLabel);
@@ -1038,7 +1063,8 @@ class Reactor {
           status: "queued",
           phase: "paused",
           iteration: nextIteration,
-          detail: `Automatic handling paused after ${this.config.maxIterationsPerIssue} iterations. A future retry or human follow-up is needed.`
+          detail: `Automatic handling paused after ${this.config.maxIterationsPerIssue} iterations. A future retry or human follow-up is needed.`,
+          issue: activeRun.issue
         });
         await this.github.createComment(
           issueNumber,
@@ -1069,7 +1095,8 @@ class Reactor {
       await this.syncIssueStatusComment(issueNumber, {
         status: "queued",
         phase: "error",
-        detail: `The reactor hit an execution error: ${formatError(error)}`
+        detail: `The reactor hit an execution error: ${formatError(error)}`,
+        issue: activeRun.issue
       });
       await this.github.createComment(
         issueNumber,
@@ -1230,10 +1257,14 @@ class Reactor {
       detail: string;
       iteration?: number;
       execution?: ExecutionMetadata;
+      issue?: GitHubIssue;
     }
   ): Promise<void> {
     try {
-      const body = buildStatusCommentBody(input);
+      const body = buildStatusCommentBody({
+        ...input,
+        trustLines: input.issue ? buildTrustSummaryLines(this.config, input.issue) : []
+      });
       const existing = await this.findStatusComment(issueNumber);
 
       if (existing?.body === body) {
@@ -1293,6 +1324,7 @@ function buildStatusCommentBody(input: {
   detail: string;
   iteration?: number;
   execution?: ExecutionMetadata;
+  trustLines?: string[];
 }): string {
   const lines = [
     STATUS_COMMENT_MARKER,
@@ -1307,6 +1339,10 @@ function buildStatusCommentBody(input: {
     lines.push(`Iteration: ${input.iteration}`);
   }
 
+  if (input.trustLines?.length) {
+    lines.push("", ...input.trustLines);
+  }
+
   if (input.execution) {
     lines.push(`Execution: ${formatExecutionLine(input.execution)}`);
   }
@@ -1318,13 +1354,18 @@ function formatPublicDecisionComment(
   body: string,
   considerations: string[] | null | undefined,
   execution: ExecutionMetadata | null | undefined,
-  stageLabel: string
+  stageLabel: string,
+  trustLines: string[] = []
 ): string {
   const lines = [body.trim()];
 
   const formattedConsiderations = formatConsiderations(considerations);
   if (formattedConsiderations.length) {
     lines.push("", "Considered:", ...formattedConsiderations);
+  }
+
+  if (trustLines.length) {
+    lines.push("", ...trustLines);
   }
 
   if (execution) {
@@ -1372,6 +1413,25 @@ function formatDurationMs(durationMs: number): string {
   return `${totalSeconds}s`;
 }
 
+function buildTrustSummaryLines(
+  config: Pick<OrchestratorConfig, "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel">,
+  issue: GitHubIssue
+): string[] {
+  const lines: string[] = [];
+  const maintainerSteering = getMaintainerSteeringSignal(config, issue);
+  const trustedSubmitter = getTrustedSubmitterUsername(config, issue);
+
+  if (maintainerSteering) {
+    lines.push(`Trust: maintainer-steered (@${maintainerSteering.username})`);
+  }
+
+  if (trustedSubmitter) {
+    lines.push(`Submitter: authenticated GitHub @${trustedSubmitter}`);
+  }
+
+  return lines;
+}
+
 function hasConflictingMergeState(value?: string | null): boolean {
   const normalized = (value ?? "").trim().toLowerCase();
   return normalized === "dirty" || normalized === "conflicting";
@@ -1407,6 +1467,37 @@ function normalizeDecomposedIssueTitle(title: string): string {
   }
 
   return `[Task] ${cleaned}`;
+}
+
+function findExistingDecomposedIssue(
+  issues: GitHubIssue[],
+  parentIssue: GitHubIssue,
+  normalizedTitle: string
+): GitHubIssue | null {
+  for (const issue of issues) {
+    if (issue.pull_request) {
+      continue;
+    }
+
+    if (issue.number === parentIssue.number) {
+      continue;
+    }
+
+    const issueTitle = normalizeDecomposedIssueTitle(issue.title);
+    if (issueTitle !== normalizedTitle) {
+      continue;
+    }
+
+    const body = issue.body ?? "";
+    if (
+      body.includes(`Parent request: #${parentIssue.number}`) ||
+      body.includes(parentIssue.html_url)
+    ) {
+      return issue;
+    }
+  }
+
+  return null;
 }
 
 function ensureParentLinkInDecomposedIssueBody(issue: GitHubIssue, body: string): string {

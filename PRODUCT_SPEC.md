@@ -46,6 +46,7 @@ A request should be rejected/deferred if:
 - Website backend: API/backend for intake and future product features that require stored data
 - Reactor runtime: machine-local agent orchestration loop that polls GitHub, claims issues, spawns fresh agents, and retries until resolution
 - Watchdog runtime: machine-local supervisor that monitors the reactor, stalled issues, and repeated startup failures, attempts operational self-healing, and can emit concrete OpenReactor repair issues when the workflow itself needs to be fixed
+- Factory Pass: a deliberate machine-local end-to-end canary issue that exercises the normal OpenReactor loop to expose regressions in claiming, triage, implementation, and PR flow
 - OpenReactor status service: machine-local read-only metadata endpoint that exposes active-agent and blocker state to the website without giving the website direct control over the local runtime
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
 - Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state
@@ -159,6 +160,7 @@ Dashboard should show:
 Current state:
 - only the public request queue is implemented
 - a first live OpenReactor metadata feed is available for website-side visualization
+- a first Factory Pass command exists for deliberate end-to-end canary runs
 - the rest of the observability surface is still pending
 
 ## 12) Non-goals (MVP)

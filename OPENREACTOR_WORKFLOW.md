@@ -40,6 +40,9 @@ maintainer consideration.
 - OpenReactor should supervise itself: stalled issues and repeated local
   runtime failures should be detected, classified, and either healed
   operationally or turned into concrete OpenReactor repair work.
+- OpenReactor should include a deliberate end-to-end canary run, called the
+  Factory Pass, so the workflow can be exercised as a sample unit through the
+  whole system.
 - Extremely high retry counts on one issue are themselves a failure signal.
   OpenReactor should treat that as a workflow smell, not as normal progress,
   and should route it into concrete OpenReactor repair work.
@@ -95,6 +98,24 @@ machine so the product can show:
 This visibility layer should expose metadata only. It should not expose secrets,
 terminal output, or arbitrary file contents, and it should not let the website
 control the local OpenReactor services.
+
+## Factory Pass
+
+The Factory Pass is OpenReactor's deliberate self-test issue.
+
+It is not a synthetic unit test. It is a real, low-risk issue that is intended
+to move through the ordinary OpenReactor workflow so the maintainer can verify
+that claim, triage, implementation, PR creation, and merge readiness still
+work together.
+
+Open or reuse it with:
+
+```bash
+bun run openreactor:self-test
+```
+
+The Factory Pass should stay small and safe. Its purpose is to expose workflow
+regressions, not to add major scope.
 
 ## Documentation rule
 

@@ -14,6 +14,7 @@
     "reactor": "bun run reactor/index.ts",
     "reactor:once": "bun run reactor/index.ts --once",
     "reactor:dry-run": "bun run reactor/index.ts --once --dry-run",
+    "openreactor:self-test": "bun run reactor/self-test.ts",
     "reactor:tool": "bun run reactor/tool.ts",
     "openreactor-status": "bun run openreactor-status/index.ts",
     "openreactor-status:tunnel": "bash scripts/openreactor-status-tunnel.sh",

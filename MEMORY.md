@@ -65,6 +65,21 @@
   Reason: child issues should inherit the same trust posture as the parent
   request instead of being reclassified as random public feedback.
 
+- Decision: decomposition should be idempotent and reuse existing child issues
+  for the same parent request instead of opening duplicates on retries.
+  Reason: repeated decomposition of the same parent creates confusing duplicate
+  work streams and can bank or run the wrong issue set.
+
+- Decision: expose maintainer-steered and trusted-submitter state in
+  OpenReactor's public issue comments and status comments.
+  Reason: operators need to see at a glance why a request is receiving
+  privileged treatment without reading local state files.
+
+- Decision: add a deliberate end-to-end OpenReactor canary technique called
+  the Factory Pass.
+  Reason: the system needs a small sample run through the real issue-to-PR
+  pipeline so regressions in the workflow can be discovered proactively.
+
 - Decision: ship a browser-local `My requests` section before adding application-backed request history or inbox features.
   Reason: submitters need a lightweight way to find their own issues now, while durable per-user state still sits beyond the MVP cutline.
 
