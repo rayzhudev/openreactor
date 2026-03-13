@@ -90,6 +90,23 @@ export class GitHubClient {
     });
   }
 
+  async updateIssue(
+    issueNumber: number,
+    input: {
+      title?: string;
+      body?: string;
+      state?: "open" | "closed";
+    }
+  ): Promise<GitHubIssue> {
+    return this.request<GitHubIssue>(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      }
+    );
+  }
+
   async ensureLabel(name: string, color: string, description: string): Promise<void> {
     const encodedName = encodeURIComponent(name);
 

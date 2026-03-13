@@ -182,8 +182,7 @@ function parseGitHubRemote(repoRoot: string): { owner: string; repo: string } | 
 
 function loadLocalEnv(repoRoot: string): Map<string, string> {
   const values = new Map<string, string>();
-  for (const fileName of [".dev.vars", ".env.local", ".env"]) {
-    const filePath = path.join(repoRoot, fileName);
+  for (const filePath of localEnvPaths(repoRoot)) {
     if (!fs.existsSync(filePath)) {
       continue;
     }
@@ -201,7 +200,8 @@ function loadLocalEnv(repoRoot: string): Map<string, string> {
       }
 
       const key = trimmed.slice(0, separator).trim();
-      const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
+      const rawValue = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
+      const value = resolveLocalEnvValue(rawValue);
       if (!values.has(key)) {
         values.set(key, value);
       }
@@ -209,6 +209,33 @@ function loadLocalEnv(repoRoot: string): Map<string, string> {
   }
 
   return values;
+}
+
+function localEnvPaths(repoRoot: string): string[] {
+  const homeDirectory = process.env.HOME ?? "";
+  const paths = [".dev.vars", ".env.local", ".env"].map((fileName) =>
+    path.join(repoRoot, fileName)
+  );
+
+  if (homeDirectory) {
+    paths.push(path.join(homeDirectory, ".config", "openreactor", "reactor.env"));
+  }
+
+  return paths;
+}
+
+function resolveLocalEnvValue(value: string): string {
+  const fileReferenceMatch = value.match(/^\$\(<\s*([^)]+?)\s*\)$/);
+  if (!fileReferenceMatch) {
+    return value;
+  }
+
+  const referencedPath = clean(fileReferenceMatch[1]);
+  if (!referencedPath || !fs.existsSync(referencedPath)) {
+    return value;
+  }
+
+  return fs.readFileSync(referencedPath, "utf8").trimEnd();
 }
 
 function valueOf(name: string, localEnv: Map<string, string>): string {

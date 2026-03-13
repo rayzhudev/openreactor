@@ -165,6 +165,17 @@ The local read-only status feed can be served with:
 bun run openreactor-status
 ```
 
+OpenReactor also has a deliberate automated canary technique for its own
+workflow:
+
+```bash
+bun run openreactor:self-test
+```
+
+That command opens an **OpenReactor Autonomous Test Run** issue. The point is
+to exercise the normal issue-to-PR loop with a tiny OpenReactor-core change so
+workflow regressions become visible before they silently accumulate.
+
 If the public website needs to reach that local feed from Cloudflare Pages, the
 repo also includes a dedicated tunnel wrapper:
 
