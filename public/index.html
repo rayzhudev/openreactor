@@ -72,12 +72,60 @@
         </div>
       </header>
 
-      <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" aria-labelledby="page-title">
-        <div class="grid gap-4 content-start">
+      <section class="mb-8" aria-labelledby="page-title">
+        <div class="grid gap-2 mb-6">
           <h1 class="text-4xl md:text-5xl font-bold tracking-tight" id="page-title">Pressure builds the brief.</h1>
-          <p class="text-[var(--ink-soft)] text-lg leading-relaxed">
+          <p class="text-[var(--ink-soft)] text-lg leading-relaxed max-w-2xl">
             OpenReactor is an agentic harness for software that can evolve on
-            its own. Requests enter the system, agents decide what matters,
+            its own. Watch the system work in real time.
+          </p>
+        </div>
+
+        <div class="or-panel" aria-labelledby="openreactor-live-title">
+          <div class="flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
+            <div class="grid gap-1">
+              <p class="or-kicker">OpenReactor Live</p>
+              <h2 class="text-xl font-semibold tracking-tight" id="openreactor-live-title">System status</h2>
+            </div>
+            <p id="openreactor-live-refresh" class="text-[var(--ink-soft)] text-sm text-right max-md:text-left">Waiting for the first status update...</p>
+          </div>
+          <p id="openreactor-live-status" class="min-h-6 mt-3 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading live OpenReactor metadata...</p>
+          <div class="grid grid-cols-4 max-md:grid-cols-2 gap-3 mt-3" aria-label="OpenReactor live statistics">
+            <div class="p-3 border border-[var(--line)] rounded-lg">
+              <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Reactor</span>
+              <strong id="openreactor-live-reactor" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
+            </div>
+            <div class="p-3 border border-[var(--line)] rounded-lg">
+              <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Watchdog</span>
+              <strong id="openreactor-live-watchdog" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
+            </div>
+            <div class="p-3 border border-[var(--line)] rounded-lg">
+              <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Active agents</span>
+              <strong id="openreactor-live-active" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
+            </div>
+            <div class="p-3 border border-[var(--line)] rounded-lg">
+              <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Blocked items</span>
+              <strong id="openreactor-live-blocked" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
+            </div>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2 mt-3">
+            <section class="or-panel or-panel--tight">
+              <h3 class="or-heading">Active agents</h3>
+              <ol id="openreactor-live-agents" class="grid gap-3 p-0 m-0 list-none"></ol>
+            </section>
+            <section class="or-panel or-panel--tight">
+              <h3 class="or-heading">Blocked flow</h3>
+              <ol id="openreactor-live-blockers" class="grid gap-3 p-0 m-0 list-none"></ol>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" aria-labelledby="intake-title">
+        <div class="grid gap-4 content-start">
+          <h2 class="text-2xl font-semibold tracking-tight" id="intake-heading">Shape what gets built</h2>
+          <p class="text-[var(--ink-soft)] text-base leading-relaxed">
+            Requests enter the system, agents decide what matters,
             accepted work ships through public PRs, and the product learns as
             it goes.
           </p>
@@ -203,45 +251,6 @@
             <button id="queue-older" class="or-button or-button--secondary disabled:opacity-40 disabled:cursor-default max-md:flex-1" type="button">Older</button>
           </nav>
         </details>
-      </section>
-
-      <section class="or-panel mb-8" aria-labelledby="openreactor-live-title">
-        <div class="flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
-          <div class="grid gap-1">
-            <p class="or-kicker">OpenReactor Live</p>
-            <h2 class="text-xl font-semibold tracking-tight" id="openreactor-live-title">Watch the system work</h2>
-          </div>
-          <p id="openreactor-live-refresh" class="text-[var(--ink-soft)] text-sm text-right max-md:text-left">Waiting for the first status update...</p>
-        </div>
-        <p id="openreactor-live-status" class="min-h-6 mt-3 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading live OpenReactor metadata...</p>
-        <div class="grid grid-cols-4 max-md:grid-cols-2 gap-3 mt-3" aria-label="OpenReactor live statistics">
-          <div class="p-3 border border-[var(--line)] rounded-lg">
-            <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Reactor</span>
-            <strong id="openreactor-live-reactor" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
-          </div>
-          <div class="p-3 border border-[var(--line)] rounded-lg">
-            <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Watchdog</span>
-            <strong id="openreactor-live-watchdog" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
-          </div>
-          <div class="p-3 border border-[var(--line)] rounded-lg">
-            <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Active agents</span>
-            <strong id="openreactor-live-active" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
-          </div>
-          <div class="p-3 border border-[var(--line)] rounded-lg">
-            <span class="text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]">Blocked items</span>
-            <strong id="openreactor-live-blocked" class="block font-mono text-2xl tracking-tight">&mdash;</strong>
-          </div>
-        </div>
-        <div class="grid gap-4 lg:grid-cols-2 mt-3">
-          <section class="or-panel or-panel--tight">
-            <h3 class="or-heading">Active agents</h3>
-            <ol id="openreactor-live-agents" class="grid gap-3 p-0 m-0 list-none"></ol>
-          </section>
-          <section class="or-panel or-panel--tight">
-            <h3 class="or-heading">Blocked flow</h3>
-            <ol id="openreactor-live-blockers" class="grid gap-3 p-0 m-0 list-none"></ol>
-          </section>
-        </div>
       </section>
 
       <section class="or-panel or-panel--plain" aria-labelledby="leaderboard-title">
