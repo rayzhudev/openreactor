@@ -1322,7 +1322,7 @@ async function loadQueue(page = 1, options = {}) {
 
   try {
     const headers = queueEtag ? { "If-None-Match": queueEtag } : {};
-    const response = await fetch(`/api/requests?page=${page}`, {
+    const response = await fetch(buildQueueUrl(page), {
       headers,
       cache: "no-store"
     });
@@ -1481,6 +1481,7 @@ function renderOpenReactorStatusError(message) {
 function renderQueue(data) {
   const activeItems = Array.isArray(data.activeItems) ? data.activeItems : [];
   const archivedItems = Array.isArray(data.archivedItems) ? data.archivedItems : [];
+  const trackedItems = Array.isArray(data.trackedItems) ? data.trackedItems : [];
   const page = Number.isInteger(data.archivePage)
     ? data.archivePage
     : Number.isInteger(data.page)
@@ -1494,7 +1495,7 @@ function renderQueue(data) {
   markQueueRefresh();
   queueActiveItems = activeItems;
   queueArchivedItems = archivedItems;
-  const items = activeItems.concat(archivedItems);
+  const items = activeItems.concat(archivedItems, trackedItems);
   queueState.page = page;
   queueState.hasPreviousPage = hasPreviousPage;
   queueState.hasNextPage = hasNextPage;
@@ -1540,6 +1541,21 @@ function renderQueueError(message) {
   });
   setQueueStatus(`${message} See GitHub directly if needed.`, "error");
   setQueueRefreshNote(`Auto-refresh retries every ${formatPollInterval()}.`);
+}
+
+function buildQueueUrl(page) {
+  const url = new URL("/api/requests", window.location.origin);
+  url.searchParams.set("page", `${page}`);
+
+  const trackedIssueNumbers = myRequests
+    .map((item) => item.number)
+    .filter((number, index, all) => Number.isInteger(number) && all.indexOf(number) === index);
+
+  if (trackedIssueNumbers.length) {
+    url.searchParams.set("tracked", trackedIssueNumbers.join(","));
+  }
+
+  return `${url.pathname}${url.search}`;
 }
 
 function renderLeaderboard(items, totals) {
