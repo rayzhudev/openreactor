@@ -5,6 +5,7 @@ const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_USER_AGENT = "OpenReactor/0.1";
 const MAX_ARCHIVE_ITEMS = 12;
+const MAX_TRACKED_REQUESTS = 24;
 const MAX_LEADERBOARD_ITEMS = 8;
 const MAX_LEADERBOARD_PAGES = 10;
 const MAX_LEADERBOARD_ISSUE_LOOKUP_BATCH = 20;
@@ -585,27 +586,36 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
   try {
     const session = await readSupportSession(request, normalized);
     const archivePage = getQueuePage(request);
+    const trackedIssueNumbers = getTrackedIssueNumbers(request);
     const issues = await listRequestIssues(normalized);
     const activeIssues = issues.filter((issue) => !isArchivedIssue(issue));
     const archivedIssues = issues.filter((issue) => isArchivedIssue(issue));
     const start = (archivePage - 1) * MAX_ARCHIVE_ITEMS;
     const visibleArchivedIssues = archivedIssues.slice(start, start + MAX_ARCHIVE_ITEMS);
+    const visibleIssueNumbers = new Set(
+      activeIssues.concat(visibleArchivedIssues).map((issue) => issue.number)
+    );
+    const trackedIssues = issues.filter(
+      (issue) => trackedIssueNumbers.includes(issue.number) && !visibleIssueNumbers.has(issue.number)
+    );
     const [activeItems, archivedItems] = await Promise.all([
       Promise.all(activeIssues.map((issue) => mapQueueIssue(normalized, issue, session))),
       Promise.all(visibleArchivedIssues.map((issue) => mapQueueIssue(normalized, issue, session)))
     ]);
+    const trackedItems = await Promise.all(trackedIssues.map((issue) => mapQueueIssue(normalized, issue, session)));
 
     const repoUrl = getRepoUrl(normalized);
     const archiveHasPreviousPage = archivePage > 1;
     const archiveHasNextPage = archivedIssues.length > start + MAX_ARCHIVE_ITEMS;
     const archiveTotal = archivedIssues.length;
-    const items = [...activeItems, ...archivedItems];
+    const items = [...activeItems, ...archivedItems, ...trackedItems];
     const etag = buildQueueEtag({
       items,
       page: archivePage,
       hasPreviousPage: archiveHasPreviousPage,
       hasNextPage: archiveHasNextPage,
-      totalItems: archiveTotal
+      totalItems: archiveTotal,
+      trackedIssueNumbers
     });
 
     if (request.headers.get("if-none-match") === etag) {
@@ -624,6 +634,7 @@ export async function handleListRequests(request: Request, env: Env): Promise<Re
         items,
         activeItems,
         archivedItems,
+        trackedItems,
         repoUrl,
         archivePage,
         archivePageSize: MAX_ARCHIVE_ITEMS,
@@ -1426,6 +1437,21 @@ function getQueuePage(request: Request): number {
   return page;
 }
 
+function getTrackedIssueNumbers(request: Request): number[] {
+  const value = new URL(request.url).searchParams.get("tracked");
+
+  if (!value) {
+    return [];
+  }
+
+  const numbers = value
+    .split(",")
+    .map((entry) => Number.parseInt(entry.trim(), 10))
+    .filter((entry, index, all) => Number.isInteger(entry) && entry > 0 && all.indexOf(entry) === index);
+
+  return numbers.slice(0, MAX_TRACKED_REQUESTS);
+}
+
 function getRepoUrl(env: Env): string | null {
   const normalized = normalizeEnv(env);
 
@@ -1698,7 +1724,8 @@ function buildQueueEtag({
   page,
   hasPreviousPage,
   hasNextPage,
-  totalItems
+  totalItems,
+  trackedIssueNumbers
 }: {
   items: Array<{
     number: number;
@@ -1715,6 +1742,7 @@ function buildQueueEtag({
   hasPreviousPage: boolean;
   hasNextPage: boolean;
   totalItems: number;
+  trackedIssueNumbers?: number[];
 }): string {
   const signature = items
     .map(
@@ -1722,7 +1750,8 @@ function buildQueueEtag({
         `${item.number}:${item.status}:${item.createdAt}:${item.commentCount ?? 0}:${item.githubUsername ?? ""}:${item.supportCount ?? 0}:${item.viewerSupports ? 1 : 0}:${item.statusUpdatedAt ?? ""}:${item.statusDetail ?? ""}`
     )
     .join("|");
-  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}:${totalItems}`;
+  const trackedState = (trackedIssueNumbers ?? []).join(",");
+  const pageState = `${page}:${hasPreviousPage ? 1 : 0}:${hasNextPage ? 1 : 0}:${totalItems}:${trackedState}`;
   return `W/"${pageState}:${signature || "empty"}"`;
 }
 
