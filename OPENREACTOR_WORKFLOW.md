@@ -60,6 +60,9 @@ maintainer consideration.
 - OpenReactor should refresh PR execution footers after the run finishes so
   the final PR body deterministically reflects the implementation agent that
   actually produced the result.
+- OpenReactor should instruct implementation agents to leave a concise,
+  human-useful implementation report in PR descriptions instead of relying only
+  on raw metadata or a bare checklist.
 - When OpenReactor decomposes an oversized issue, it should create GitHub-native
   sub-issues for the child tasks and add issue dependencies only for true
   blocking relationships, so independent child tasks can still run in

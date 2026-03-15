@@ -147,6 +147,12 @@
   agent exits, so a reactor-owned final refresh is the deterministic way to
   make the PR body reflect the agent that actually finished the work.
 
+- Decision: prompt issue agents to include a short implementation report in PR
+  descriptions, not just metadata and test output.
+  Reason: humans need a useful explanation of what changed, why the approach
+  was chosen, what was discovered, and how problems were handled when reading
+  OpenReactor-created PRs.
+
 - Decision: once a running issue blows past roughly eight iterations without a
   PR, the watchdog should treat it as a workflow fault and open concrete
   OpenReactor repair work instead of assuming more retries are productive.

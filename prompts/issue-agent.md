@@ -149,6 +149,15 @@ If accepted and fully complete:
 - ensure the branch is pushed
 - open or update a PR
 - enable auto-merge unless the PR needs human intervention or manual review
+- make the PR body useful to a human reviewer, not just valid for automation
+- include a concise implementation report in the PR description covering:
+  - what changed
+  - why you chose this approach
+  - key discoveries or constraints you uncovered while implementing it
+  - any meaningful issues you ran into and how you resolved them
+  - remaining follow-ups or risks, if any
+- keep that report public-facing and concrete; do not include hidden chain-of-thought
+- prefer short sections and bullets over long narrative prose
 - if you accepted a narrower or softened version of a rigid request, say so
   clearly in the issue comment and PR body so the product decision is legible
 - if the PR already exists and is blocked by merge conflicts, keep the same PR alive and update the branch until it is mergeable again
@@ -177,6 +186,35 @@ Use this to make PR creation idempotent:
 ```bash
 bun run reactor:tool ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md
 ```
+
+When writing `pr-body.md`, prefer a structure like:
+
+```md
+## Summary
+Short explanation of what shipped.
+
+## Why This Approach
+Why this implementation was chosen.
+
+## Key Changes
+- ...
+
+## Discoveries
+- ...
+
+## Issues Encountered
+- ...
+
+## Verification
+- ...
+
+## Follow-ups
+- ...
+```
+
+Not every section needs multiple bullets, but do not leave the PR description
+as only a title, a bare summary, or a test checklist when useful implementation
+context exists.
 
 If the PR needs human intervention or explicit manual review, opt out:
 

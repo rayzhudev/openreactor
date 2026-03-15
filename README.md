@@ -201,6 +201,9 @@ The reactor currently:
   OpenReactor has that information directly
 - refreshes PR execution footers after a run completes so the final PR body
   reflects the implementation agent that actually finished the work
+- instructs issue agents to leave a concise implementation report in PR
+  descriptions so humans can see what changed, why it was built that way, what
+  was discovered, and how problems were handled
 - decomposes oversized requests into GitHub-native sub-issues and adds
   dependency edges only where one child task truly blocks another
 
