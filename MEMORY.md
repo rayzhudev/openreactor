@@ -141,6 +141,11 @@
   Reason: provider, model, reasoning effort, and duration are hard facts that
   help explain how OpenReactor is operating without relying on vague narrative
   alone.
+- Decision: refresh PR execution footers from the reactor after a run finishes
+  instead of relying only on the earlier `ensure-pr` write.
+  Reason: the implementation execution metadata is only complete after the
+  agent exits, so a reactor-owned final refresh is the deterministic way to
+  make the PR body reflect the agent that actually finished the work.
 
 - Decision: once a running issue blows past roughly eight iterations without a
   PR, the watchdog should treat it as a workflow fault and open concrete

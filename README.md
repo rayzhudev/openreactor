@@ -199,6 +199,8 @@ The reactor currently:
 - records and surfaces execution metadata such as provider, model, reasoning
   effort, and duration in GitHub-visible status comments and PR bodies where
   OpenReactor has that information directly
+- refreshes PR execution footers after a run completes so the final PR body
+  reflects the implementation agent that actually finished the work
 
 The watchdog currently:
 

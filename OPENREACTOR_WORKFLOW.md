@@ -57,6 +57,9 @@ maintainer consideration.
 - OpenReactor should surface hard execution facts in public workflow artifacts
   where possible, such as provider, model, reasoning effort, and runtime
   duration, instead of relying only on narrative summaries.
+- OpenReactor should refresh PR execution footers after the run finishes so
+  the final PR body deterministically reflects the implementation agent that
+  actually produced the result.
 - When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
   should leave a reviewable PR open, disable auto-merge, and mark the issue as
   waiting for maintainer action instead of merging a documented partial.

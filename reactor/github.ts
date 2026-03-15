@@ -29,6 +29,7 @@ export interface GitHubPullRequest {
   number: number;
   html_url: string;
   state: string;
+  body?: string | null;
   node_id?: string;
   merged_at?: string | null;
   title?: string;
@@ -226,6 +227,24 @@ export class GitHubClient {
   async getPullRequest(pullRequestNumber: number): Promise<GitHubPullRequest> {
     return this.request<GitHubPullRequest>(
       `/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}`
+    );
+  }
+
+  async updatePullRequest(
+    pullRequestNumber: number,
+    input: {
+      title?: string;
+      body?: string;
+      state?: "open" | "closed";
+      base?: string;
+    }
+  ): Promise<GitHubPullRequest> {
+    return this.request<GitHubPullRequest>(
+      `/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      }
     );
   }
 
