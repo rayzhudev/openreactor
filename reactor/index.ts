@@ -13,6 +13,7 @@ import {
   type GitHubIssueComment,
   type GitHubPullRequest
 } from "./github";
+import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
 import {
   type AgentResult,
   type ExecutionMetadata,
@@ -909,6 +910,7 @@ class Reactor {
             prUrl: handoffValidation.pullRequest.html_url
           };
           await writeRunRecord(paths, activeRun.record);
+          await this.refreshPullRequestExecutionFooter(handoffValidation.pullRequest.number, paths);
           await this.github.disablePullRequestAutoMerge(handoffValidation.pullRequest.number);
           await this.github.addLabels(issueNumber, [MAINTAINER_ACTION_REQUIRED_LABEL]);
           await this.github.addLabels(handoffValidation.pullRequest.number, [
@@ -955,6 +957,7 @@ class Reactor {
             prUrl: acceptedValidation.pullRequest.html_url
           };
           await writeRunRecord(paths, activeRun.record);
+          await this.refreshPullRequestExecutionFooter(acceptedValidation.pullRequest.number, paths);
           await this.syncIssueStatusComment(issueNumber, {
             status: "complete",
             phase: "accepted",
@@ -1085,6 +1088,21 @@ class Reactor {
       }
       await this.updateLiveStatus();
     }
+  }
+
+  private async refreshPullRequestExecutionFooter(
+    pullRequestNumber: number,
+    paths: IssueRuntimePaths
+  ): Promise<void> {
+    const pullRequest = await this.github.getPullRequest(pullRequestNumber);
+    const currentBody = pullRequest.body ?? "";
+    const footer = await buildExecutionFooter(paths.runDir);
+    const nextBody = renderBodyWithExecutionFooter(currentBody, footer);
+    if (nextBody === currentBody) {
+      return;
+    }
+
+    await this.github.updatePullRequest(pullRequestNumber, { body: nextBody });
   }
 
   private async updateLiveStatus(): Promise<void> {
