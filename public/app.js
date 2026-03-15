@@ -2291,75 +2291,63 @@ function createQueueCardLink(item) {
 }
 
 function createSupportControls(item, mode = "default") {
-  const support = document.createElement("div");
-  support.className = mode === "compact"
-    ? "flex items-center justify-between gap-3 min-w-56"
-    : "flex items-center justify-between gap-3 pt-0.5 border-t border-[var(--line)]";
+  const wrapper = document.createElement("div");
+  wrapper.className = mode === "compact"
+    ? "flex items-center"
+    : "flex items-center pt-0.5";
 
-  const summary = document.createElement("div");
-  summary.className = "grid gap-0.5";
-
-  const count = document.createElement("span");
-  count.className = "text-[var(--ink)] text-sm font-semibold";
-  count.textContent = formatSupportCount(item.supportCount);
-
-  const hint = document.createElement("span");
-  hint.className = "text-[var(--ink-faint)] text-xs leading-tight";
-  hint.textContent = getSupportHint(item);
-
-  summary.append(count, hint);
-  support.append(summary, buildSupportAction(item, mode));
-  return support;
+  wrapper.append(buildUpvoteButton(item));
+  return wrapper;
 }
 
-function buildSupportAction(item, mode) {
+function buildUpvoteButton(item) {
+  const count = Number.isFinite(item.supportCount) ? Math.max(0, item.supportCount) : 0;
+  const thumbSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>';
+
   if (item.viewerSupports) {
-    const status = document.createElement("span");
-    status.className = `${CLS.pillSmall} border-[rgba(32,116,90,0.2)] bg-[rgba(32,116,90,0.1)] text-[var(--queue-complete)] cursor-default`;
-    status.textContent = "Supported";
-    return status;
+    const el = document.createElement("span");
+    el.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-[rgba(32,116,90,0.25)] bg-[rgba(32,116,90,0.08)] text-[var(--queue-complete)] cursor-default select-none";
+    el.innerHTML = thumbSvg;
+    el.append(` ${count}`);
+    el.title = "You've supported this issue";
+    return el;
   }
 
   if (supportSession.authenticated) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `${CLS.pillSmall} cursor-pointer`;
-    button.textContent = mode === "compact" ? "Support" : "Support with GitHub";
+    button.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-[var(--line)] text-[var(--ink-faint)] cursor-pointer select-none transition-colors hover:text-[var(--ink)] hover:border-[var(--ink-faint)]";
+    button.innerHTML = thumbSvg;
+    button.append(` ${count}`);
+    button.title = "Support this issue on GitHub";
     button.addEventListener("click", () => {
-      void handleSupportAction(item.number, button);
+      void handleUpvoteAction(item.number, button);
     });
     return button;
   }
 
-  const link = document.createElement("a");
-  link.className = CLS.pillSmall;
-  link.href = supportSession.authAvailable ? buildSupportAuthUrl() : item.url;
-  link.textContent = supportSession.authAvailable ? "Sign in to support" : "Support on GitHub";
-
+  // Not signed in — grayed out with tooltip
   if (supportSession.authAvailable) {
+    const link = document.createElement("a");
+    link.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-[var(--line)] text-[var(--ink-faint)] opacity-50 cursor-pointer select-none transition-colors hover:opacity-75";
+    link.innerHTML = thumbSvg;
+    link.append(` ${count}`);
+    link.title = "Sign in to GitHub to upvote";
+    link.href = buildSupportAuthUrl();
     link.target = "_self";
-  } else {
-    link.target = "_blank";
-    link.rel = "noreferrer";
+    return link;
   }
 
+  // Auth not available — link to GitHub issue
+  const link = document.createElement("a");
+  link.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-[var(--line)] text-[var(--ink-faint)] opacity-50 select-none";
+  link.innerHTML = thumbSvg;
+  link.append(` ${count}`);
+  link.title = "Support on GitHub directly";
+  link.href = item.url;
+  link.target = "_blank";
+  link.rel = "noreferrer";
   return link;
-}
-
-function getSupportHint(item) {
-  if (item.viewerSupports) {
-    return "Your GitHub support is already mirrored here.";
-  }
-
-  if (supportSession.authenticated) {
-    return "Writes a thumbs-up reaction to the GitHub issue.";
-  }
-
-  if (supportSession.authAvailable) {
-    return "GitHub sign-in is required so support stays tied to a real account.";
-  }
-
-  return "GitHub remains the canonical support ledger until website sign-in is configured.";
 }
 
 function isArchivedQueueItem(item) {
@@ -2476,10 +2464,6 @@ function formatCommentCount(value) {
   return `${count} comment${count === 1 ? "" : "s"}`;
 }
 
-function formatSupportCount(value) {
-  const count = Number.isFinite(value) ? Math.max(0, value) : 0;
-  return `${count} support${count === 1 ? "" : "s"}`;
-}
 
 function formatServiceSummary(service) {
   if (!service || !service.activeState) {
@@ -2523,10 +2507,10 @@ function formatIsoTimestamp(value) {
   }).format(date);
 }
 
-async function handleSupportAction(issueNumber, button) {
-  const originalLabel = button.textContent || "Support with GitHub";
+async function handleUpvoteAction(issueNumber, button) {
+  const originalHtml = button.innerHTML;
   button.disabled = true;
-  button.textContent = "Supporting...";
+  button.style.opacity = "0.5";
 
   try {
     const response = await fetch("/api/support", {
@@ -2558,7 +2542,8 @@ async function handleSupportAction(issueNumber, button) {
       renderQueueView();
     } else {
       button.disabled = false;
-      button.textContent = originalLabel;
+      button.style.opacity = "";
+      button.innerHTML = originalHtml;
     }
   }
 }
