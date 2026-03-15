@@ -57,6 +57,7 @@ class Reactor {
   private readonly github: GitHubClient;
   private readonly activeRuns = new Map<number, ActiveRun>();
   private readonly pendingRetries = new Set<number>();
+  private readonly blockedDependencyCache = new Map<number, boolean>();
   private stopped = false;
 
   constructor(private readonly dryRun: boolean) {
@@ -177,6 +178,7 @@ class Reactor {
   }
 
   private async tick(): Promise<void> {
+    this.blockedDependencyCache.clear();
     await this.reconcileStaleActiveRuns();
 
     const discussionRequeuedIssues = this.dryRun
@@ -192,7 +194,12 @@ class Reactor {
     ).filter((issue) => this.isRelevantIssue(issue));
 
     if (this.dryRun) {
-      const eligible = candidates.filter((issue) => this.isEligibleForClaim(issue));
+      const eligible = [];
+      for (const issue of candidates) {
+        if (await this.isEligibleForClaim(issue)) {
+          eligible.push(issue);
+        }
+      }
       console.log(
         JSON.stringify(
           {
@@ -220,7 +227,7 @@ class Reactor {
         break;
       }
 
-      if (!this.isEligibleForClaim(issue)) {
+      if (!(await this.isEligibleForClaim(issue))) {
         continue;
       }
 
@@ -672,7 +679,7 @@ class Reactor {
     return true;
   }
 
-  private isEligibleForClaim(issue: GitHubIssue): boolean {
+  private async isEligibleForClaim(issue: GitHubIssue): Promise<boolean> {
     if (this.activeRuns.has(issue.number)) {
       return false;
     }
@@ -699,6 +706,10 @@ class Reactor {
     }
 
     if (labels.has(this.config.acceptedLabel) || labels.has(this.config.rejectedLabel)) {
+      return false;
+    }
+
+    if (await this.hasOpenBlockingDependencies(issue.number)) {
       return false;
     }
 
@@ -1020,7 +1031,35 @@ class Reactor {
               body,
               labels: inheritedLabels
             });
+            if (!createdIssue.id) {
+              throw new Error(
+                `GitHub did not return an id for decomposed issue #${createdIssue.number}.`
+              );
+            }
+            await this.github.addSubIssue(issueNumber, createdIssue.id);
             createdIssues.push(createdIssue);
+          }
+
+          for (const [index, child] of result.decomposition.childIssues.entries()) {
+            const issue = createdIssues[index];
+            if (!issue?.id) {
+              throw new Error(`Missing GitHub id for decomposed child issue at index ${index}.`);
+            }
+
+            for (const dependencyIndex of normalizeDependencyIndexes(
+              child.dependsOn,
+              result.decomposition.childIssues.length,
+              index
+            )) {
+              const blockingIssue = createdIssues[dependencyIndex];
+              if (!blockingIssue?.id) {
+                throw new Error(
+                  `Missing GitHub id for dependency child issue at index ${dependencyIndex}.`
+                );
+              }
+
+              await this.github.addBlockedByDependency(issue.number, blockingIssue.id);
+            }
           }
 
           await this.syncIssueStatusComment(issueNumber, {
@@ -1118,6 +1157,17 @@ class Reactor {
     }
 
     await this.github.updatePullRequest(pullRequestNumber, { body: nextBody });
+  }
+
+  private async hasOpenBlockingDependencies(issueNumber: number): Promise<boolean> {
+    if (this.blockedDependencyCache.has(issueNumber)) {
+      return this.blockedDependencyCache.get(issueNumber) ?? false;
+    }
+
+    const blockedByIssues = await this.github.listBlockedByDependencies(issueNumber);
+    const hasOpenDependencies = blockedByIssues.some((issue) => issue.state === "open");
+    this.blockedDependencyCache.set(issueNumber, hasOpenDependencies);
+    return hasOpenDependencies;
   }
 
   private async updateLiveStatus(): Promise<void> {
@@ -1457,6 +1507,24 @@ function ensureParentLinkInDecomposedIssueBody(issue: GitHubIssue, body: string)
     "",
     trimmed
   ].join("\n");
+}
+
+function normalizeDependencyIndexes(
+  indexes: number[] | null | undefined,
+  totalChildren: number,
+  selfIndex: number
+): number[] {
+  return Array.from(
+    new Set(
+      (indexes ?? []).filter(
+        (value) =>
+          Number.isInteger(value) &&
+          value >= 0 &&
+          value < totalChildren &&
+          value !== selfIndex
+      )
+    )
+  ).sort((left, right) => left - right);
 }
 
 function parseIssueNumberFromBranch(branchPrefix: string, branchName: string): number | null {

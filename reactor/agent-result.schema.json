@@ -67,9 +67,16 @@
               "body": {
                 "type": "string",
                 "minLength": 20
+              },
+              "dependsOn": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             },
-            "required": ["title", "body"]
+            "required": ["title", "body", "dependsOn"]
           }
         }
       },

@@ -38,6 +38,7 @@ A request should be rejected/deferred if:
 4. Lightweight triage classifies surface sensitivity and evidence strength, then decides whether to `reject`, `bank`, or dispatch the request.
 5. Ongoing issue discussion can refine the request; banked, paused, or previously rejected issues may be reconsidered when later comments materially change the task or explicitly call OpenReactor back in.
 6. If dispatched, an issue agent decides whether the request should be `accepted`, `rejected`, or decomposed into smaller follow-up issues.
+7. Decomposed follow-up issues may be linked with GitHub-native dependencies when one child task truly blocks another. Independent child tasks should remain parallelizable.
 7. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
 8. On merge to `main`, the website deploys automatically.
 

@@ -43,6 +43,7 @@ export interface HumanHandoff {
 export interface DecompositionChildIssue {
   title: string;
   body: string;
+  dependsOn: number[];
 }
 
 export interface DecompositionPlan {
@@ -553,9 +554,9 @@ async function spawnCodexPlannerAgent(input: {
   await fs.writeFile(promptPath, prompt, "utf8");
 
   const args = buildCodexArgs({
-    model: config.agentModel,
-    reasoningEffort: config.agentReasoningEffort,
-    serviceTier: config.agentServiceTier,
+    model: config.plannerModel,
+    reasoningEffort: config.plannerReasoningEffort,
+    serviceTier: config.plannerServiceTier,
     fullAccess: true,
     outputSchemaPath: schemaPath,
     outputPath: resultPath
@@ -614,9 +615,9 @@ async function spawnCodexPlannerAgent(input: {
     executionTemplate: {
       providerKey: "codex",
       providerLabel: providerLabelFor("codex"),
-      model: config.agentModel,
-      reasoningEffort: config.agentReasoningEffort,
-      serviceTier: config.agentServiceTier ?? null,
+      model: config.plannerModel,
+      reasoningEffort: config.plannerReasoningEffort,
+      serviceTier: config.plannerServiceTier ?? null,
       toolName: "spawn_codex_planner_agent",
       toolLabel: getAgentTool("spawn_codex_planner_agent").label,
       primaryUse: getAgentTool("spawn_codex_planner_agent").primaryUse
@@ -844,6 +845,7 @@ function buildAgentPrompt(
             `- This issue was dispatched via ${tool.label}. Your primary job is to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.`,
             "- Use prompts/planner-agent.md as the planning-specific rule set for this run.",
             "- If the request is worth pursuing but too large, return `decomposed` with a structured decomposition plan instead of `rejected`.",
+            "- When decomposing, use `dependsOn` only for true blocking relationships between child tasks. Leave it empty for tasks that can proceed in parallel.",
             "- Do not open a PR for the oversized parent issue itself."
           ]
       : [
