@@ -85,6 +85,11 @@ const REACTORLE_WORDS = [
 const REACTORLE_KEYBOARD_ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const BOARD_COLUMNS = [
   { key: "queued", label: "Queued", description: "Fresh requests waiting for pickup." },
+  {
+    key: "needs-refinement",
+    label: "Needs Refinement",
+    description: "Deferred until the request gets clearer scope or more detail."
+  },
   { key: "in-progress", label: "In progress", description: "Being reviewed or actively shipped." }
 ];
 
@@ -99,6 +104,7 @@ function getStatusBadgeClasses(status) {
   const base = "or-badge or-status-badge";
   switch (status) {
     case "queued": return `${base} is-queued`;
+    case "needs-refinement": return `${base} is-needs-refinement`;
     case "in-progress": return `${base} is-in-progress`;
     case "complete": return `${base} is-complete`;
     case "rejected": return `${base} is-rejected`;
@@ -109,6 +115,7 @@ function getStatusBadgeClasses(status) {
 function getStatusBorderColor(status) {
   switch (status) {
     case "queued": return "var(--queue-queued)";
+    case "needs-refinement": return "var(--queue-refinement)";
     case "in-progress": return "var(--queue-progress)";
     case "complete": return "var(--queue-complete)";
     case "rejected": return "var(--queue-rejected)";
@@ -707,7 +714,9 @@ function normalizeTrackedRequest(item) {
 }
 
 function normalizeTrackedStatus(value) {
-  return ["queued", "in-progress", "complete", "rejected"].includes(value) ? value : "queued";
+  return ["queued", "needs-refinement", "in-progress", "complete", "rejected"].includes(value)
+    ? value
+    : "queued";
 }
 
 function rememberSubmittedRequest(item) {
@@ -845,7 +854,12 @@ function createMyRequestCard(item) {
   primary.href = item.commentUrl || item.url || "#";
   primary.target = "_blank";
   primary.rel = "noreferrer";
-  primary.textContent = item.status === "rejected" ? "Reply on GitHub to clarify" : "Open on GitHub";
+  primary.textContent =
+    item.status === "rejected"
+      ? "Reply on GitHub to clarify"
+      : item.status === "needs-refinement"
+        ? "Add detail on GitHub"
+        : "Open on GitHub";
 
   if (!item.commentUrl && !item.url) {
     primary.setAttribute("aria-disabled", "true");
@@ -873,6 +887,10 @@ function getMyRequestDetail(item) {
 
   if (item.status === "complete") {
     return "This request shipped or the linked pull request merged.";
+  }
+
+  if (item.status === "needs-refinement") {
+    return "OpenReactor deferred this request until the GitHub thread has clearer scope or more detail.";
   }
 
   if (item.status === "in-progress") {
@@ -2261,7 +2279,11 @@ function createQueueCardLink(item) {
   const cta = document.createElement("span");
   cta.className = "text-[var(--accent-dark)] text-sm font-medium";
   cta.textContent =
-    item.status === "rejected" ? "Read the rejection and reply on GitHub" : "Open issue and comment on GitHub";
+    item.status === "rejected"
+      ? "Read the rejection and reply on GitHub"
+      : item.status === "needs-refinement"
+        ? "Open issue and add the missing detail on GitHub"
+        : "Open issue and comment on GitHub";
 
   link.append(top, title, meta, discussion, cta);
   card.append(link, createSupportControls(item));
@@ -2391,6 +2413,14 @@ function getQueueDiscussionHint(item) {
     }
 
     return "Rejected. Open the issue to read the reason and reply with clarification on GitHub.";
+  }
+
+  if (item.status === "needs-refinement") {
+    if (item.statusDetail) {
+      return `Needs refinement: ${item.statusDetail}`;
+    }
+
+    return "Needs refinement. Open the issue and add more detail on GitHub.";
   }
 
   return (

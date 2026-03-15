@@ -22,6 +22,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 const AUTH_STATE_TTL_SECONDS = 10 * 60;
 const MAINTAINER_STEERED_LABEL = "maintainer-steered";
 const AUTHENTICATED_SUBMITTER_LABEL = "submitter:github-authenticated";
+const NEEDS_REFINEMENT_LABEL = "needs-refinement";
+const FEEDBACK_BANK_LABEL = "feedback-bank";
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
@@ -1253,6 +1255,10 @@ function getIssueStatus(issue: GitHubIssue): string {
 
   if (issue.state === "closed") {
     return "complete";
+  }
+
+  if (labelNames.has(NEEDS_REFINEMENT_LABEL) || labelNames.has(FEEDBACK_BANK_LABEL)) {
+    return "needs-refinement";
   }
 
   if (labelNames.has("or:running") || labelNames.has("accepted")) {

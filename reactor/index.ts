@@ -38,6 +38,7 @@ import {
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const DECISION_COMMENT_MARKER = "<!-- openreactor:decision -->";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
+const NEEDS_REFINEMENT_LABEL = "needs-refinement";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
 const MAINTAINER_ACTION_REQUIRED_LABEL = "maintainer-action-required";
 const SENSITIVITY_LABELS = {
@@ -107,6 +108,11 @@ class Reactor {
       FEEDBACK_BANK_LABEL,
       "c2e0c6",
       "OpenReactor banked this feedback for later consideration instead of acting on it immediately."
+    );
+    await this.github.ensureLabel(
+      NEEDS_REFINEMENT_LABEL,
+      "d4c5f9",
+      "This request is deferred until it gets more specification or clarification."
     );
     await this.github.ensureLabel(
       this.config.acceptedLabel,
@@ -296,9 +302,9 @@ class Reactor {
           normalizedResult.summary,
         triageExecution: execution
       });
-      await this.github.addLabels(issue.number, [FEEDBACK_BANK_LABEL]);
+      await this.github.addLabels(issue.number, [FEEDBACK_BANK_LABEL, NEEDS_REFINEMENT_LABEL]);
       await this.syncIssueStatusComment(issue.number, {
-        status: "queued",
+        status: "needs-refinement",
         phase: "banked",
         detail:
           [
@@ -333,6 +339,7 @@ class Reactor {
     if (normalizedResult?.outcome === "dispatch") {
       await this.persistTriageExecution(issue, paths, execution);
       await this.github.removeLabel(issue.number, FEEDBACK_BANK_LABEL);
+      await this.github.removeLabel(issue.number, NEEDS_REFINEMENT_LABEL);
       const toolName = isAgentToolName(normalizedResult.toolName)
         ? normalizedResult.toolName
         : DEFAULT_AGENT_TOOL;
@@ -585,6 +592,7 @@ class Reactor {
 
       const discussionBlocked =
         labels.has(FEEDBACK_BANK_LABEL) ||
+        labels.has(NEEDS_REFINEMENT_LABEL) ||
         labels.has(this.config.pausedLabel) ||
         labels.has(this.config.rejectedLabel);
       if (!discussionBlocked) {
@@ -611,6 +619,7 @@ class Reactor {
       const allowRequeue =
         closedIssueExplicitRetrigger &&
         (labels.has(FEEDBACK_BANK_LABEL) ||
+          labels.has(NEEDS_REFINEMENT_LABEL) ||
           labels.has(this.config.pausedLabel) ||
           maintainerComment ||
           botMentioned);
@@ -625,6 +634,7 @@ class Reactor {
 
       await this.github.removeLabel(issue.number, this.config.rejectedLabel);
       await this.github.removeLabel(issue.number, FEEDBACK_BANK_LABEL);
+      await this.github.removeLabel(issue.number, NEEDS_REFINEMENT_LABEL);
       await this.github.removeLabel(issue.number, this.config.pausedLabel);
 
       const nextRecord = record ?? (await createInitialRunRecord(issue, paths));
@@ -677,6 +687,10 @@ class Reactor {
     }
 
     if (labels.has(FEEDBACK_BANK_LABEL)) {
+      return false;
+    }
+
+    if (labels.has(NEEDS_REFINEMENT_LABEL)) {
       return false;
     }
 
@@ -811,6 +825,7 @@ class Reactor {
   private async syncGovernanceLabels(issueNumber: number, triage: TriageResult): Promise<void> {
     const labelsToClear = [
       FEEDBACK_BANK_LABEL,
+      NEEDS_REFINEMENT_LABEL,
       ...Object.values(SENSITIVITY_LABELS),
       ...Object.values(EVIDENCE_LABELS)
     ];
@@ -822,7 +837,7 @@ class Reactor {
     await this.github.addLabels(issueNumber, [
       SENSITIVITY_LABELS[triage.sensitivity],
       EVIDENCE_LABELS[triage.evidenceStrength],
-      ...(triage.outcome === "bank" ? [FEEDBACK_BANK_LABEL] : [])
+      ...(triage.outcome === "bank" ? [FEEDBACK_BANK_LABEL, NEEDS_REFINEMENT_LABEL] : [])
     ]);
   }
 

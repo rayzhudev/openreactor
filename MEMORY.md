@@ -159,3 +159,11 @@
   Reason: OpenReactor needs a named automated test-run technique that exercises
   the full issue-to-PR workflow end to end, so regressions are caught by a
   real run instead of only by waiting for ordinary feature work to expose them.
+
+## 2026-03-15
+
+- Decision: surface banked/deferred requests in the public queue as a distinct
+  `Needs Refinement` status and persist that state with a dedicated GitHub
+  `needs-refinement` label.
+  Reason: deferred requests should stay visible for follow-up, but they should
+  not look identical to fresh queued work.
