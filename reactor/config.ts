@@ -29,6 +29,9 @@ export interface OrchestratorConfig {
   triageModel: string;
   triageReasoningEffort: string;
   triageServiceTier: string;
+  plannerModel: string;
+  plannerReasoningEffort: string;
+  plannerServiceTier: string;
   agentModel: string;
   agentReasoningEffort: string;
   agentServiceTier: string;
@@ -73,6 +76,15 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     triageReasoningEffort:
       clean(process.env.OPENREACTOR_TRIAGE_REASONING_EFFORT) || "low",
     triageServiceTier: clean(process.env.OPENREACTOR_TRIAGE_SERVICE_TIER),
+    plannerModel:
+      clean(process.env.OPENREACTOR_PLANNER_MODEL) ||
+      clean(process.env.OPENREACTOR_AGENT_MODEL) ||
+      "gpt-5.4",
+    plannerReasoningEffort:
+      clean(process.env.OPENREACTOR_PLANNER_REASONING_EFFORT) || "high",
+    plannerServiceTier:
+      clean(process.env.OPENREACTOR_PLANNER_SERVICE_TIER) ||
+      clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
     agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL) || "gpt-5.4",
     agentReasoningEffort:
       clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",

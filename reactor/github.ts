@@ -11,6 +11,7 @@ const installationTokenCache = new Map<string, { token: string; expiresAt: numbe
 const installationIdCache = new Map<string, string>();
 
 export interface GitHubIssue {
+  id?: number;
   number: number;
   title: string;
   body: string | null;
@@ -217,6 +218,36 @@ export class GitHubClient {
           state: "open"
         })
       }
+    );
+  }
+
+  async addSubIssue(parentIssueNumber: number, subIssueId: number): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${parentIssueNumber}/sub_issues`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          sub_issue_id: subIssueId
+        })
+      }
+    );
+  }
+
+  async addBlockedByDependency(issueNumber: number, blockingIssueId: number): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}/dependencies/blocked_by`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          issue_id: blockingIssueId
+        })
+      }
+    );
+  }
+
+  async listBlockedByDependencies(issueNumber: number): Promise<GitHubIssue[]> {
+    return this.request<GitHubIssue[]>(
+      `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}/dependencies/blocked_by?per_page=100`
     );
   }
 

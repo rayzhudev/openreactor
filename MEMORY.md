@@ -167,3 +167,10 @@
   `needs-refinement` label.
   Reason: deferred requests should stay visible for follow-up, but they should
   not look identical to fresh queued work.
+
+- Decision: give the planner its own higher-reasoning configuration and let it
+  create GitHub-native sub-issues plus dependency edges for decomposed work.
+  Reason: decomposition needs more careful sequencing judgment than ordinary
+  implementation, and native issue dependencies let OpenReactor avoid starting
+  blocked child tasks while still allowing independent children to run in
+  parallel.

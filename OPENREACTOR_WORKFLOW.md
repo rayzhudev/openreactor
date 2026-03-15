@@ -60,6 +60,10 @@ maintainer consideration.
 - OpenReactor should refresh PR execution footers after the run finishes so
   the final PR body deterministically reflects the implementation agent that
   actually produced the result.
+- When OpenReactor decomposes an oversized issue, it should create GitHub-native
+  sub-issues for the child tasks and add issue dependencies only for true
+  blocking relationships, so independent child tasks can still run in
+  parallel.
 - When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
   should leave a reviewable PR open, disable auto-merge, and mark the issue as
   waiting for maintainer action instead of merging a documented partial.

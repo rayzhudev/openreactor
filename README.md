@@ -201,6 +201,8 @@ The reactor currently:
   OpenReactor has that information directly
 - refreshes PR execution footers after a run completes so the final PR body
   reflects the implementation agent that actually finished the work
+- decomposes oversized requests into GitHub-native sub-issues and adds
+  dependency edges only where one child task truly blocks another
 
 The watchdog currently:
 
@@ -242,6 +244,9 @@ Useful environment variables:
 - `OPENREACTOR_TRIAGE_MODEL`
 - `OPENREACTOR_TRIAGE_REASONING_EFFORT`
 - `OPENREACTOR_TRIAGE_SERVICE_TIER`
+- `OPENREACTOR_PLANNER_MODEL`
+- `OPENREACTOR_PLANNER_REASONING_EFFORT`
+- `OPENREACTOR_PLANNER_SERVICE_TIER`
 - `OPENREACTOR_AGENT_MODEL`
 - `OPENREACTOR_AGENT_REASONING_EFFORT`
 - `OPENREACTOR_AGENT_SERVICE_TIER`

@@ -15,5 +15,9 @@ Rules:
 - Prefer 2 to 5 child issues unless the work is truly trivial.
 - Each child issue should be independently actionable by one implementation agent.
 - Child issues should not be written as public intake requests. Do not start their titles with `[Request]` and do not include the public request marker.
+- OpenReactor will create the child issues as GitHub sub-issues of the parent.
+- Use each child issue's `dependsOn` array to reference zero-based indexes of earlier or later child issues that must complete first.
+- Only add dependencies for true blockers. Leave `dependsOn` empty when tasks can proceed in parallel.
+- Prefer the smallest dependency graph that preserves correctness.
 - If a child issue requires human setup, include exact continuation instructions in that child issue body instead of discarding the direction.
 - If the parent request is not worth pursuing, reject it clearly rather than decomposing it.
