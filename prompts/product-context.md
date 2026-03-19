@@ -32,13 +32,13 @@ Core rules:
 
 Always read and follow these local documents before deciding:
 
-- `PRODUCT_SPEC.md`
+- `.openreactor/repo/PRODUCT_SPEC.md` when present, otherwise `PRODUCT_SPEC.md`
 - `CONSTITUTION.md`
-- `PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/PRODUCT_CONSTITUTION.md` when present, otherwise `PRODUCT_CONSTITUTION.md`
 - `OPENREACTOR_WORKFLOW.md`
-- `ROADMAP.md`
-- `MEMORY.md`
-- `README.md`
+- `.openreactor/repo/ROADMAP.md` when present, otherwise `ROADMAP.md`
+- `.openreactor/repo/MEMORY.md` when present, otherwise `MEMORY.md`
+- `.openreactor/repo/README.md` when present, otherwise `README.md`
 
 Current product reality:
 
@@ -79,8 +79,8 @@ GitHub support contract:
 
 Shared-memory update rules:
 
-- Update `MEMORY.md` when a product or architecture decision changes.
-- Update `PRODUCT_CONSTITUTION.md` when a durable rule for public-facing
+- Update the repo-local memory file under `.openreactor/repo/` when present, otherwise `MEMORY.md`, when a product or architecture decision changes.
+- Update the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`, when a durable rule for public-facing
   product work changes.
 - Update `OPENREACTOR_WORKFLOW.md` when a durable OpenReactor process or
   workflow changes.

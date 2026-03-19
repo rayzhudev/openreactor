@@ -195,4 +195,13 @@
   image input.
   Reason: markdown image links in the issue body are not a reliable substitute
   for actual multimodal input when an agent needs to inspect a UI reference or
-  other uploaded image while implementing the issue.
+  other uploaded image while implementing the issue, and Claude Code can read
+  image files by local path when that directory is included in its allowed
+  scope.
+
+- Decision: start separating shared OpenReactor runtime code from repo-local
+  product steering state by introducing a committed `.openreactor/repo/`
+  directory.
+  Reason: OpenReactor should eventually manage many repos, and each repo needs
+  its own product memory, roadmap, and constitution without having to vendor
+  the whole OpenReactor engine into that repo.

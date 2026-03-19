@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import type { OrchestratorConfig } from "./config";
 import type { GitHubIssue, GitHubIssueComment } from "./github";
+import { resolveRepoDocumentationPaths } from "./repo-state";
 import {
   DEFAULT_AGENT_TOOL,
   describeAgentToolsForPrompt,
@@ -223,6 +224,7 @@ export async function writeIssueContext(
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
   const referenceImages = await prepareRunReferenceImages(issue, paths, discussionComments);
+  const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
 
   const content = [
     "# Issue Context",
@@ -285,13 +287,13 @@ export async function writeIssueContext(
     "",
     "## Product Docs To Read",
     "",
-    "- PRODUCT_SPEC.md",
+    `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
     "- CONSTITUTION.md",
-    "- PRODUCT_CONSTITUTION.md",
+    `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
     "- OPENREACTOR_WORKFLOW.md",
-    "- ROADMAP.md",
-    "- MEMORY.md",
-    "- README.md"
+    `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.readme)}`
   ].filter(Boolean).join("\n");
 
   await fs.mkdir(paths.runDir, { recursive: true });
@@ -473,7 +475,7 @@ async function spawnCodexIssueAgent(input: {
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_issue_agent");
+  const prompt = await buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_issue_agent");
 
   await fs.writeFile(promptPath, prompt, "utf8");
 
@@ -570,7 +572,7 @@ async function spawnCodexPlannerAgent(input: {
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
+  const prompt = await buildAgentPrompt(config, issue, paths, iteration, "spawn_codex_planner_agent");
 
   await fs.writeFile(promptPath, prompt, "utf8");
 
@@ -661,7 +663,7 @@ async function spawnClaudeUiIssueAgent(input: {
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = buildAgentPrompt(config, issue, paths, iteration, "spawn_claude_ui_agent");
+  const prompt = await buildAgentPrompt(config, issue, paths, iteration, "spawn_claude_ui_agent");
   const schema = await fs.readFile(schemaPath, "utf8");
 
   await fs.writeFile(promptPath, prompt, "utf8");
@@ -746,7 +748,7 @@ export async function runIssueTriage(input: {
 }): Promise<{ result: TriageResult | null; exitCode: number | null; execution: ExecutionMetadata }> {
   const { config, issue, paths, githubToken } = input;
   const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
-  const prompt = buildTriagePrompt(config, issue, input.comments ?? []);
+  const prompt = await buildTriagePrompt(config, issue, paths, input.comments ?? []);
   const referenceImages = await prepareRunReferenceImages(issue, paths, input.comments ?? []);
 
   await fs.mkdir(paths.runDir, { recursive: true });
@@ -841,16 +843,17 @@ export async function finalizeIssueAgentRun(input: {
   };
 }
 
-function buildAgentPrompt(
+async function buildAgentPrompt(
   config: OrchestratorConfig,
   issue: GitHubIssue,
   paths: IssueRuntimePaths,
   iteration: number,
   agentTool: AgentToolName
-): string {
+): Promise<string> {
   const tool = getAgentTool(agentTool);
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const extraFiles =
     agentTool === "spawn_claude_ui_agent"
       ? ["- prompts/ui-agent.md"]
@@ -880,11 +883,15 @@ function buildAgentPrompt(
     `You are OpenReactor's autonomous issue agent for GitHub issue #${issue.number}.`,
     "",
     "Read these files before doing anything else:",
-    "- UI_SYSTEM.md",
+    ...(repoDocs.uiSystem ? [`- ${relativeFromWorktree(paths, repoDocs.uiSystem)}`] : []),
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- prompts/quality-gates.md",
-    "- PRODUCT_CONSTITUTION.md",
+    `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
     "- OPENREACTOR_WORKFLOW.md",
     ...extraFiles,
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
@@ -949,13 +956,15 @@ function buildAgentPrompt(
   ].join("\n");
 }
 
-function buildTriagePrompt(
+async function buildTriagePrompt(
   config: OrchestratorConfig,
   issue: GitHubIssue,
+  paths: IssueRuntimePaths,
   comments: GitHubIssueComment[]
-): string {
+): Promise<string> {
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
@@ -965,9 +974,12 @@ function buildTriagePrompt(
     "- prompts/product-context.md",
     "- prompts/issue-agent.md",
     "- CONSTITUTION.md",
-    "- PRODUCT_CONSTITUTION.md",
+    `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
     "- OPENREACTOR_WORKFLOW.md",
-    "- ROADMAP.md",
+    `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
     "",
     "Issue context:",
     `- Issue: #${issue.number}`,

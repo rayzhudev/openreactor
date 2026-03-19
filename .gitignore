@@ -1,5 +1,7 @@
 node_modules
 .wrangler
 .dev.vars
-.openreactor
+.openreactor/*
+!.openreactor/repo/
+!.openreactor/repo/**
 public/styles.css
