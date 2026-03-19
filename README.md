@@ -150,7 +150,7 @@ When those files exist, the reactor prefers them over the legacy top-level
 product docs. This lets a target repo keep its own product direction and memory
 without needing to vendor the whole OpenReactor runtime into the repo.
 
-Bootstrap that repo-local steering layer with:
+Bootstrap that repo-local steering layer manually with:
 
 ```bash
 bun run reactor:tool init-repo-state
@@ -161,16 +161,23 @@ That bootstrap now tries to seed the repo-local files from:
 - the repo README, if one exists
 - existing GitHub issues, especially PRD-like setup issues
 
-The intended onboarding shape for managed repos is:
+The intended managed-repo flow is:
 
 1. user creates a repo and writes an initial PRD, usually as a README or an
    initial GitHub issue,
 2. user installs the OpenReactor GitHub App on that repo,
-3. OpenReactor infers a first-pass product description from the repo README and
+3. the local OpenReactor runtime starts against a clone of that repo,
+4. OpenReactor infers a first-pass product description from the repo README and
    the existing GitHub issue discussion,
-4. OpenReactor opens a bootstrap PR creating `.openreactor/repo/` from that
-   material,
-5. after merge, OpenReactor starts handling GitHub issues for that repo.
+5. OpenReactor automatically opens a bootstrap PR creating `.openreactor/repo/`
+   from that material,
+6. once that repo-local state exists on `main`, OpenReactor proceeds with the
+   normal issue loop.
+
+For older repos that already have the legacy top-level product docs
+(`README.md`, `PRODUCT_SPEC.md`, `PRODUCT_CONSTITUTION.md`, `ROADMAP.md`,
+`MEMORY.md`), OpenReactor can keep operating while that bootstrap PR is still
+open. Brand-new repos without those docs are gated on the bootstrap first.
 
 This is intentionally different from the public OpenReactor website. The
 website's public feature form is a demo/product surface for OpenReactor
@@ -204,6 +211,22 @@ for the Pages site:
 
 ```bash
 bun run reactor
+```
+
+To run the same local OpenReactor engine against a different cloned repo,
+point the managed-repo root at that checkout and invoke the engine from this
+repo:
+
+```bash
+OPENREACTOR_MANAGED_REPO_ROOT=/home/ray/projects/some-other-repo \
+  bun /home/ray/projects/openreactor/reactor/index.ts
+```
+
+The same pattern works for the watchdog:
+
+```bash
+OPENREACTOR_MANAGED_REPO_ROOT=/home/ray/projects/some-other-repo \
+  bash /home/ray/projects/openreactor/scripts/watchdog-service.sh
 ```
 
 One-pass dry operation:

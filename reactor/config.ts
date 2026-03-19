@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 export interface OrchestratorConfig {
+  engineRoot: string;
   repoRoot: string;
   runsDir: string;
   worktreesDir: string;
@@ -43,11 +45,15 @@ export interface OrchestratorConfig {
   botMentionAliases: string[];
 }
 
-export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
+const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorConfig {
+  const engineRoot = clean(process.env.OPENREACTOR_ENGINE_ROOT) || ENGINE_ROOT;
   const stateRoot = path.join(repoRoot, ".openreactor");
-  const localEnv = loadLocalEnv(repoRoot);
+  const localEnv = loadLocalEnv(repoRoot, engineRoot);
 
   return {
+    engineRoot,
     repoRoot,
     runsDir: path.join(stateRoot, "runs"),
     worktreesDir: path.join(stateRoot, "worktrees"),
@@ -107,6 +113,10 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
       ]
     )
   };
+}
+
+function resolveManagedRepoRoot(): string {
+  return clean(process.env.OPENREACTOR_MANAGED_REPO_ROOT) || process.cwd();
 }
 
 function requiredEnv(name: string, localEnv: Map<string, string>): string {
@@ -197,9 +207,9 @@ function parseGitHubRemote(repoRoot: string): { owner: string; repo: string } | 
   }
 }
 
-function loadLocalEnv(repoRoot: string): Map<string, string> {
+function loadLocalEnv(repoRoot: string, engineRoot: string): Map<string, string> {
   const values = new Map<string, string>();
-  for (const filePath of localEnvPaths(repoRoot)) {
+  for (const filePath of localEnvPaths(repoRoot, engineRoot)) {
     if (!fs.existsSync(filePath)) {
       continue;
     }
@@ -228,10 +238,11 @@ function loadLocalEnv(repoRoot: string): Map<string, string> {
   return values;
 }
 
-function localEnvPaths(repoRoot: string): string[] {
+function localEnvPaths(repoRoot: string, engineRoot: string): string[] {
   const homeDirectory = process.env.HOME ?? "";
-  const paths = [".dev.vars", ".env.local", ".env"].map((fileName) =>
-    path.join(repoRoot, fileName)
+  const repoRoots = Array.from(new Set([repoRoot, engineRoot].filter(Boolean)));
+  const paths = repoRoots.flatMap((root) =>
+    [".dev.vars", ".env.local", ".env"].map((fileName) => path.join(root, fileName))
   );
 
   if (homeDirectory) {

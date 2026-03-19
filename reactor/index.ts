@@ -1,4 +1,8 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import process from "node:process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { loadConfig, type OrchestratorConfig } from "./config";
 import {
   DEFAULT_AGENT_TOOL,
@@ -36,9 +40,20 @@ import {
   type RunRecord,
   type TriageResult
 } from "./runner";
+import {
+  ensureRepoRuntimeGitignore,
+  hasRepoStateFiles,
+  initializeRepoState,
+  REPO_STATE_DIR,
+  type RepoStateSeedIssue
+} from "./repo-state";
+
+const execFileAsync = promisify(execFile);
 
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
 const DECISION_COMMENT_MARKER = "<!-- openreactor:decision -->";
+const BOOTSTRAP_BRANCH_NAME = "openreactor/bootstrap-repo-state";
+const BOOTSTRAP_PR_TITLE = "Bootstrap OpenReactor repo state";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
 const NEEDS_REFINEMENT_LABEL = "needs-refinement";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
@@ -180,6 +195,11 @@ class Reactor {
   }
 
   private async tick(): Promise<void> {
+    if (!(await this.ensureRepoStateBootstrap())) {
+      await this.updateLiveStatus();
+      return;
+    }
+
     this.blockedDependencyCache.clear();
     await this.reconcileStaleActiveRuns();
 
@@ -258,6 +278,107 @@ class Reactor {
     }
 
     await this.updateLiveStatus();
+  }
+
+  private async ensureRepoStateBootstrap(): Promise<boolean> {
+    if (await hasRepoStateFiles(this.config.repoRoot)) {
+      return true;
+    }
+
+    await refreshRemoteMain(this.config.repoRoot);
+    if (await hasRepoStateOnRef(this.config.repoRoot, "origin/main")) {
+      return true;
+    }
+
+    const legacyDocsReady = await hasLegacyRepoProductDocs(this.config.repoRoot);
+
+    const existingPullRequest = await this.github.findOpenPullRequestByBranch(BOOTSTRAP_BRANCH_NAME);
+    if (existingPullRequest) {
+      return legacyDocsReady;
+    }
+
+    if (this.dryRun) {
+      console.log(
+        JSON.stringify(
+          {
+            mode: "dry-run",
+            bootstrapRequired: !legacyDocsReady,
+            bootstrapRecommended: legacyDocsReady,
+            repoRoot: this.config.repoRoot,
+            branchName: BOOTSTRAP_BRANCH_NAME
+          },
+          null,
+          2
+        )
+      );
+      return legacyDocsReady;
+    }
+
+    const bootstrapWorktreePath = path.join(this.config.worktreesDir, "bootstrap-repo-state");
+    await recreateBootstrapWorktree(this.config.repoRoot, bootstrapWorktreePath, BOOTSTRAP_BRANCH_NAME);
+    await ensureWorktreeGitIdentity(this.config, bootstrapWorktreePath);
+
+    const readmeBody = await readRepoReadme(this.config.repoRoot);
+    const issues = await this.loadBootstrapSeedIssues();
+    await initializeRepoState(bootstrapWorktreePath, this.config.repo, {
+      readmeBody,
+      issues
+    });
+    await ensureRepoRuntimeGitignore(bootstrapWorktreePath);
+
+    if (!(await hasGitChanges(bootstrapWorktreePath))) {
+      return false;
+    }
+
+    await runGit(bootstrapWorktreePath, ["add", "-A", ".gitignore", REPO_STATE_DIR]);
+    await runGit(bootstrapWorktreePath, [
+      "commit",
+      "-m",
+      "Bootstrap OpenReactor repo state"
+    ]);
+
+    const accessToken = await this.github.getAgentAccessToken();
+    await pushBranchWithToken({
+      cwd: bootstrapWorktreePath,
+      owner: this.config.owner,
+      repo: this.config.repo,
+      branchName: BOOTSTRAP_BRANCH_NAME,
+      token: accessToken
+    });
+
+    const pullRequest = await this.github.createPullRequest({
+      title: BOOTSTRAP_PR_TITLE,
+      head: BOOTSTRAP_BRANCH_NAME,
+      base: "main",
+      body: buildBootstrapPullRequestBody({
+        repoName: this.config.repo,
+        readmeDetected: Boolean(readmeBody.trim()),
+        issueCount: issues.length
+      })
+    });
+
+    try {
+      await this.github.enablePullRequestAutoMerge(pullRequest.number, "SQUASH");
+    } catch (error) {
+      console.warn(
+        `Unable to enable auto-merge for bootstrap PR #${pullRequest.number}.`,
+        error
+      );
+    }
+
+    return legacyDocsReady;
+  }
+
+  private async loadBootstrapSeedIssues(): Promise<RepoStateSeedIssue[]> {
+    const issues = await this.github.listOpenIssues();
+    return issues
+      .filter((issue) => !issue.pull_request)
+      .slice(0, 8)
+      .map((issue) => ({
+        number: issue.number,
+        title: issue.title,
+        body: issue.body
+      }));
   }
 
   private async triageIssue(issue: GitHubIssue): Promise<TriageResult | null> {
@@ -1511,6 +1632,144 @@ function normalizeDecomposedIssueTitle(title: string): string {
   }
 
   return `[Task] ${cleaned}`;
+}
+
+async function readRepoReadme(repoRoot: string): Promise<string> {
+  for (const candidate of ["README.md", "Readme.md", "readme.md"]) {
+    try {
+      return await fs.readFile(path.join(repoRoot, candidate), "utf8");
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return "";
+}
+
+async function hasRepoStateOnRef(repoRoot: string, ref: string): Promise<boolean> {
+  try {
+    await execFileAsync("git", [
+      "-C",
+      repoRoot,
+      "cat-file",
+      "-e",
+      `${ref}:${path.posix.join(".openreactor", "repo", "README.md")}`
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hasLegacyRepoProductDocs(repoRoot: string): Promise<boolean> {
+  const requiredFiles = [
+    "README.md",
+    "PRODUCT_SPEC.md",
+    "PRODUCT_CONSTITUTION.md",
+    "ROADMAP.md",
+    "MEMORY.md"
+  ];
+
+  const checks = await Promise.all(
+    requiredFiles.map(async (fileName) => {
+      try {
+        await fs.access(path.join(repoRoot, fileName));
+        return true;
+      } catch {
+        return false;
+      }
+    })
+  );
+
+  return checks.every(Boolean);
+}
+
+async function refreshRemoteMain(repoRoot: string): Promise<void> {
+  await execFileAsync("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
+}
+
+async function recreateBootstrapWorktree(
+  repoRoot: string,
+  worktreePath: string,
+  branchName: string
+): Promise<void> {
+  try {
+    await execFileAsync("git", ["-C", repoRoot, "worktree", "remove", "--force", worktreePath]);
+  } catch {
+    // Ignore missing worktree state.
+  }
+
+  try {
+    await execFileAsync("git", ["-C", repoRoot, "branch", "-D", branchName]);
+  } catch {
+    // Ignore missing branch state.
+  }
+
+  await execFileAsync("git", [
+    "-C",
+    repoRoot,
+    "worktree",
+    "add",
+    "-b",
+    branchName,
+    worktreePath,
+    "origin/main"
+  ]);
+}
+
+async function hasGitChanges(repoRoot: string): Promise<boolean> {
+  const { stdout } = await execFileAsync("git", ["-C", repoRoot, "status", "--short"]);
+  return stdout.trim().length > 0;
+}
+
+async function runGit(repoRoot: string, args: string[]): Promise<void> {
+  await execFileAsync("git", ["-C", repoRoot, ...args]);
+}
+
+async function pushBranchWithToken(input: {
+  cwd: string;
+  owner: string;
+  repo: string;
+  branchName: string;
+  token: string;
+}): Promise<void> {
+  const remoteUrl = `https://github.com/${input.owner}/${input.repo}.git`;
+  const basicAuth = Buffer.from(`x-access-token:${input.token}`, "utf8").toString("base64");
+
+  await execFileAsync("git", [
+    "-C",
+    input.cwd,
+    "-c",
+    `http.https://github.com/.extraheader=AUTHORIZATION: basic ${basicAuth}`,
+    "push",
+    remoteUrl,
+    `HEAD:refs/heads/${input.branchName}`
+  ]);
+}
+
+function buildBootstrapPullRequestBody(input: {
+  repoName: string;
+  readmeDetected: boolean;
+  issueCount: number;
+}): string {
+  return [
+    "## Summary",
+    `Bootstrap repo-local OpenReactor steering files under \`${REPO_STATE_DIR}/\` for ${input.repoName}.`,
+    "",
+    "## Signals Used",
+    `- README detected: ${input.readmeDetected ? "yes" : "no"}`,
+    `- Open issue signals included: ${input.issueCount}`,
+    "",
+    "## Included",
+    "- `.openreactor/repo/README.md`",
+    "- `.openreactor/repo/PRODUCT_SPEC.md`",
+    "- `.openreactor/repo/PRODUCT_CONSTITUTION.md`",
+    "- `.openreactor/repo/ROADMAP.md`",
+    "- `.openreactor/repo/MEMORY.md`",
+    "- `.gitignore` rules so runtime state stays local while repo steering stays committed",
+    "",
+    "This PR was opened automatically because OpenReactor detected that the managed repository did not yet have committed repo-local steering state."
+  ].join("\n");
 }
 
 function ensureParentLinkInDecomposedIssueBody(issue: GitHubIssue, body: string): string {

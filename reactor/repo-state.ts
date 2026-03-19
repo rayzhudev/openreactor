@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const REPO_STATE_DIR = path.join(".openreactor", "repo");
+export const REPO_RUNTIME_GITIGNORE_RULES = [
+  ".openreactor/*",
+  "!.openreactor/repo/",
+  "!.openreactor/repo/**"
+];
 
 export interface RepoDocumentationPaths {
   readme: string;
@@ -77,6 +82,25 @@ export async function initializeRepoState(
   }
 
   return writtenPaths;
+}
+
+export async function hasRepoStateFiles(repoRoot: string): Promise<boolean> {
+  return pathExists(path.join(repoRoot, REPO_STATE_DIR, "README.md"));
+}
+
+export async function ensureRepoRuntimeGitignore(repoRoot: string): Promise<string | null> {
+  const gitignorePath = path.join(repoRoot, ".gitignore");
+  const existing = await readOptionalText(gitignorePath);
+  const current = existing ?? "";
+  const missingRules = REPO_RUNTIME_GITIGNORE_RULES.filter((rule) => !current.includes(rule));
+  if (!missingRules.length) {
+    return null;
+  }
+
+  const next = current.trimEnd();
+  const prefix = next ? `${next}\n\n` : "";
+  await fs.writeFile(gitignorePath, `${prefix}${missingRules.join("\n")}\n`, "utf8");
+  return gitignorePath;
 }
 
 function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<string, string> {
@@ -239,5 +263,13 @@ async function pathExists(filePath: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readOptionalText(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return null;
   }
 }

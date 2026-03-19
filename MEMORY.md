@@ -219,6 +219,26 @@
   Reason: even a lightweight inferred seed is better than starting from blank
   product steering files during onboarding.
 
+- Decision: managed repos should not need a separate onboarding wizard after
+  GitHub App install. The local OpenReactor runtime should infer first-pass
+  repo state automatically and open a bootstrap PR the first time it sees a
+  repo without committed `.openreactor/repo/` files.
+  Reason: the desired product shape is “install the app, start the local
+  runtime, and let OpenReactor begin,” not a manual setup flow.
+
+- Decision: legacy repos that already have the older top-level product docs
+  should keep running while the bootstrap PR is open, but repos without either
+  repo-local state or legacy top-level docs should gate on the bootstrap first.
+  Reason: this avoids disrupting the existing OpenReactor repo while still
+  making brand-new managed repos initialize themselves before autonomous issue
+  work begins.
+
+- Decision: the shared OpenReactor engine should be able to manage another
+  locally cloned repo without vendoring the runtime into that target repo.
+  Reason: the near-term scaling step is from one repo to two, with both still
+  running on the same machine, so engine-root and managed-repo-root need to be
+  distinct concepts in the runtime.
+
 - Decision: managed-repo privilege should be inferred from GitHub itself.
   Repo owners should have the highest steering authority, maintainers and
   contributors should count as privileged steering entities, and ordinary issue
