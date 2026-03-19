@@ -1084,21 +1084,33 @@ class Reactor {
             detail: `Waiting on maintainer action before PR ${handoffValidation.pullRequest.html_url} can continue.`,
             execution: activeRun.record.lastAgentExecution ?? undefined
           });
+          const maintainerMention = formatMaintainerOwnerMention(this.config.owner);
+          const handoffBody = formatPublicDecisionComment(
+            [
+              `${maintainerMention} maintainer action required.`,
+              "",
+              result.issueComment || result.summary,
+              "",
+              `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
+              "",
+              "Maintainer action required:",
+              result.humanHandoff.instructions
+            ].join("\n"),
+            result.considerations,
+            activeRun.record.lastAgentExecution,
+            "Implementation"
+          );
+          await this.github.createComment(issueNumber, handoffBody);
           await this.github.createComment(
-            issueNumber,
-            formatPublicDecisionComment(
-              [
-                result.issueComment || result.summary,
-                "",
-                `OpenReactor left PR ${handoffValidation.pullRequest.html_url} open and disabled auto-merge because a maintainer-only action is still required.`,
-                "",
-                "Maintainer action required:",
-                result.humanHandoff.instructions
-              ].join("\n"),
-              result.considerations,
-              activeRun.record.lastAgentExecution,
-              "Implementation"
-            )
+            handoffValidation.pullRequest.number,
+            [
+              `${maintainerMention} maintainer action required before this PR can merge.`,
+              "",
+              "OpenReactor disabled auto-merge for this PR because the remaining step requires the repo owner.",
+              "",
+              "Maintainer action required:",
+              result.humanHandoff.instructions
+            ].join("\n")
           );
           return;
         }
@@ -1573,6 +1585,11 @@ function formatExecutionLine(execution: ExecutionMetadata): string {
   ].filter(Boolean);
 
   return parts.join(" • ");
+}
+
+function formatMaintainerOwnerMention(owner: string): string {
+  const login = owner.trim().replace(/^@+/, "");
+  return login ? `@${login}` : "Maintainer";
 }
 
 function formatDurationMs(durationMs: number): string {
