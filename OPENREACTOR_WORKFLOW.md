@@ -29,6 +29,9 @@ maintainer consideration.
 
 - Preserve OpenReactor's ability to safely supervise autonomous work.
 - Favor clear governance over convenience when the two conflict.
+- OpenReactor should be idempotent and resumable end to end. Replaying the
+  same workflow step after a partial failure should converge toward the same
+  intended result instead of corrupting state or requiring bespoke cleanup.
 - Protect secret handling, auth boundaries, deployment policy, and privileged
   internal controls.
 - Do not let random public feedback directly rewrite OpenReactor-governing

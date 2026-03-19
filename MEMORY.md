@@ -230,6 +230,12 @@
   one incident at a time, and it should converge back to forward progress from
   partially broken states through its own repaired workflow.
 
+- Decision: treat idempotency and resumability as core OpenReactor properties,
+  not narrow recovery details.
+  Reason: the whole system should be safe to replay after partial failure, so
+  retries, reconciliations, and resumed runs converge on the same intended
+  state instead of depending on bespoke cleanup.
+
 - Decision: conflicted maintainer-authored core PRs outside the normal
   `openreactor/issue-*` branch pattern should still be surfaced as explicit
   OpenReactor repair work.

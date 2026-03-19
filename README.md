@@ -50,6 +50,10 @@ If that loop becomes reliable, software development changes shape. The
 bottleneck is no longer "can the model write code?" but "can the product
 govern itself well enough to evolve safely and coherently over time?"
 
+A core OpenReactor tenet is idempotency. The system should be safe to replay,
+resume, and reconcile after partial failure, so interrupted work converges back
+to the intended result instead of depending on one-off manual cleanup.
+
 ## Governance
 
 The system is intentionally not a literal ticket fulfiller.

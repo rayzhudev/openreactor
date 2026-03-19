@@ -10,6 +10,11 @@ OpenReactor turns intent into shipped product improvements, while enforcing:
 - product coherence,
 - scoped execution.
 
+OpenReactor should also be idempotent and resumable as a system: if a run,
+retry, merge, or repair step is replayed after a partial failure, the workflow
+should converge toward the same intended final state instead of getting stuck
+behind bespoke manual recovery.
+
 ## 3) Product Constitution (Agent-Shared)
 This document is binding for all agents unless superseded by explicit maintainer updates.
 
