@@ -22,6 +22,7 @@ import {
   ensureIssueWorktree,
   ensureRuntimeDirectories,
   finalizeIssueAgentRun,
+  issueHasReferenceImages,
   issueRuntimePaths,
   listChangedFilesForBranch,
   readRunRecord,
@@ -779,14 +780,13 @@ class Reactor {
     selectedTriage?: TriageResult
   ): Promise<void> {
     const paths = issueRuntimePaths(this.config, issue.number);
-    const agentTool = isAgentToolName(selectedTriage?.toolName)
+    const requestedAgentTool = isAgentToolName(selectedTriage?.toolName)
       ? selectedTriage.toolName
       : existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
     const record =
       existingRecord ??
       (await readRunRecord(paths)) ??
       (await createInitialRunRecord(issue, paths));
-    record.agentTool = agentTool;
     record.targetSurface = selectedTriage?.targetSurface ?? record.targetSurface;
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
@@ -794,8 +794,14 @@ class Reactor {
 
     try {
       const comments = await this.github.listIssueComments(issue.number);
+      const hasReferenceImages = issueHasReferenceImages(issue, comments);
+      const agentTool =
+        requestedAgentTool === "spawn_claude_ui_agent" && hasReferenceImages
+          ? "spawn_codex_issue_agent"
+          : requestedAgentTool;
+      record.agentTool = agentTool;
       await ensureIssueWorktree(this.config, paths);
-      await writeIssueContext(this.config, issue, paths, {
+      const referenceImages = await writeIssueContext(this.config, issue, paths, {
         targetSurface: record.targetSurface,
         sensitivity: record.sensitivity,
         evidenceStrength: record.evidenceStrength,
@@ -806,9 +812,17 @@ class Reactor {
         status: "in-progress",
         phase: existingRecord ? "retrying" : "reviewing",
         iteration: record.iteration + 1,
-        detail: existingRecord
-          ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
-          : "Full issue agent is reviewing the request and deciding the best product change."
+        detail: [
+          existingRecord
+            ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
+            : "Full issue agent is reviewing the request and deciding the best product change.",
+          requestedAgentTool === "spawn_claude_ui_agent" && hasReferenceImages
+            ? "OpenReactor routed this run through Codex because reference images are attached and the current Claude CLI path does not yet support deterministic image attachments."
+            : "",
+          referenceImages.length
+            ? `Attached ${referenceImages.length} reference image${referenceImages.length === 1 ? "" : "s"} to the agent input.`
+            : ""
+        ].filter(Boolean).join(" ")
       });
 
       const accessToken = await this.github.getAgentAccessToken();
@@ -817,7 +831,8 @@ class Reactor {
         issue,
         paths,
         record,
-        githubToken: accessToken
+        githubToken: accessToken,
+        referenceImages
       });
 
       this.activeRuns.set(issue.number, activeRun);
@@ -828,7 +843,7 @@ class Reactor {
         phase: existingRecord ? "retry-startup" : "startup",
         error,
         record,
-        selectedTool: agentTool
+        selectedTool: record.agentTool ?? requestedAgentTool
       });
     }
   }
