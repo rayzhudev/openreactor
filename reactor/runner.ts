@@ -266,7 +266,7 @@ export async function writeIssueContext(
     "## Derived Guidance",
     "",
     maintainerSteering
-      ? `- This issue is trusted maintainer steering from @${maintainerSteering.username} via ${maintainerSteering.source}. Do not reject it solely for roadmap, product-direction, or constitution-fit reasons, but still enforce safety, legality, secrecy, and feasibility constraints.`
+      ? `- This issue is trusted repo steering from @${maintainerSteering.username} via ${maintainerSteering.source}. Preserve its requested scope unless a hard safety, legality, secrecy, or concrete feasibility blocker requires decomposition or explicit human handoff.`
       : "- No trusted maintainer steering signal detected.",
     trustedSubmitter
       ? `- Trusted submitter attribution is available for @${trustedSubmitter.username}. If you create accepted work, you may credit that account as a co-author.`
@@ -1000,8 +1000,9 @@ async function buildAgentPrompt(
     "- Fill `considerations` with 2-6 short public-facing bullets covering the main tradeoffs, constraints, or observations that shaped your decision. Do not include hidden chain-of-thought.",
     ...(maintainerSteering
       ? [
-          `- This issue is maintainer steering because the trusted signal resolves to @${maintainerSteering.username} via ${maintainerSteering.source}.`,
-          "- Do not reject it solely for roadmap fit, current product direction, constitution-fit, or because it asks for a more drastic product change than normal intake requests.",
+          `- This issue is trusted repo steering because the trusted signal resolves to @${maintainerSteering.username} via ${maintainerSteering.source}.`,
+          "- Do not reject, narrow, or silently soften explicit scope requirements solely for roadmap fit, current product direction, constitution-fit, or implementation convenience.",
+          "- If the full request is too large for one safe pass, decompose it into child issues that preserve the original required scope instead of dropping parts of it.",
           "- Still enforce hard safety rules, legality, secret handling, and realistic human-handoff constraints."
         ]
       : []),
@@ -1082,8 +1083,8 @@ async function buildTriagePrompt(
     "- Fill `considerations` with 2-5 short public-facing bullets describing the main factors that shaped your judgment. Do not include hidden chain-of-thought.",
     ...(maintainerSteering
       ? [
-          `- This issue is maintainer steering because the trusted signal resolves to @${maintainerSteering.username} via ${maintainerSteering.source}.`,
-          "- Do not reject or bank it solely for roadmap fit, product-direction fit, or constitution-fit concerns. Dispatch an implementation tool unless a hard safety or feasibility blocker is obvious."
+          `- This issue is trusted repo steering because the trusted signal resolves to @${maintainerSteering.username} via ${maintainerSteering.source}.`,
+          "- Do not reject, bank, or scope-soften it solely for roadmap fit, product-direction fit, constitution-fit, or implementation convenience. If it is too large, dispatch the planner so the full requested scope is preserved through decomposition."
         ]
       : []),
     "- Do not perform implementation work, open PRs, or mutate files.",
@@ -1097,10 +1098,10 @@ async function buildTriagePrompt(
 
 function getMaintainerSteeringSignal(
   config: Pick<OrchestratorConfig, "owner" | "maintainerSteeredLabel">,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): MaintainerSteeringSignal | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
-  if (authorLogin && authorLogin.toLowerCase() === config.owner.toLowerCase()) {
+  if (authorLogin && isPrivilegedRepoAuthor(issue.author_association, authorLogin, config.owner)) {
     return { username: authorLogin, source: "issue-author" };
   }
 
@@ -1118,7 +1119,7 @@ function getMaintainerSteeringSignal(
 
 function getTrustedSubmitterSignal(
   config: Pick<OrchestratorConfig, "authenticatedSubmitterLabel">,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): TrustedSubmitterSignal | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
   if (authorLogin && !/\[bot\]$/i.test(authorLogin)) {
@@ -1135,6 +1136,24 @@ function getTrustedSubmitterSignal(
   }
 
   return { username, source: "trusted-label" };
+}
+
+function isPrivilegedRepoAuthor(
+  authorAssociation: string | null | undefined,
+  authorLogin: string,
+  owner: string
+): boolean {
+  if (authorLogin.toLowerCase() === owner.toLowerCase()) {
+    return true;
+  }
+
+  const association = (authorAssociation ?? "").trim().toUpperCase();
+  return (
+    association === "OWNER" ||
+    association === "MEMBER" ||
+    association === "COLLABORATOR" ||
+    association === "CONTRIBUTOR"
+  );
 }
 
 function readStructuredIssueField(body: string | null | undefined, field: string): string | null {

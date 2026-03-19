@@ -80,6 +80,10 @@ Rules:
 - If trusted issue metadata or the real GitHub issue author marks the request
   as maintainer steering, do not reject or bank it solely for roadmap,
   product-direction, or constitution-fit reasons.
+- For trusted repo steering from the repo owner or contributors, do not
+  quietly reduce the requested scope at triage time. If the full request is
+  too large, route it to planning so the scope is preserved through
+  decomposition instead of watered down.
 - If a recent comment explicitly calls OpenReactor back into the issue, treat
   that as evidence that the discussion should be reconsidered, not ignored.
 - Do not reject a request solely because it may require human account setup,

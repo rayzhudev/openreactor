@@ -191,6 +191,9 @@ The intended privilege model is also GitHub-native:
 - maintainers/contributors should count as privileged steering entities
 - random public issue authors should still go through the normal product
   governance filters
+- trusted owner/contributor issues should keep their explicit requested scope
+  unless a hard blocker requires decomposition or human handoff; OpenReactor
+  should not quietly water them down for implementation convenience
 
 The first runtime implementation of that model now uses GitHub's native
 `author_association` field on issues, so owners and contributors are detected
