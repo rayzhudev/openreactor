@@ -189,3 +189,10 @@
   Reason: the current MVP has no separate storage system for website uploads,
   but maintainers still need request images to survive the intake flow and stay
   visible to issue agents inside GitHub.
+
+- Decision: when an issue carries reference images, download them into the
+  issue run directory and attach them directly to Codex agent runs as real
+  image input.
+  Reason: markdown image links in the issue body are not a reliable substitute
+  for actual multimodal input when an agent needs to inspect a UI reference or
+  other uploaded image while implementing the issue.

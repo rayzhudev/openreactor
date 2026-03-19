@@ -121,6 +121,7 @@ export interface IssueRuntimePaths {
   triageResultPath: string;
   triageLogPath: string;
   contextPath: string;
+  referenceImagesDir: string;
   progressPath: string;
   tasksPath: string;
   planPath: string;
@@ -159,6 +160,13 @@ interface TrustedSubmitterSignal {
   source: "issue-author" | "trusted-label";
 }
 
+export interface RunReferenceImage {
+  sourceUrl: string;
+  localPath: string;
+  source: "issue-body" | "discussion";
+  sourceLabel: string;
+}
+
 export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: number): IssueRuntimePaths {
   const runDir = path.join(config.runsDir, `issue-${issueNumber}`);
   const worktreePath = path.join(config.worktreesDir, `issue-${issueNumber}`);
@@ -173,6 +181,7 @@ export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: numbe
     triageResultPath: path.join(runDir, "triage.result.json"),
     triageLogPath: path.join(runDir, "triage.log"),
     contextPath: path.join(runDir, "context.md"),
+    referenceImagesDir: path.join(runDir, "reference-images"),
     progressPath: path.join(runDir, "progress.md"),
     tasksPath: path.join(runDir, "tasks.md"),
     planPath: path.join(runDir, "plan.json")
@@ -209,10 +218,11 @@ export async function writeIssueContext(
     evidenceSummary?: string;
   },
   discussionComments: GitHubIssueComment[] = []
-): Promise<void> {
+): Promise<RunReferenceImage[]> {
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const referenceImages = await prepareRunReferenceImages(issue, paths, discussionComments);
 
   const content = [
     "# Issue Context",
@@ -245,6 +255,10 @@ export async function writeIssueContext(
     "",
     formatRecentDiscussion(discussionComments),
     "",
+    "## Reference Images",
+    "",
+    formatReferenceImageContext(config, paths, referenceImages),
+    "",
     "## Derived Guidance",
     "",
     maintainerSteering
@@ -267,6 +281,7 @@ export async function writeIssueContext(
     `- Task tracker: ${relativeFromRepo(config, paths.tasksPath)}`,
     `- Plan file: ${relativeFromRepo(config, paths.planPath)}`,
     `- Run state: ${relativeFromRepo(config, paths.runFilePath)}`,
+    `- Reference images: ${relativeFromRepo(config, paths.referenceImagesDir)}`,
     "",
     "## Product Docs To Read",
     "",
@@ -317,6 +332,8 @@ export async function writeIssueContext(
   );
 
   await ensurePlanScaffold(paths, issue);
+
+  return referenceImages;
 }
 
 export async function createInitialRunRecord(
@@ -429,6 +446,7 @@ export async function spawnIssueAgent(input: {
   paths: IssueRuntimePaths;
   record: RunRecord;
   githubToken: string;
+  referenceImages?: RunReferenceImage[];
 }): Promise<ActiveRun> {
   const tool = getAgentTool(input.record.agentTool);
   if (tool.name === "spawn_codex_planner_agent") {
@@ -447,6 +465,7 @@ async function spawnCodexIssueAgent(input: {
   paths: IssueRuntimePaths;
   record: RunRecord;
   githubToken: string;
+  referenceImages?: RunReferenceImage[];
 }): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
@@ -464,7 +483,8 @@ async function spawnCodexIssueAgent(input: {
     serviceTier: config.agentServiceTier,
     fullAccess: true,
     outputSchemaPath: schemaPath,
-    outputPath: resultPath
+    outputPath: resultPath,
+    imagePaths: input.referenceImages?.map((image) => image.localPath)
   });
 
   const child = spawn("codex", args, {
@@ -542,6 +562,7 @@ async function spawnCodexPlannerAgent(input: {
   paths: IssueRuntimePaths;
   record: RunRecord;
   githubToken: string;
+  referenceImages?: RunReferenceImage[];
 }): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
@@ -559,7 +580,8 @@ async function spawnCodexPlannerAgent(input: {
     serviceTier: config.plannerServiceTier,
     fullAccess: true,
     outputSchemaPath: schemaPath,
-    outputPath: resultPath
+    outputPath: resultPath,
+    imagePaths: input.referenceImages?.map((image) => image.localPath)
   });
 
   const child = spawn("codex", args, {
@@ -725,6 +747,7 @@ export async function runIssueTriage(input: {
   const { config, issue, paths, githubToken } = input;
   const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
   const prompt = buildTriagePrompt(config, issue, input.comments ?? []);
+  const referenceImages = await prepareRunReferenceImages(issue, paths, input.comments ?? []);
 
   await fs.mkdir(paths.runDir, { recursive: true });
   await fs.writeFile(paths.triagePromptPath, prompt, "utf8");
@@ -735,7 +758,8 @@ export async function runIssueTriage(input: {
     serviceTier: config.triageServiceTier,
     fullAccess: false,
     outputSchemaPath: schemaPath,
-    outputPath: paths.triageResultPath
+    outputPath: paths.triageResultPath,
+    imagePaths: referenceImages.map((image) => image.localPath)
   });
 
   const startedAt = new Date().toISOString();
@@ -1221,6 +1245,37 @@ async function runCommandCapture(command: string, args: string[]): Promise<strin
   return stdout;
 }
 
+export function issueHasReferenceImages(
+  issue: Pick<GitHubIssue, "body">,
+  discussionComments: GitHubIssueComment[] = []
+): boolean {
+  return collectReferenceImageCandidates(issue, discussionComments).length > 0;
+}
+
+export async function prepareRunReferenceImages(
+  issue: Pick<GitHubIssue, "body">,
+  paths: Pick<IssueRuntimePaths, "referenceImagesDir">,
+  discussionComments: GitHubIssueComment[] = []
+): Promise<RunReferenceImage[]> {
+  const candidates = collectReferenceImageCandidates(issue, discussionComments);
+  if (!candidates.length) {
+    return [];
+  }
+
+  await fs.rm(paths.referenceImagesDir, { recursive: true, force: true });
+  await fs.mkdir(paths.referenceImagesDir, { recursive: true });
+
+  const images: RunReferenceImage[] = [];
+  for (const [index, candidate] of candidates.entries()) {
+    const downloaded = await downloadReferenceImage(candidate, paths.referenceImagesDir, index + 1);
+    if (downloaded) {
+      images.push(downloaded);
+    }
+  }
+
+  return images;
+}
+
 async function attachProcessLogging(
   child: ChildProcessWithoutNullStreams,
   logPath: string
@@ -1250,6 +1305,7 @@ function buildCodexArgs(input: {
   fullAccess: boolean;
   outputSchemaPath: string;
   outputPath: string;
+  imagePaths?: string[];
 }): string[] {
   const args = [
     "-m",
@@ -1260,6 +1316,10 @@ function buildCodexArgs(input: {
 
   if (input.serviceTier) {
     args.push("-c", `service_tier="${input.serviceTier}"`);
+  }
+
+  for (const imagePath of input.imagePaths ?? []) {
+    args.push("-i", imagePath);
   }
 
   if (input.fullAccess) {
@@ -1279,6 +1339,171 @@ function buildCodexArgs(input: {
   );
 
   return args;
+}
+
+interface ReferenceImageCandidate {
+  url: string;
+  source: "issue-body" | "discussion";
+  sourceLabel: string;
+}
+
+function collectReferenceImageCandidates(
+  issue: Pick<GitHubIssue, "body">,
+  discussionComments: GitHubIssueComment[]
+): ReferenceImageCandidate[] {
+  const seen = new Set<string>();
+  const candidates: ReferenceImageCandidate[] = [];
+
+  const pushUnique = (candidate: ReferenceImageCandidate): void => {
+    const normalizedUrl = normalizeReferenceImageUrl(candidate.url);
+    if (!normalizedUrl || seen.has(normalizedUrl)) {
+      return;
+    }
+
+    seen.add(normalizedUrl);
+    candidates.push({
+      ...candidate,
+      url: normalizedUrl
+    });
+  };
+
+  for (const url of extractImageUrls(issue.body ?? "")) {
+    pushUnique({
+      url,
+      source: "issue-body",
+      sourceLabel: "Issue body"
+    });
+  }
+
+  for (const comment of discussionComments) {
+    const author = comment.user?.login ? `@${comment.user.login}` : "a discussion comment";
+    for (const url of extractImageUrls(comment.body)) {
+      pushUnique({
+        url,
+        source: "discussion",
+        sourceLabel: `Discussion from ${author} on ${comment.updated_at}`
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function extractImageUrls(markdown: string): string[] {
+  const urls: string[] = [];
+  const markdownPattern = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi;
+  const htmlPattern = /<img\b[^>]*\bsrc=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
+  const directImagePattern = /\bhttps?:\/\/[^\s<>()]+?\.(?:png|jpe?g|gif|webp|svg)(?:\?[^\s<>()]+)?\b/gi;
+
+  for (const pattern of [markdownPattern, htmlPattern, directImagePattern]) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(markdown)) !== null) {
+      const url = match[1] ?? match[0];
+      if (url) {
+        urls.push(url);
+      }
+    }
+  }
+
+  return urls;
+}
+
+function normalizeReferenceImageUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function downloadReferenceImage(
+  candidate: ReferenceImageCandidate,
+  targetDir: string,
+  index: number
+): Promise<RunReferenceImage | null> {
+  let response: Response;
+  try {
+    response = await fetch(candidate.url);
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("image/")) {
+    return null;
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const extension = pickReferenceImageExtension(candidate.url, contentType);
+  const fileName = `${String(index).padStart(2, "0")}-${sanitizeReferenceImageBaseName(candidate.url)}${extension}`;
+  const localPath = path.join(targetDir, fileName);
+  await fs.writeFile(localPath, bytes);
+
+  return {
+    sourceUrl: candidate.url,
+    localPath,
+    source: candidate.source,
+    sourceLabel: candidate.sourceLabel
+  };
+}
+
+function pickReferenceImageExtension(url: string, contentType: string): string {
+  const fromUrl = path.extname(new URL(url).pathname).toLowerCase();
+  if (fromUrl) {
+    return fromUrl;
+  }
+
+  const mimeType = contentType.toLowerCase().split(";")[0].trim();
+  switch (mimeType) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/png":
+      return ".png";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return ".img";
+  }
+}
+
+function sanitizeReferenceImageBaseName(url: string): string {
+  const pathname = new URL(url).pathname;
+  const baseName = path.basename(pathname, path.extname(pathname)).trim().toLowerCase();
+  const sanitized = baseName.replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized || "reference-image";
+}
+
+function formatReferenceImageContext(
+  config: OrchestratorConfig,
+  paths: IssueRuntimePaths,
+  referenceImages: RunReferenceImage[]
+): string {
+  if (!referenceImages.length) {
+    return "_No reference images were detected on the issue body or recent discussion._";
+  }
+
+  return referenceImages
+    .map((image, index) =>
+      [
+        `${index + 1}. ${image.sourceLabel}`,
+        `   - Local file: ${relativeFromRepo(config, image.localPath)}`,
+        `   - Source URL: ${image.sourceUrl}`
+      ].join("\n")
+    )
+    .join("\n");
 }
 
 function buildClaudeArgs(input: {
