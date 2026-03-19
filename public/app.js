@@ -25,6 +25,9 @@ const openReactorLiveReactorNode = document.querySelector("#openreactor-live-rea
 const openReactorLiveWatchdogNode = document.querySelector("#openreactor-live-watchdog");
 const openReactorLiveActiveNode = document.querySelector("#openreactor-live-active");
 const openReactorLiveBlockedNode = document.querySelector("#openreactor-live-blocked");
+const openReactorDotReactorNode = document.querySelector("#openreactor-dot-reactor");
+const openReactorDotWatchdogNode = document.querySelector("#openreactor-dot-watchdog");
+const openReactorDotAgentsNode = document.querySelector("#openreactor-dot-agents");
 const openReactorLiveAgentsNode = document.querySelector("#openreactor-live-agents");
 const openReactorLiveBlockersNode = document.querySelector("#openreactor-live-blockers");
 const openReactorPipelineNode = document.querySelector("#openreactor-pipeline");
@@ -1801,6 +1804,58 @@ function renderLeaderboardError(message) {
   setLeaderboardStatus(`${message} Try again later.`, "error");
 }
 
+const FLOW_ICONS = {
+  intake: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  "triage-planning": '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="12" y1="11" x2="16" y2="11"/><line x1="12" y1="16" x2="16" y2="16"/><line x1="8" y1="11" x2="8.01" y2="11"/><line x1="8" y1="16" x2="8.01" y2="16"/></svg>',
+  execution: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>',
+  completed: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  retry: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  blocked: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
+
+const FLOW_MAIN = [
+  { key: "intake", label: "Intake" },
+  { key: "triage-planning", label: "Triage" },
+  { key: "execution", label: "Execution" },
+  { key: "completed", label: "Shipped" }
+];
+
+const FLOW_BRANCH = [
+  { key: "retry", label: "Retry" },
+  { key: "blocked", label: "Blocked" }
+];
+
+function createFlowNode(pos, stage) {
+  const isAvailable = stage ? Boolean(stage.available) : false;
+  const items = stage && Array.isArray(stage.items) ? stage.items : [];
+  const count = stage ? (stage.itemCount ?? items.length) : 0;
+  const hasItems = count > 0;
+
+  const node = document.createElement("div");
+  node.className = "or-flow-node" +
+    (!isAvailable && stage ? " or-flow-node--offline" : "") +
+    (hasItems && isAvailable ? " or-flow-node--active" : "");
+
+  const iconBox = document.createElement("div");
+  iconBox.className = "or-flow-icon-box";
+  iconBox.innerHTML = FLOW_ICONS[pos.key] || "";
+  node.append(iconBox);
+
+  if (hasItems) {
+    const badge = document.createElement("span");
+    badge.className = "or-flow-badge" + (isAvailable ? " or-flow-badge--accent" : "");
+    badge.textContent = `${count}`;
+    node.append(badge);
+  }
+
+  const label = document.createElement("span");
+  label.className = "or-flow-node-label";
+  label.textContent = pos.label;
+  node.append(label);
+
+  return node;
+}
+
 function renderPipeline() {
   if (!openReactorPipelineNode) return;
 
@@ -1816,77 +1871,54 @@ function renderPipeline() {
     return;
   }
 
+  const stageMap = new Map();
+  for (const s of stages) stageMap.set(s.key, s);
+
   openReactorPipelineNode.innerHTML = "";
   const fragment = document.createDocumentFragment();
 
-  for (let i = 0; i < stages.length; i++) {
-    const stage = stages[i];
-    const items = Array.isArray(stage.items) ? stage.items : [];
-    const isAvailable = Boolean(stage.available);
-    const hasItems = stage.itemCount > 0 || items.length > 0;
-    const count = stage.itemCount ?? items.length;
+  // Main flow row (grid)
+  const mainRow = document.createElement("div");
+  mainRow.className = "or-flow-main";
 
-    const card = document.createElement("div");
-    card.className = "or-pipeline-stage" + (isAvailable ? "" : " or-pipeline-stage--offline") + (hasItems && isAvailable ? " or-pipeline-stage--active" : "");
+  for (let i = 0; i < FLOW_MAIN.length; i++) {
+    const pos = FLOW_MAIN[i];
+    mainRow.append(createFlowNode(pos, stageMap.get(pos.key)));
 
-    const header = document.createElement("div");
-    header.className = "flex items-center justify-between gap-2";
-
-    const label = document.createElement("span");
-    label.className = "text-xs font-medium tracking-wide uppercase" + (isAvailable ? " text-[var(--ink-soft)]" : " text-[var(--ink-faint)]");
-    label.textContent = stage.label || stage.key;
-
-    const badge = document.createElement("span");
-    badge.className = "or-count-chip" + (hasItems && isAvailable ? " or-count-chip--accent" : "");
-    badge.textContent = `${count}`;
-
-    header.append(label, badge);
-    card.append(header);
-
-    if (!isAvailable && stage.error) {
-      const err = document.createElement("p");
-      err.className = "text-xs text-[var(--ink-faint)] mt-1 leading-snug";
-      err.textContent = "Offline";
-      card.append(err);
-    } else if (isAvailable && items.length > 0) {
-      const list = document.createElement("ul");
-      list.className = "or-pipeline-items";
-      const visible = items.slice(0, 3);
-      for (const item of visible) {
-        const li = document.createElement("li");
-        li.className = "or-pipeline-item";
-        if (item.issueUrl) {
-          const link = document.createElement("a");
-          link.className = "or-pipeline-item-link";
-          link.href = item.issueUrl;
-          link.target = "_blank";
-          link.rel = "noreferrer";
-          link.textContent = item.issueTitle
-            ? `#${item.issueNumber} ${item.issueTitle}`
-            : `#${item.issueNumber}`;
-          li.append(link);
-        } else {
-          li.textContent = item.issueTitle || item.issueNumber || "Item";
-        }
-        list.append(li);
-      }
-      if (items.length > 3) {
-        const more = document.createElement("li");
-        more.className = "text-xs text-[var(--ink-faint)]";
-        more.textContent = `+${items.length - 3} more`;
-        list.append(more);
-      }
-      card.append(list);
-    } else if (isAvailable && count === 0) {
-      const empty = document.createElement("p");
-      empty.className = "text-xs text-[var(--ink-faint)] mt-1";
-      empty.textContent = "Empty";
-      card.append(empty);
+    if (i < FLOW_MAIN.length - 1) {
+      const connector = document.createElement("div");
+      connector.className = "or-flow-connector";
+      mainRow.append(connector);
     }
-
-    fragment.append(card);
   }
 
+  // Branch section (spans below triage through shipped area)
+  const branchWrap = document.createElement("div");
+  branchWrap.className = "or-flow-branch-wrap";
+
+  const branch = document.createElement("div");
+  branch.className = "or-flow-branch";
+
+  const vertLine = document.createElement("div");
+  vertLine.className = "or-flow-vert";
+  branch.append(vertLine);
+
+  const tbar = document.createElement("div");
+  tbar.className = "or-flow-tbar";
+  branch.append(tbar);
+
+  const branchNodes = document.createElement("div");
+  branchNodes.className = "or-flow-branch-nodes";
+
+  for (const pos of FLOW_BRANCH) {
+    branchNodes.append(createFlowNode(pos, stageMap.get(pos.key)));
+  }
+
+  branch.append(branchNodes);
+  branchWrap.append(branch);
+  mainRow.append(branchWrap);
+
+  fragment.append(mainRow);
   openReactorPipelineNode.append(fragment);
 }
 
@@ -1910,8 +1942,20 @@ function renderOpenReactorLivePanels() {
 
   openReactorLiveReactorNode.textContent = formatServiceSummary(reactorService);
   openReactorLiveWatchdogNode.textContent = formatServiceSummary(watchdogService);
-  openReactorLiveActiveNode.textContent = `${activeAgents.length}`;
-  openReactorLiveBlockedNode.textContent = `${blockedCount}`;
+  const maxAgents = openReactorStatus.agents.maxConcurrentIssues || 0;
+  openReactorLiveActiveNode.textContent = maxAgents ? `${activeAgents.length} / ${maxAgents}` : `${activeAgents.length}`;
+  if (openReactorLiveBlockedNode) openReactorLiveBlockedNode.textContent = `${blockedCount}`;
+
+  // Update dot colors based on service state
+  if (openReactorDotReactorNode) {
+    openReactorDotReactorNode.className = "or-dot" + (reactorService?.active ? " or-dot--active" : reactorService?.activeState === "failed" ? " or-dot--error" : "");
+  }
+  if (openReactorDotWatchdogNode) {
+    openReactorDotWatchdogNode.className = "or-dot" + (watchdogService?.active ? " or-dot--active" : watchdogService?.activeState === "failed" ? " or-dot--error" : "");
+  }
+  if (openReactorDotAgentsNode) {
+    openReactorDotAgentsNode.className = "or-dot" + (activeAgents.length > 0 ? " or-dot--active" : "");
+  }
   openReactorLiveRefreshNode.textContent = lastOpenReactorRefreshAt
     ? `Updated ${formatRelativeRefreshTime(lastOpenReactorRefreshAt)}`
     : "Waiting for the first status update...";
