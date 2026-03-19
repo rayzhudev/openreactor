@@ -125,6 +125,8 @@ The current local deployment model is intentionally simple:
 
 - clone the target repo onto the machine that already runs OpenReactor
 - point the local OpenReactor engine at that clone
+- start a dedicated local OpenReactor instance for that repo, including its
+  own reactor, watchdog, and metadata endpoint
 - let the reactor open the bootstrap PR automatically if `.openreactor/repo/`
   does not already exist on `main`
 - begin normal issue handling only after that repo-local steering state exists
@@ -135,6 +137,11 @@ state or the legacy top-level docs should wait for the bootstrap first.
 
 This avoids a separate onboarding wizard while still keeping the runtime local
 and the per-repo steering state committed inside the managed repository.
+
+Each managed repo should also get its own local read-only metadata endpoint.
+Those endpoints are for maintainer visibility and debugging from a trusted
+machine such as a laptop; they are not meant to be automatically wired into the
+OpenReactor website for arbitrary third-party repos.
 
 OpenReactor's default external UX should be GitHub-native. It should not
 assume that every managed repo also exposes a public intake website.

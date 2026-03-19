@@ -253,6 +253,13 @@ The local read-only status feed can be served with:
 bun run openreactor-status
 ```
 
+To start a separate local OpenReactor instance for another cloned repo on this
+machine, including its own reactor, watchdog, and read-only status endpoint:
+
+```bash
+bun run reactor:tool start-instance --cwd /home/ray/projects/some-other-repo
+```
+
 OpenReactor also has a deliberate automated canary technique for its own
 workflow:
 
@@ -322,6 +329,9 @@ The status service currently:
 - is intended to be consumed by the website through `/api/openreactor-status`
 - should be exposed from this machine behind a token when the public site needs to reach it
 - can be published through a dedicated Cloudflare Tunnel hostname without exposing a raw public port
+- can also be started per managed repo on its own local port so the maintainer
+  can inspect each running OpenReactor instance directly from a laptop without
+  wiring that endpoint into the public website
 
 The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself

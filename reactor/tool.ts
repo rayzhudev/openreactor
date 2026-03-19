@@ -1,7 +1,11 @@
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
+import net from "node:net";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
+import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config";
 import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
 import { initializeRepoState, REPO_STATE_DIR } from "./repo-state";
@@ -33,6 +37,11 @@ async function main(): Promise<void> {
 
   if (command === "init-repo-state") {
     await initRepoState(rest);
+    return;
+  }
+
+  if (command === "start-instance") {
+    await startInstance(rest);
     return;
   }
 
@@ -245,6 +254,93 @@ async function initRepoState(args: string[]): Promise<void> {
   );
 }
 
+async function startInstance(args: string[]): Promise<void> {
+  const cwd = path.resolve(optionalStringArg(args, "--cwd") || process.cwd());
+  const remote = inferGitHubRemote(cwd);
+  const owner = optionalStringArg(args, "--owner") || remote?.owner || "";
+  const repo = optionalStringArg(args, "--repo") || remote?.repo || "";
+  if (!owner || !repo) {
+    throw new Error("Unable to infer owner/repo. Pass --owner and --repo or configure origin.");
+  }
+
+  const instanceName = sanitizeInstanceName(
+    optionalStringArg(args, "--instance-name") || `${owner}-${repo}`
+  );
+  const statusPort = optionalNumberArg(args, "--status-port") ?? (await findAvailablePort(8790));
+  const statusToken =
+    optionalStringArg(args, "--status-token") || randomBytes(24).toString("hex");
+  const configHome = path.join(process.env.HOME ?? "", ".config", "openreactor");
+  const baseEnvFile = path.join(configHome, "reactor.env");
+  const instancesDir = path.join(configHome, "instances");
+  const envFile = path.join(instancesDir, `${instanceName}.env`);
+  const reactorServiceName = `openreactor-${instanceName}-reactor.service`;
+  const watchdogServiceName = `openreactor-${instanceName}-watchdog.service`;
+  const statusServiceName = `openreactor-${instanceName}-status.service`;
+  const engineRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+  await fs.mkdir(instancesDir, { recursive: true });
+  await fs.writeFile(
+    envFile,
+    [
+      fsSync.existsSync(baseEnvFile) ? `source ${baseEnvFile}` : "",
+      `OPENREACTOR_ENGINE_ROOT=${shellSafeValue(engineRoot)}`,
+      `OPENREACTOR_MANAGED_REPO_ROOT=${shellSafeValue(cwd)}`,
+      `GITHUB_OWNER=${shellSafeValue(owner)}`,
+      `GITHUB_REPO=${shellSafeValue(repo)}`,
+      `OPENREACTOR_STATUS_BIND_HOST=127.0.0.1`,
+      `OPENREACTOR_STATUS_PORT=${statusPort}`,
+      `OPENREACTOR_STATUS_TOKEN=${shellSafeValue(statusToken)}`,
+      `OPENREACTOR_REACTOR_SERVICE_NAME=${shellSafeValue(reactorServiceName)}`,
+      `OPENREACTOR_WATCHDOG_SERVICE_NAME=${shellSafeValue(watchdogServiceName)}`
+    ]
+      .filter(Boolean)
+      .join("\n") + "\n",
+    "utf8"
+  );
+
+  await restartTransientService({
+    unitName: reactorServiceName,
+    description: `OpenReactor reactor for ${owner}/${repo}`,
+    envFile,
+    execPath: path.join(engineRoot, "scripts", "reactor-service.sh")
+  });
+  await restartTransientService({
+    unitName: watchdogServiceName,
+    description: `OpenReactor watchdog for ${owner}/${repo}`,
+    envFile,
+    execPath: path.join(engineRoot, "scripts", "watchdog-service.sh")
+  });
+  await restartTransientService({
+    unitName: statusServiceName,
+    description: `OpenReactor status for ${owner}/${repo}`,
+    envFile,
+    execPath: path.join(engineRoot, "scripts", "openreactor-status-service.sh")
+  });
+
+  console.log(
+    JSON.stringify(
+      {
+        owner,
+        repo,
+        repoRoot: cwd,
+        envFile,
+        instanceName,
+        reactorServiceName,
+        watchdogServiceName,
+        statusServiceName,
+        status: {
+          bindHost: "127.0.0.1",
+          port: statusPort,
+          token: statusToken,
+          url: `http://127.0.0.1:${statusPort}/status`
+        }
+      },
+      null,
+      2
+    )
+  );
+}
+
 async function resolvePullRequestNumber(
   owner: string,
   repo: string,
@@ -402,25 +498,50 @@ function optionalStringArg(args: string[], name: string): string {
   return args[index + 1] ?? "";
 }
 
+function optionalNumberArg(args: string[], name: string): number | null {
+  const value = optionalStringArg(args, name);
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid numeric argument for ${name}: ${value}`);
+  }
+
+  return parsed;
+}
+
 function hasFlag(args: string[], name: string): boolean {
   return args.includes(name);
 }
 
 function inferRepoDisplayName(repoRoot: string): string {
+  const remote = inferGitHubRemote(repoRoot);
+  if (remote?.repo) {
+    return remote.repo;
+  }
+
+  return path.basename(repoRoot);
+}
+
+function inferGitHubRemote(repoRoot: string): { owner: string; repo: string } | null {
   try {
     const raw = execFileSync("git", ["-C", repoRoot, "remote", "get-url", "origin"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"]
     }).trim();
     const match = raw.match(/github\.com[:/](.+?)\/(.+?)(?:\.git)?$/);
-    if (match?.[2]) {
-      return match[2];
+    if (match?.[1] && match?.[2]) {
+      return {
+        owner: match[1],
+        repo: match[2]
+      };
     }
   } catch {
     // Fall through to basename.
   }
-
-  return path.basename(repoRoot);
+  return null;
 }
 
 async function fetchGitHubUser(
@@ -470,12 +591,14 @@ function printHelp(): void {
       "  ensure-pr --issue <number> --branch <branch> --title <title> --body-file <file> [--base main] [--cwd <dir>] [--merge-method squash] [--no-auto-merge]",
       "  coauthor-trailer --username <github-login>",
       "  init-repo-state [--cwd <dir>] [--repo-name <name>]",
+      "  start-instance [--cwd <dir>] [--owner <owner>] [--repo <repo>] [--instance-name <name>] [--status-port <port>] [--status-token <token>]",
       "",
       "Notes:",
       "  ensure-pr pushes over HTTPS using GITHUB_TOKEN/GH_TOKEN, so reactor runs publish branches as the GitHub App rather than the machine's SSH identity.",
       "  Auto-merge is enabled by default. Pass --no-auto-merge when the PR should wait for human or manual review.",
       "  coauthor-trailer resolves a GitHub login to a GitHub-recognized Co-authored-by trailer using the account's user id.",
-      "  init-repo-state creates the committed repo-local product steering files under .openreactor/repo/."
+      "  init-repo-state creates the committed repo-local product steering files under .openreactor/repo/.",
+      "  start-instance writes a repo-specific env file and starts transient reactor, watchdog, and local status services for that repo."
     ].join("\n")
   );
 }
@@ -492,6 +615,91 @@ async function preparePullRequestBody(bodyPath: string, runDir: string): Promise
   const outputPath = path.join(path.dirname(bodyPath), `${path.basename(bodyPath, path.extname(bodyPath))}.openreactor${path.extname(bodyPath) || ".md"}`);
   await fs.writeFile(outputPath, nextBody, "utf8");
   return outputPath;
+}
+
+async function restartTransientService(input: {
+  unitName: string;
+  description: string;
+  envFile: string;
+  execPath: string;
+}): Promise<void> {
+  try {
+    await execFileAsync("systemctl", ["--user", "stop", input.unitName], {
+      env: process.env
+    });
+  } catch {
+    // Ignore if not running.
+  }
+
+  try {
+    await execFileAsync("systemctl", ["--user", "reset-failed", input.unitName], {
+      env: process.env
+    });
+  } catch {
+    // Ignore if unit does not exist yet.
+  }
+
+  await execFileAsync(
+    "systemd-run",
+    [
+      "--user",
+      "--unit",
+      input.unitName,
+      "--property",
+      `Description=${input.description}`,
+      "--property",
+      "Restart=always",
+      "--property",
+      "RestartSec=5",
+      "--property",
+      "TimeoutStopSec=20",
+      "--setenv",
+      `OPENREACTOR_ENV_FILE=${input.envFile}`,
+      "/usr/bin/bash",
+      input.execPath
+    ],
+    {
+      env: process.env
+    }
+  );
+}
+
+async function findAvailablePort(startPort: number): Promise<number> {
+  for (let port = startPort; port < startPort + 100; port += 1) {
+    if (await canBindPort(port)) {
+      return port;
+    }
+  }
+
+  throw new Error(`Unable to find an available local port starting at ${startPort}.`);
+}
+
+async function canBindPort(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(false));
+    server.listen(port, "127.0.0.1", () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+function sanitizeInstanceName(value: string): string {
+  const cleaned = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!cleaned) {
+    throw new Error("Instance name cannot be empty.");
+  }
+
+  return cleaned;
+}
+
+function shellSafeValue(value: string): string {
+  return JSON.stringify(value);
 }
 
 void main();

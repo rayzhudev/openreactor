@@ -205,6 +205,11 @@
   Reason: OpenReactor should eventually manage many repos, and each repo needs
   its own product memory, roadmap, and constitution without having to vendor
   the whole OpenReactor engine into that repo.
+- Decision: each managed repo should get its own local OpenReactor status
+  endpoint on this machine.
+  Reason: maintainers need per-instance visibility for debugging and oversight,
+  but those extra endpoints should stay laptop/local-facing by default instead
+  of being automatically wired into the public OpenReactor website.
 - Decision: the intended onboarding flow for managed repos should infer a
   first-pass product description from the repo README and existing GitHub
   issues, then open a bootstrap PR creating `.openreactor/repo/`.
