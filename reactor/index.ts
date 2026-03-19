@@ -619,11 +619,15 @@ class Reactor {
         continue;
       }
 
-      if (!labels.has(this.config.acceptedLabel)) {
+      const accepted = labels.has(this.config.acceptedLabel);
+      const waitingMaintainer = labels.has(MAINTAINER_ACTION_REQUIRED_LABEL);
+      if (!accepted && !waitingMaintainer) {
         continue;
       }
 
-      const branchName = issueRuntimePaths(this.config, issue.number).branchName;
+      const paths = issueRuntimePaths(this.config, issue.number);
+      const record = await readRunRecord(paths);
+      const branchName = record?.branchName?.trim() || paths.branchName;
       const pullRequest = await this.github.findPullRequestByBranch(branchName, "all");
       if (!pullRequest) {
         continue;
@@ -638,6 +642,8 @@ class Reactor {
         issue.number,
         `OpenReactor marked this issue complete because ${pullRequest.html_url} was merged.`
       );
+      await this.github.removeLabel(issue.number, this.config.acceptedLabel);
+      await this.github.removeLabel(issue.number, MAINTAINER_ACTION_REQUIRED_LABEL);
       await this.github.closeIssue(issue.number, "completed");
     }
   }
