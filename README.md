@@ -156,6 +156,30 @@ Bootstrap that repo-local steering layer with:
 bun run reactor:tool init-repo-state
 ```
 
+The intended onboarding shape for managed repos is:
+
+1. user creates a repo and writes an initial PRD, usually as a README or an
+   initial GitHub issue,
+2. user installs the OpenReactor GitHub App on that repo,
+3. OpenReactor infers a first-pass product description from the repo README and
+   the existing GitHub issue discussion,
+4. OpenReactor opens a bootstrap PR creating `.openreactor/repo/` from that
+   material,
+5. after merge, OpenReactor starts handling GitHub issues for that repo.
+
+This is intentionally different from the public OpenReactor website. The
+website's public feature form is a demo/product surface for OpenReactor
+itself. The default product shape for other repos is GitHub-native: repo
+owners and contributors work through GitHub issues, and OpenReactor consumes
+that issue stream directly.
+
+The intended privilege model is also GitHub-native:
+
+- repository owners should have the highest steering authority
+- maintainers/contributors should count as privileged steering entities
+- random public issue authors should still go through the normal product
+  governance filters
+
 ## Running The Reactor
 
 The repository includes the machine-local orchestration loop under

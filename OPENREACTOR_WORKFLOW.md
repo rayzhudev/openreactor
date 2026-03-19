@@ -110,6 +110,23 @@ memory should live for a managed repository. The current committed layout is:
 When those files exist, issue agents and triage should prefer them over the
 legacy top-level product docs.
 
+For managed repos, onboarding should prefer inference over blank setup:
+
+- read the repo README
+- read the initial GitHub issues, especially a PRD-style issue if one exists
+- infer a first-pass product description and product constitution from that
+  material
+- open a bootstrap PR that creates `.openreactor/repo/`
+
+OpenReactor's default external UX should be GitHub-native. It should not
+assume that every managed repo also exposes a public intake website.
+
+Privilege should also be inferred from GitHub first:
+
+- repo owners have the strongest steering authority
+- maintainers and contributors count as privileged steering entities
+- ordinary issue authors still go through the normal governance filters
+
 ## OpenReactor proposals
 
 If an issue is labeled `openreactor-core`, agents should treat it as an

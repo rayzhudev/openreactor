@@ -205,3 +205,25 @@
   Reason: OpenReactor should eventually manage many repos, and each repo needs
   its own product memory, roadmap, and constitution without having to vendor
   the whole OpenReactor engine into that repo.
+
+- Decision: the intended onboarding flow for managed repos should infer a
+  first-pass product description from the repo README and existing GitHub
+  issues, then open a bootstrap PR creating `.openreactor/repo/`.
+  Reason: end users should not need to hand-author every OpenReactor steering
+  file from scratch before the system can begin, and most early product
+  context already exists in the repo README or a PRD-style issue.
+
+- Decision: managed-repo privilege should be inferred from GitHub itself.
+  Repo owners should have the highest steering authority, maintainers and
+  contributors should count as privileged steering entities, and ordinary issue
+  authors should still pass through the normal governance filters.
+  Reason: GitHub is the natural source of truth for repository trust and
+  authorship in the default OpenReactor deployment model.
+
+- Decision: OpenReactor should eventually author commits as the GitHub App or
+  another explicit OpenReactor machine identity, not as the maintainer's local
+  git identity.
+  Reason: the current system already pushes branches using the GitHub token,
+  but commit authorship still follows the local git config unless the runtime
+  sets it explicitly, which is not the desired long-term behavior for managed
+  repos.
