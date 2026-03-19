@@ -380,6 +380,29 @@ async function enableAutoMerge(input: {
   mergeMethod: string;
 }): Promise<void> {
   const mergeMethodFlag = toMergeMethodFlag(input.mergeMethod);
+  try {
+    await execFileAsync(
+      "gh",
+      [
+        "pr",
+        "merge",
+        "--repo",
+        `${input.owner}/${input.repo}`,
+        "--auto",
+        mergeMethodFlag,
+        String(input.prNumber)
+      ],
+      {
+        env: process.env
+      }
+    );
+    return;
+  } catch (error) {
+    if (!isUnsupportedNativeAutoMergeError(error)) {
+      throw error;
+    }
+  }
+
   await execFileAsync(
     "gh",
     [
@@ -387,13 +410,27 @@ async function enableAutoMerge(input: {
       "merge",
       "--repo",
       `${input.owner}/${input.repo}`,
-      "--auto",
       mergeMethodFlag,
       String(input.prNumber)
     ],
     {
       env: process.env
     }
+  );
+}
+
+function isUnsupportedNativeAutoMergeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const stderr = typeof (error as { stderr?: unknown }).stderr === "string"
+    ? (error as { stderr: string }).stderr
+    : "";
+  const combined = stderr.toLowerCase();
+  return (
+    combined.includes("protected branch rules not configured for this branch") ||
+    combined.includes("auto merge must be enabled for this repository")
   );
 }
 

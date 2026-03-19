@@ -399,7 +399,10 @@ bun run smoke:pages -- --base-url https://openreactor.net --cleanup
 App installation token already injected into the run. That avoids using the
 server's SSH identity for remote publication. It also enables PR auto-merge by
 default; agents should pass `--no-auto-merge` when a PR must wait for manual
-review or human intervention. If a feature is blocked on a maintainer-only step
+review or human intervention. On repos where GitHub's native auto-merge is not
+available, the helper now falls back to a direct merge only for that specific
+unsupported-native-auto-merge case, so clean accepted PRs do not stall
+dependency chains forever. If a feature is blocked on a maintainer-only step
 such as OAuth setup or secret provisioning, the reactor now leaves the PR open,
 disables auto-merge, and applies `maintainer-action-required` instead of
 merging a documented partial. In that maintainer-handoff path, OpenReactor tags
