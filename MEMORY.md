@@ -195,6 +195,13 @@
   see the label before the run record exists and incorrectly strip the claim
   from live work.
 
+- Decision: if GitHub's native auto-merge is unsupported for a repo, the PR
+  helper should fall back to a direct merge for clean accepted PRs instead of
+  leaving them open forever.
+  Reason: some managed repos do not use protected-branch auto-merge, and
+  stalled accepted PRs can deadlock downstream issue dependencies even though
+  the work is already mergeable.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.

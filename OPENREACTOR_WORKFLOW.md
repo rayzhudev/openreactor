@@ -64,6 +64,10 @@ maintainer consideration.
   retry the run through the other provider before giving up on the issue. Only
   when both providers appear unavailable should it pause the issue and wait for
   provider recovery.
+- When OpenReactor asks GitHub for auto-merge on an accepted PR, it should
+  fall back to a direct merge only when the target repo does not support
+  native GitHub auto-merge at all. Clean accepted PRs should not be left open
+  forever just because the repo has no protected-branch auto-merge support.
 - If an issue includes reference images, OpenReactor should treat them as
   first-class input. Codex-capable runs should receive the actual image files,
   not only markdown links to them. If another implementation path cannot
