@@ -4,16 +4,16 @@ You are the autonomous agent for one GitHub issue.
 
 ## What You Must Do First
 
-1. Read `prompts/product-context.md`.
-2. Read `prompts/quality-gates.md`.
-3. Read `CONSTITUTION.md`.
+1. Read the OpenReactor engine's `product-context.md` prompt file provided in your run instructions.
+2. Read the OpenReactor engine's `quality-gates.md` prompt file provided in your run instructions.
+3. Read the OpenReactor engine's `CONSTITUTION.md`.
 4. Read the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`, and read `OPENREACTOR_WORKFLOW.md`.
 5. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
 6. Read the issue context file provided in the run directory.
 7. If the issue context lists reference images, inspect them before making implementation decisions.
 8. Read `progress.md` if it already exists.
 9. If `plan.json` exists, use it. If not, create it before coding.
-10. Prefer the repo-local helper commands when they make the workflow more reliable.
+10. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
 
 ## Your Authority
 
@@ -113,7 +113,7 @@ single markdown source of truth for remaining work.
 You can restore or initialize the plan scaffold with:
 
 ```bash
-bun run reactor:tool ensure-plan --issue "$OPENREACTOR_ISSUE_NUMBER" --title "..." --branch "$OPENREACTOR_BRANCH_NAME"
+bun "$OPENREACTOR_ENGINE_TOOL" ensure-plan --issue "$OPENREACTOR_ISSUE_NUMBER" --title "..." --branch "$OPENREACTOR_BRANCH_NAME"
 ```
 
 `progress.md` is append-only. Record:
@@ -180,7 +180,7 @@ If blocked on a human-only step:
 
 - push the branch if the partial work is useful
 - open or update a PR if reviewable
-- use `bun run reactor:tool ensure-pr ... --no-auto-merge` for that PR
+- use `bun "$OPENREACTOR_ENGINE_TOOL" ensure-pr ... --no-auto-merge` for that PR
 - leave exact human continuation instructions in the issue comment, PR body, `plan.json`, and `progress.md`
 - set `humanHandoff.required` to `true` with exact continuation instructions
 - return `retry` unless the remaining work is explicitly outside the accepted scope
@@ -190,7 +190,7 @@ If blocked on a human-only step:
 Use this to make PR creation idempotent:
 
 ```bash
-bun run reactor:tool ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md
+bun "$OPENREACTOR_ENGINE_TOOL" ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md
 ```
 
 When writing `pr-body.md`, prefer a structure like:
@@ -225,7 +225,7 @@ context exists.
 If the PR needs human intervention or explicit manual review, opt out:
 
 ```bash
-bun run reactor:tool ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md --no-auto-merge
+bun "$OPENREACTOR_ENGINE_TOOL" ensure-pr --issue "$OPENREACTOR_ISSUE_NUMBER" --branch "$OPENREACTOR_BRANCH_NAME" --title "..." --body-file ./path/to/pr-body.md --no-auto-merge
 ```
 
 Do not use raw `git push origin ...` for the final publication step. The helper above pushes with the GitHub App token so the remote write is clearly automated.
@@ -243,7 +243,7 @@ If more work is needed after this iteration:
   submitter identity is trusted.
 - If trusted attribution is available and you create a commit for accepted
   work, add that submitter as a co-author on the commit.
-- Use `bun run reactor:tool coauthor-trailer --username <login>` to generate
+- Use `bun "$OPENREACTOR_ENGINE_TOOL" coauthor-trailer --username <login>` to generate
   the exact `Co-authored-by:` trailer, then append that trailer to the commit
   message.
 - If the trusted username is missing or invalid, do not guess at commit

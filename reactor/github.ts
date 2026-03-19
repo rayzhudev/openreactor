@@ -261,6 +261,23 @@ export class GitHubClient {
     );
   }
 
+  async createPullRequest(input: {
+    title: string;
+    body: string;
+    head: string;
+    base: string;
+  }): Promise<GitHubPullRequest> {
+    return this.request<GitHubPullRequest>(`/repos/${this.config.owner}/${this.config.repo}/pulls`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        body: input.body,
+        head: input.head,
+        base: input.base
+      })
+    });
+  }
+
   async updatePullRequest(
     pullRequestNumber: number,
     input: {
@@ -345,6 +362,26 @@ export class GitHubClient {
       ].join("\n"),
       {
         pullRequestId: pullRequest.id
+      }
+    );
+  }
+
+  async enablePullRequestAutoMerge(
+    pullRequestNumber: number,
+    mergeMethod: "MERGE" | "REBASE" | "SQUASH" = "SQUASH"
+  ): Promise<void> {
+    const pullRequest = await this.getPullRequestGraphNode(pullRequestNumber);
+    await this.graphqlRequest(
+      [
+        "mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {",
+        "  enablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId, mergeMethod: $mergeMethod }) {",
+        "    clientMutationId",
+        "  }",
+        "}"
+      ].join("\n"),
+      {
+        pullRequestId: pullRequest.id,
+        mergeMethod
       }
     );
   }

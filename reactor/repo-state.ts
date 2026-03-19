@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const REPO_STATE_DIR = path.join(".openreactor", "repo");
+export const REPO_RUNTIME_GITIGNORE_RULES = [
+  ".openreactor/*",
+  "!.openreactor/repo/",
+  "!.openreactor/repo/**"
+];
 
 export interface RepoDocumentationPaths {
   readme: string;
@@ -10,6 +15,17 @@ export interface RepoDocumentationPaths {
   roadmap: string;
   memory: string;
   uiSystem: string | null;
+}
+
+export interface RepoStateSeedIssue {
+  number: number;
+  title: string;
+  body: string | null;
+}
+
+export interface RepoStateSeeds {
+  readmeBody?: string | null;
+  issues?: RepoStateSeedIssue[];
 }
 
 export async function resolveRepoDocumentationPaths(repoRoot: string): Promise<RepoDocumentationPaths> {
@@ -46,12 +62,16 @@ async function resolveOptionalRepoDoc(repoRoot: string, fileName: string): Promi
   return null;
 }
 
-export async function initializeRepoState(repoRoot: string, repoName: string): Promise<string[]> {
+export async function initializeRepoState(
+  repoRoot: string,
+  repoName: string,
+  seeds: RepoStateSeeds = {}
+): Promise<string[]> {
   const targetDir = path.join(repoRoot, REPO_STATE_DIR);
   await fs.mkdir(targetDir, { recursive: true });
 
   const writtenPaths: string[] = [];
-  for (const [fileName, template] of Object.entries(repoStateTemplates(repoName))) {
+  for (const [fileName, template] of Object.entries(repoStateTemplates(repoName, seeds))) {
     const targetPath = path.join(targetDir, fileName);
     if (await pathExists(targetPath)) {
       continue;
@@ -64,7 +84,29 @@ export async function initializeRepoState(repoRoot: string, repoName: string): P
   return writtenPaths;
 }
 
-function repoStateTemplates(repoName: string): Record<string, string> {
+export async function hasRepoStateFiles(repoRoot: string): Promise<boolean> {
+  return pathExists(path.join(repoRoot, REPO_STATE_DIR, "README.md"));
+}
+
+export async function ensureRepoRuntimeGitignore(repoRoot: string): Promise<string | null> {
+  const gitignorePath = path.join(repoRoot, ".gitignore");
+  const existing = await readOptionalText(gitignorePath);
+  const current = existing ?? "";
+  const missingRules = REPO_RUNTIME_GITIGNORE_RULES.filter((rule) => !current.includes(rule));
+  if (!missingRules.length) {
+    return null;
+  }
+
+  const next = current.trimEnd();
+  const prefix = next ? `${next}\n\n` : "";
+  await fs.writeFile(gitignorePath, `${prefix}${missingRules.join("\n")}\n`, "utf8");
+  return gitignorePath;
+}
+
+function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<string, string> {
+  const readmeSummary = summarizeReadme(seeds.readmeBody ?? "");
+  const issueSummary = summarizeIssues(seeds.issues ?? []);
+
   return {
     "README.md": [
       `# ${repoName}`,
@@ -79,14 +121,33 @@ function repoStateTemplates(repoName: string): Record<string, string> {
       "- roadmap direction",
       "- durable memory from past work",
       "",
-      "Treat these files as the product steering layer for this repository."
+      "Treat these files as the product steering layer for this repository.",
+      "",
+      "## Bootstrap signals",
+      "",
+      ...(readmeSummary
+        ? [
+            "### README signal",
+            "",
+            readmeSummary
+          ]
+        : ["_No README signal was detected during bootstrap._"]),
+      "",
+      ...(issueSummary
+        ? [
+            "### Issue signal",
+            "",
+            issueSummary
+          ]
+        : ["_No GitHub issue signal was detected during bootstrap._"])
     ].join("\n") + "\n",
     "PRODUCT_SPEC.md": [
       `# ${repoName} Product Spec`,
       "",
       "## Product summary",
       "",
-      "Describe what this repository's product is, who it is for, and what the main user-facing surfaces are.",
+      readmeSummary ||
+        "Describe what this repository's product is, who it is for, and what the main user-facing surfaces are.",
       "",
       "## Core workflows",
       "",
@@ -120,6 +181,14 @@ function repoStateTemplates(repoName: string): Record<string, string> {
       "## Near-term priorities",
       "",
       "- Add the current priorities for this repo.",
+      ...(issueSummary
+        ? [
+            "",
+            "## Signals from existing issues",
+            "",
+            issueSummary
+          ]
+        : []),
       "",
       "## Not now",
       "",
@@ -129,6 +198,14 @@ function repoStateTemplates(repoName: string): Record<string, string> {
       "# Memory",
       "",
       "Record durable product and workflow learnings here.",
+      ...(readmeSummary
+        ? [
+            "",
+            "## Bootstrap context",
+            "",
+            readmeSummary
+          ]
+        : []),
       "",
       "## Decisions",
       "",
@@ -137,11 +214,62 @@ function repoStateTemplates(repoName: string): Record<string, string> {
   };
 }
 
+function summarizeReadme(readmeBody: string): string {
+  const normalized = stripMarkdownNoise(readmeBody)
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .filter((chunk) => !chunk.startsWith("#"));
+
+  return normalized.slice(0, 2).join("\n\n");
+}
+
+function summarizeIssues(issues: RepoStateSeedIssue[]): string {
+  return issues
+    .slice(0, 5)
+    .map((issue) =>
+      [
+        `- #${issue.number} ${issue.title}`,
+        issue.body
+          ? `  ${truncateInline(stripMarkdownNoise(issue.body), 220)}`
+          : "  _No body provided._"
+      ].join("\n")
+    )
+    .join("\n");
+}
+
+function stripMarkdownNoise(value: string): string {
+  return value
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*]\(([^)]+)\)/g, " ")
+    .replace(/\[([^\]]+)]\(([^)]+)\)/g, "$1")
+    .replace(/\r/g, "")
+    .trim();
+}
+
+function truncateInline(value: string, maxLength: number): string {
+  const singleLine = value.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= maxLength) {
+    return singleLine;
+  }
+
+  return `${singleLine.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 async function pathExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readOptionalText(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return null;
   }
 }

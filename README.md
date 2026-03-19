@@ -150,12 +150,56 @@ When those files exist, the reactor prefers them over the legacy top-level
 product docs. This lets a target repo keep its own product direction and memory
 without needing to vendor the whole OpenReactor runtime into the repo.
 
-Bootstrap that repo-local steering layer with:
+Bootstrap that repo-local steering layer manually with:
 
 ```bash
 bun run reactor:tool init-repo-state
 ```
 
+That bootstrap now tries to seed the repo-local files from:
+
+- the repo README, if one exists
+- existing GitHub issues, especially PRD-like setup issues
+
+The intended managed-repo flow is:
+
+1. user creates a repo and writes an initial PRD, usually as a README or an
+   initial GitHub issue,
+2. user installs the OpenReactor GitHub App on that repo,
+3. the local OpenReactor runtime starts against a clone of that repo,
+4. OpenReactor infers a first-pass product description from the repo README and
+   the existing GitHub issue discussion,
+5. OpenReactor automatically opens a bootstrap PR creating `.openreactor/repo/`
+   from that material,
+6. once that repo-local state exists on `main`, OpenReactor proceeds with the
+   normal issue loop.
+
+For older repos that already have the legacy top-level product docs
+(`README.md`, `PRODUCT_SPEC.md`, `PRODUCT_CONSTITUTION.md`, `ROADMAP.md`,
+`MEMORY.md`), OpenReactor can keep operating while that bootstrap PR is still
+open. Brand-new repos without those docs are gated on the bootstrap first.
+
+This is intentionally different from the public OpenReactor website. The
+website's public feature form is a demo/product surface for OpenReactor
+itself. The default product shape for other repos is GitHub-native: repo
+owners and contributors work through GitHub issues, and OpenReactor consumes
+that issue stream directly.
+
+The intended privilege model is also GitHub-native:
+
+- repository owners should have the highest steering authority
+- maintainers/contributors should count as privileged steering entities
+- random public issue authors should still go through the normal product
+  governance filters
+
+The first runtime implementation of that model now uses GitHub's native
+`author_association` field on issues, so owners and contributors are detected
+from the repository itself rather than only from OpenReactor-managed labels.
+
+OpenReactor should also use its own git identity for authored commits. Branch
+publication already goes through the GitHub token/app path; issue worktrees now
+also get an explicit OpenReactor author identity so commits do not inherit the
+local maintainer's git config by accident.
 ## Running The Reactor
 
 The repository includes the machine-local orchestration loop under
@@ -166,6 +210,22 @@ for the Pages site:
 
 ```bash
 bun run reactor
+```
+
+To run the same local OpenReactor engine against a different cloned repo,
+point the managed-repo root at that checkout and invoke the engine from this
+repo:
+
+```bash
+OPENREACTOR_MANAGED_REPO_ROOT=/home/ray/projects/some-other-repo \
+  bun /home/ray/projects/openreactor/reactor/index.ts
+```
+
+The same pattern works for the watchdog:
+
+```bash
+OPENREACTOR_MANAGED_REPO_ROOT=/home/ray/projects/some-other-repo \
+  bash /home/ray/projects/openreactor/scripts/watchdog-service.sh
 ```
 
 One-pass dry operation:
