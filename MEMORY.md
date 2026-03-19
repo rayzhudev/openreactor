@@ -265,6 +265,12 @@
   Reason: this lets OpenReactor infer owner/contributor privilege directly from
   the repository instead of relying only on OpenReactor-specific labels or
   body fields.
+- Decision: trusted repo-owner and contributor issues should preserve their
+  explicit requested scope unless a hard blocker requires decomposition or
+  human handoff.
+  Reason: privileged repo steering should not be silently watered down for
+  implementation convenience once OpenReactor has already accepted the
+  direction.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local

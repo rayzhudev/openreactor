@@ -2006,10 +2006,10 @@ function getLabelNames(issue: GitHubIssue): Set<string> {
 
 function getMaintainerSteeringSignal(
   config: Pick<OrchestratorConfig, "owner" | "maintainerSteeredLabel">,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): { username: string } | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
-  if (authorLogin && authorLogin.toLowerCase() === config.owner.toLowerCase()) {
+  if (authorLogin && isPrivilegedRepoAuthor(issue.author_association, authorLogin, config.owner)) {
     return { username: authorLogin };
   }
 
@@ -2063,7 +2063,7 @@ function getInheritedTrustedLabels(
     OrchestratorConfig,
     "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
   >,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): string[] {
   const inherited = new Set<string>();
   if (getTrustedSubmitterUsername(config, issue)) {
@@ -2080,7 +2080,7 @@ function ensureInheritedIssueMetadata(
     OrchestratorConfig,
     "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
   >,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">,
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">,
   childBody: string
 ): string {
   const githubUsername =
@@ -2109,7 +2109,7 @@ function getTrustedSubmitterUsername(
     OrchestratorConfig,
     "owner" | "maintainerSteeredLabel" | "authenticatedSubmitterLabel"
   >,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): string | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
   if (authorLogin && !/\[bot\]$/i.test(authorLogin)) {
@@ -2124,6 +2124,24 @@ function getTrustedSubmitterUsername(
   }
 
   return null;
+}
+
+function isPrivilegedRepoAuthor(
+  authorAssociation: string | null | undefined,
+  authorLogin: string,
+  owner: string
+): boolean {
+  if (authorLogin.toLowerCase() === owner.toLowerCase()) {
+    return true;
+  }
+
+  const association = (authorAssociation ?? "").trim().toUpperCase();
+  return (
+    association === "OWNER" ||
+    association === "MEMBER" ||
+    association === "COLLABORATOR" ||
+    association === "CONTRIBUTOR"
+  );
 }
 
 function normalizeTriageResult(

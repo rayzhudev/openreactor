@@ -158,6 +158,9 @@ Privilege should also be inferred from GitHub first:
 - repo owners have the strongest steering authority
 - maintainers and contributors count as privileged steering entities
 - ordinary issue authors still go through the normal governance filters
+- trusted owner/contributor issues should preserve their explicit requested
+  scope unless a hard blocker requires decomposition or human handoff; do not
+  quietly reduce them for implementation convenience
 
 The first runtime implementation of that trust model should come from GitHub's
 native `author_association` on issues and comments rather than from

@@ -22,6 +22,7 @@ export interface GitHubIssue {
   user?: {
     login?: string;
   };
+  author_association?: string;
   labels: Array<{ name?: string }>;
   pull_request?: Record<string, unknown>;
 }
@@ -48,6 +49,7 @@ export interface GitHubIssueComment {
   user?: {
     login?: string;
   };
+  author_association?: string;
 }
 
 export class GitHubClient {
