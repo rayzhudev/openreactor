@@ -202,6 +202,39 @@
   stalled accepted PRs can deadlock downstream issue dependencies even though
   the work is already mergeable.
 
+- Decision: the reactor should reconcile already-accepted open PRs after the
+  run ends and merge them when they are clean, complete, and not intentionally
+  waiting on maintainer action or native auto-merge.
+  Reason: accepted runs can still leave a PR open because of timing, GitHub
+  feature differences, or earlier helper failures, and that stale PR state can
+  deadlock downstream issue dependencies.
+
+- Decision: the watchdog should detect an idle queue stuck behind accepted PRs
+  and attempt operational deadlock recovery before escalating it.
+  Reason: when the reactor is healthy but every remaining task is blocked
+  behind a stranded accepted PR, restarting blindly is not enough. The system
+  should either merge the completed PR or reclaim the conflicted branch so work
+  continues automatically.
+
+- Decision: managed repos should route OpenReactor repair work back into the
+  central OpenReactor engine repo instead of keeping those repair issues local
+  to the managed product repo.
+  Reason: workflow failures discovered while serving another repo still need to
+  improve the shared engine. The repair should land in one place, then the
+  watchdog should redeploy that updated engine to the affected local instances.
+
+- Decision: when a maintainer raises an OpenReactor-core problem, fix the
+  immediate incident and also add the durable engine/workflow fix for that
+  failure class.
+  Reason: OpenReactor should not keep relearning the same operational lessons
+  one incident at a time.
+
+- Decision: conflicted maintainer-authored core PRs outside the normal
+  `openreactor/issue-*` branch pattern should still be surfaced as explicit
+  OpenReactor repair work.
+  Reason: manual core PRs can otherwise fall outside the issue-loop conflict
+  repair sweep and sit invisible even though they are blocking engine changes.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.
