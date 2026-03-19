@@ -243,13 +243,19 @@ class Watchdog {
     now: Date
   ): Promise<void> {
     if (!record) {
+      const claimUpdatedAt = parseDate(issue.updated_at) ?? parseDate(issue.created_at) ?? now;
+      const claimedForMs = now.getTime() - claimUpdatedAt.getTime();
+      if (claimedForMs < this.config.runningClaimGraceMs) {
+        return;
+      }
+
       await this.github.removeLabel(issue.number, this.reactorConfig.runningLabel);
       await this.upsertWatchdogComment(
         issue.number,
         [
           "OpenReactor watchdog cleared a stale running claim for this issue.",
           "",
-          "The issue still had the running label, but no local run record existed anymore. The watchdog removed the stale claim so the reactor can reclaim it cleanly."
+          `The issue still had the running label after ${formatDuration(claimedForMs)}, but no local run record existed anymore. The watchdog removed the stale claim so the reactor can reclaim it cleanly.`
         ].join("\n")
       );
       return;

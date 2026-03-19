@@ -156,15 +156,17 @@ assume that every managed repo also exposes a public intake website.
 Privilege should also be inferred from GitHub first:
 
 - repo owners have the strongest steering authority
-- maintainers and contributors count as privileged steering entities
+- users with actual repo access (`write`, `maintain`, or `admin`) count as
+  steering entities
 - ordinary issue authors still go through the normal governance filters
-- trusted owner/contributor issues should preserve their explicit requested
+- trusted steering-lane issues should preserve their explicit requested
   scope unless a hard blocker requires decomposition or human handoff; do not
   quietly reduce them for implementation convenience
 
-The first runtime implementation of that trust model should come from GitHub's
-native `author_association` on issues and comments rather than from
-OpenReactor-only metadata.
+The main runtime implementation of that trust model should come from GitHub
+repository permissions rather than from contributor history. OpenReactor-only
+labels and body metadata should be used only as inherited signals when the
+system itself decomposes a steering issue into child issues.
 
 OpenReactor should not inherit a human maintainer's local git identity for
 authored commits. Even when the runtime is operating on a maintainer-owned
@@ -180,12 +182,21 @@ handled as ordinary public feature requests. Unless maintainer steering is
 clear, they should default toward banking, proposal handling, or explicit human
 review rather than direct autonomous implementation.
 
+In the `rayzhudev/openreactor` repo specifically, feedback-lane issues are
+restricted to website/product surfaces. Direct changes to the OpenReactor core
+itself require steering authority.
+
 One explicit exception is watchdog-generated repair work. When the local
 watchdog detects a concrete OpenReactor-core fault that is blocking normal
 issue flow, it may open a maintainer-steered `openreactor-core` repair issue so
 the reactor can fix OpenReactor itself. After that repair merges, the watchdog
 is expected to refresh the local checkout and restart the local OpenReactor
 services.
+
+When the reactor claims a fresh issue, it should write the local run record
+before or alongside the `or:running` label. The watchdog should also tolerate a
+short claim grace window before clearing a supposedly stale running label, so a
+fresh claim is not mistaken for abandoned work during startup.
 
 ## Runtime visibility
 

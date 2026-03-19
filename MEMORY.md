@@ -188,6 +188,13 @@
 
 ## 2026-03-19
 
+- Decision: write the local run record before claiming a fresh issue with
+  `or:running`, and give the watchdog a short running-claim grace period before
+  it clears a supposedly stale claim.
+  Reason: a freshly claimed issue can otherwise race the watchdog, which may
+  see the label before the run record exists and incorrectly strip the claim
+  from live work.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.
@@ -254,23 +261,31 @@
   distinct concepts in the runtime.
 
 - Decision: managed-repo privilege should be inferred from GitHub itself.
-  Repo owners should have the highest steering authority, maintainers and
-  contributors should count as privileged steering entities, and ordinary issue
-  authors should still pass through the normal governance filters.
+  Repo owners should have the highest steering authority, users with actual
+  repo access (`write`, `maintain`, or `admin`) should count as steering
+  entities, and ordinary issue authors should still pass through the normal
+  governance filters.
   Reason: GitHub is the natural source of truth for repository trust and
   authorship in the default OpenReactor deployment model.
 
-- Decision: use GitHub's native `author_association` field as the first runtime
-  trust signal for repo-owner and contributor privilege on issues.
-  Reason: this lets OpenReactor infer owner/contributor privilege directly from
-  the repository instead of relying only on OpenReactor-specific labels or
-  body fields.
-- Decision: trusted repo-owner and contributor issues should preserve their
+- Decision: derive `requestAuthority` primarily from GitHub repository
+  permissions, not contributor history. OpenReactor-managed labels should act
+  only as inherited child-issue metadata when the system decomposes trusted
+  steering work.
+  Reason: prior contribution history is not the same as present repo authority,
+  and the runtime needs a clean split between steering and market feedback.
+- Decision: trusted steering-lane issues should preserve their
   explicit requested scope unless a hard blocker requires decomposition or
   human handoff.
   Reason: privileged repo steering should not be silently watered down for
   implementation convenience once OpenReactor has already accepted the
   direction.
+
+- Decision: in the `rayzhudev/openreactor` repo, feedback-lane issues may
+  shape only the website/product surfaces. Direct OpenReactor-core changes
+  require steering authority.
+  Reason: the public product demo should stay shapeable by feedback, but the
+  OpenReactor engine itself remains maintainer-controlled.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local

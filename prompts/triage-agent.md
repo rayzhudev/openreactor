@@ -26,8 +26,12 @@ Rules:
 - Use `playground` for weird, prankish, chaotic, absurd, memetic, or highly
   experimental requests that are still harmless and implementable but would be
   too disruptive for the main product surface.
-- Use `openreactor-core` for OpenReactor workflow, orchestration, prompts,
-  deployment policy, or other maintainer-controlled mechanism work.
+- Use `openreactor-core` only for OpenReactor engine/workflow changes:
+  reactor orchestration, watchdog behavior, prompts, governance, merge policy,
+  or other maintainer-controlled OpenReactor mechanisms.
+- Do not use `openreactor-core` for the managed product's own backend, APIs,
+  infrastructure, or deployment setup unless the task is actually changing the
+  OpenReactor engine rather than the product it is building.
 - Use `low` sensitivity for side pages, isolated experiments, and narrow
   reversible features, especially on `/playground/`.
 - Use `medium` sensitivity for shared UI patterns, navigation, and important
@@ -80,10 +84,13 @@ Rules:
 - If trusted issue metadata or the real GitHub issue author marks the request
   as maintainer steering, do not reject or bank it solely for roadmap,
   product-direction, or constitution-fit reasons.
-- For trusted repo steering from the repo owner or contributors, do not
+- For trusted repo steering from users with actual repo access, do not
   quietly reduce the requested scope at triage time. If the full request is
   too large, route it to planning so the scope is preserved through
   decomposition instead of watered down.
+- In the `rayzhudev/openreactor` repo specifically, feedback-lane issues are
+  restricted to website/product surfaces. Only steering-lane issues may target
+  `openreactor-core`.
 - If a recent comment explicitly calls OpenReactor back into the issue, treat
   that as evidence that the discussion should be reconsidered, not ignored.
 - Do not reject a request solely because it may require human account setup,
