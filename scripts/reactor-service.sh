@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="/home/ray/projects/openreactor"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENGINE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="${OPENREACTOR_MANAGED_REPO_ROOT:-$ENGINE_ROOT}"
 ENV_FILE="${OPENREACTOR_ENV_FILE:-/home/ray/.config/openreactor/reactor.env}"
 
 cd "$REPO_ROOT"
@@ -54,4 +56,5 @@ if [[ -z "${GITHUB_APP_ID:-}" || -z "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
   fi
 fi
 
-exec /home/ray/.bun/bin/bun /home/ray/projects/openreactor/reactor/index.ts "$@"
+export OPENREACTOR_ENGINE_ROOT="${OPENREACTOR_ENGINE_ROOT:-$ENGINE_ROOT}"
+exec /home/ray/.bun/bin/bun "$ENGINE_ROOT/reactor/index.ts" "$@"

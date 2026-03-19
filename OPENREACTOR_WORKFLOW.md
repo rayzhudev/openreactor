@@ -110,6 +110,49 @@ memory should live for a managed repository. The current committed layout is:
 When those files exist, issue agents and triage should prefer them over the
 legacy top-level product docs.
 
+For managed repos, initialization should prefer inference over blank setup:
+
+- read the repo README
+- read the initial GitHub issues, especially a PRD-style issue if one exists
+- infer a first-pass product description and product constitution from that
+  material
+- open a bootstrap PR that creates `.openreactor/repo/`
+
+The current bootstrap helper seeds that first pass from the repo README and the
+existing GitHub issues when those inputs are available.
+
+The current local deployment model is intentionally simple:
+
+- clone the target repo onto the machine that already runs OpenReactor
+- point the local OpenReactor engine at that clone
+- let the reactor open the bootstrap PR automatically if `.openreactor/repo/`
+  does not already exist on `main`
+- begin normal issue handling only after that repo-local steering state exists
+
+Legacy repos that already have the older top-level product docs may continue to
+run while the bootstrap PR is open. Repos that do not have either repo-local
+state or the legacy top-level docs should wait for the bootstrap first.
+
+This avoids a separate onboarding wizard while still keeping the runtime local
+and the per-repo steering state committed inside the managed repository.
+
+OpenReactor's default external UX should be GitHub-native. It should not
+assume that every managed repo also exposes a public intake website.
+
+Privilege should also be inferred from GitHub first:
+
+- repo owners have the strongest steering authority
+- maintainers and contributors count as privileged steering entities
+- ordinary issue authors still go through the normal governance filters
+
+The first runtime implementation of that trust model should come from GitHub's
+native `author_association` on issues and comments rather than from
+OpenReactor-only metadata.
+
+OpenReactor should not inherit a human maintainer's local git identity for
+authored commits. Even when the runtime is operating on a maintainer-owned
+machine, issue worktrees should be configured with an explicit OpenReactor
+machine identity so commit authorship is visibly automated.
 ## OpenReactor proposals
 
 If an issue is labeled `openreactor-core`, agents should treat it as an

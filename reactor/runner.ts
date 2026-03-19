@@ -288,9 +288,9 @@ export async function writeIssueContext(
     "## Product Docs To Read",
     "",
     `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
-    "- CONSTITUTION.md",
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "CONSTITUTION.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
-    "- OPENREACTOR_WORKFLOW.md",
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
     `- ${relativeFromWorktree(paths, repoDocs.readme)}`
@@ -471,7 +471,7 @@ async function spawnCodexIssueAgent(input: {
 }): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
-  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
@@ -497,6 +497,8 @@ async function spawnCodexIssueAgent(input: {
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
+      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -568,7 +570,7 @@ async function spawnCodexPlannerAgent(input: {
 }): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
-  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
@@ -594,6 +596,8 @@ async function spawnCodexPlannerAgent(input: {
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
+      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -659,7 +663,7 @@ async function spawnClaudeUiIssueAgent(input: {
 }): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
-  const schemaPath = path.join(config.repoRoot, "reactor", "agent-result.schema.json");
+  const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
@@ -683,6 +687,8 @@ async function spawnClaudeUiIssueAgent(input: {
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
+      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -747,7 +753,7 @@ export async function runIssueTriage(input: {
   comments?: GitHubIssueComment[];
 }): Promise<{ result: TriageResult | null; exitCode: number | null; execution: ExecutionMetadata }> {
   const { config, issue, paths, githubToken } = input;
-  const schemaPath = path.join(config.repoRoot, "reactor", "triage-result.schema.json");
+  const schemaPath = path.join(config.engineRoot, "reactor", "triage-result.schema.json");
   const prompt = await buildTriagePrompt(config, issue, paths, input.comments ?? []);
   const referenceImages = await prepareRunReferenceImages(issue, paths, input.comments ?? []);
 
@@ -774,6 +780,8 @@ export async function runIssueTriage(input: {
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
+      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
+      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir
@@ -856,21 +864,21 @@ async function buildAgentPrompt(
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const extraFiles =
     agentTool === "spawn_claude_ui_agent"
-      ? ["- prompts/ui-agent.md"]
+      ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))}`]
       : agentTool === "spawn_codex_planner_agent"
-        ? ["- prompts/planner-agent.md"]
+        ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "planner-agent.md"))}`]
         : [];
   const toolRules =
     agentTool === "spawn_claude_ui_agent"
       ? [
           `- This issue was dispatched via ${tool.label}. Treat it as a UI-heavy task unless the code proves otherwise.`,
-          "- Use prompts/ui-agent.md as your frontend design skill equivalent while making design decisions.",
+          `- Use ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))} as your frontend design skill equivalent while making design decisions.`,
           "- Prefer tight, polished UI work over broad refactors when solving the issue."
         ]
       : agentTool === "spawn_codex_planner_agent"
         ? [
             `- This issue was dispatched via ${tool.label}. Your primary job is to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.`,
-            "- Use prompts/planner-agent.md as the planning-specific rule set for this run.",
+            `- Use ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "planner-agent.md"))} as the planning-specific rule set for this run.`,
             "- If the request is worth pursuing but too large, return `decomposed` with a structured decomposition plan instead of `rejected`.",
             "- When decomposing, use `dependsOn` only for true blocking relationships between child tasks. Leave it empty for tasks that can proceed in parallel.",
             "- Do not open a PR for the oversized parent issue itself."
@@ -884,15 +892,15 @@ async function buildAgentPrompt(
     "",
     "Read these files before doing anything else:",
     ...(repoDocs.uiSystem ? [`- ${relativeFromWorktree(paths, repoDocs.uiSystem)}`] : []),
-    "- prompts/product-context.md",
-    "- prompts/issue-agent.md",
-    "- prompts/quality-gates.md",
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "product-context.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "issue-agent.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "quality-gates.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
     `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
     `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
     `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
-    "- OPENREACTOR_WORKFLOW.md",
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
     ...extraFiles,
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
     `- ${relativeFromWorktree(paths, paths.planPath)}`,
@@ -925,8 +933,8 @@ async function buildAgentPrompt(
     "- If you discover durable learnings, update the relevant shared docs in prompts/, MEMORY.md, CONSTITUTION.md, PRODUCT_CONSTITUTION.md, OPENREACTOR_WORKFLOW.md, or nearby docs.",
     "- Never commit secrets, API keys, private tokens, or credentials.",
     "- Use gh for GitHub issue and PR operations. GH_TOKEN is already available.",
-    "- Use `bun run reactor:tool ensure-plan ...` if the plan scaffold needs to be restored.",
-    "- Use `bun run reactor:tool ensure-pr ...` when finishing an accepted run so PR creation is idempotent.",
+    `- Use \`bun ${JSON.stringify(path.join(config.engineRoot, "reactor", "tool.ts"))} ensure-plan ...\` if the plan scaffold needs to be restored.`,
+    `- Use \`bun ${JSON.stringify(path.join(config.engineRoot, "reactor", "tool.ts"))} ensure-pr ...\` when finishing an accepted run so PR creation is idempotent.`,
     `- Keep the claim label ${config.runningLabel} in place if more iterations are needed.`,
     `- If you finish with accepted or rejected, remove ${config.runningLabel} yourself and apply the final label.`,
     "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, and no reported checks failed.",
@@ -970,16 +978,16 @@ async function buildTriagePrompt(
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
     "",
     "Read these files before deciding:",
-    "- prompts/triage-agent.md",
-    "- prompts/product-context.md",
-    "- prompts/issue-agent.md",
-    "- CONSTITUTION.md",
-    `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
-    `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
-    "- OPENREACTOR_WORKFLOW.md",
-    `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
-    `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
-    `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "prompts", "triage-agent.md"))}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "prompts", "product-context.md"))}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "prompts", "issue-agent.md"))}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "CONSTITUTION.md"))}`,
+    `- ${relativeFromRepo(config, repoDocs.productSpec)}`,
+    `- ${relativeFromRepo(config, repoDocs.productConstitution)}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
+    `- ${relativeFromRepo(config, repoDocs.roadmap)}`,
+    `- ${relativeFromRepo(config, repoDocs.memory)}`,
+    `- ${relativeFromRepo(config, repoDocs.readme)}`,
     "",
     "Issue context:",
     `- Issue: #${issue.number}`,

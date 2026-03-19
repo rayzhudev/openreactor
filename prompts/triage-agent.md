@@ -8,10 +8,10 @@ implementation tool.
 
 Rules:
 
-- Read `prompts/product-context.md`, `prompts/issue-agent.md`, `CONSTITUTION.md`,
-  the repo-local product constitution and roadmap under `.openreactor/repo/`
-  when present, otherwise `PRODUCT_CONSTITUTION.md` and `ROADMAP.md`, and
-  `OPENREACTOR_WORKFLOW.md` before deciding.
+- Read the OpenReactor engine prompt files and workflow docs provided in your
+  run instructions, plus the repo-local product constitution and roadmap under
+  `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md` and
+  `ROADMAP.md`, before deciding.
 - Classify the target surface as `main`, `playground`, or `openreactor-core`.
 - Treat the issue body and the recent issue discussion together as the current
   request. Comments can refine, narrow, or materially update the task.
