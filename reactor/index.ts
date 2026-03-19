@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { loadConfig, type OrchestratorConfig } from "./config";
 import {
   DEFAULT_AGENT_TOOL,
+  getFallbackToolForProviderOutage,
   getAgentTool,
   isAgentToolName,
   type AgentToolName
@@ -39,6 +40,7 @@ import {
   type RunRecord,
   type TriageResult
 } from "./runner";
+import { detectProviderOutage } from "./provider-outage";
 import {
   ensureRepoRuntimeGitignore,
   hasRepoStateFiles,
@@ -906,6 +908,8 @@ class Reactor {
       existingRecord ??
       (await readRunRecord(paths)) ??
       (await createInitialRunRecord(issue, paths));
+    record.preferredAgentTool =
+      selectedTriage?.toolName ?? record.preferredAgentTool ?? requestedAgentTool;
     record.targetSurface = selectedTriage?.targetSurface ?? record.targetSurface;
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
@@ -1004,6 +1008,13 @@ class Reactor {
     const failureMessage = `${input.phase}: ${formatError(input.error)}`;
 
     record.agentTool = input.selectedTool ?? record.agentTool;
+    if (
+      record.agentTool &&
+      (await this.handleProviderOutageFallback(issue, record, record.agentTool, failureMessage, input.phase))
+    ) {
+      return;
+    }
+
     record.startFailureCount = nextStartFailureCount;
     record.status =
       nextStartFailureCount >= this.config.maxStartFailuresPerIssue ? "failed" : "retry";
@@ -1055,6 +1066,20 @@ class Reactor {
         activeRun,
         paths
       });
+
+      if (
+        !result &&
+        activeRun.record.agentTool &&
+        (await this.handleProviderOutageFallback(
+          activeRun.issue,
+          activeRun.record,
+          activeRun.record.agentTool,
+          await readProviderFailureContext(activeRun.logPath, exitCode),
+          "runtime"
+        ))
+      ) {
+        return;
+      }
 
       if (result?.humanHandoff?.required) {
         const handoffValidation = await this.validateMaintainerHandoff(paths.branchName, result);
@@ -1288,6 +1313,104 @@ class Reactor {
       }
       await this.updateLiveStatus();
     }
+  }
+
+  private async handleProviderOutageFallback(
+    issue: GitHubIssue,
+    record: RunRecord,
+    currentToolName: AgentToolName,
+    failureMessage: string,
+    phase: "triage" | "startup" | "retry-startup" | "runtime"
+  ): Promise<boolean> {
+    const provider = getAgentTool(currentToolName).provider;
+    const outageReason = detectProviderOutage(provider, failureMessage);
+    if (!outageReason) {
+      return false;
+    }
+
+    const preferredToolName = record.preferredAgentTool ?? currentToolName;
+    const preferredFallbackToolName =
+      preferredToolName !== currentToolName &&
+      getAgentTool(preferredToolName).provider !== provider
+        ? preferredToolName
+        : null;
+    const fallbackToolName =
+      preferredFallbackToolName ?? getFallbackToolForProviderOutage(currentToolName);
+    const triedTools = uniqueAgentTools([...(record.providerFallbackToolsTried ?? []), currentToolName]);
+    const fallbackAvailable = fallbackToolName && !triedTools.includes(fallbackToolName);
+
+    if (fallbackAvailable && fallbackToolName) {
+      const currentTool = getAgentTool(currentToolName);
+      const fallbackTool = getAgentTool(fallbackToolName);
+
+      record.providerFallbackToolsTried = triedTools;
+      record.agentTool = fallbackToolName;
+      record.status = "retry";
+      record.lastError =
+        `${phase}: ${currentTool.label} hit a provider outage (${outageReason}). ` +
+        `Falling back to ${fallbackTool.label}.`;
+      record.updatedAt = new Date().toISOString();
+      record.lastHeartbeatAt = record.updatedAt;
+      await writeRunRecord(issueRuntimePaths(this.config, issue.number), record);
+      await this.syncIssueStatusComment(issue.number, {
+        status: "queued",
+        phase: "retrying",
+        iteration: record.iteration,
+        detail:
+          `${currentTool.label} appears unavailable (${outageReason}), so OpenReactor is ` +
+          `falling back to ${fallbackTool.label}.`
+      });
+
+      await sleep(2_000);
+      if (this.stopped) {
+        return true;
+      }
+
+      const refreshedIssue = await this.github.getIssue(issue.number);
+      await this.startIssue(refreshedIssue, record);
+      return true;
+    }
+
+    const providerLabels = uniqueProviderLabels(triedTools);
+    if (!providerLabels.includes("Codex")) {
+      providerLabels.push("Codex");
+    }
+    if (!providerLabels.includes("Claude")) {
+      providerLabels.push("Claude");
+    }
+
+    record.agentTool = preferredToolName;
+    record.providerFallbackToolsTried = [];
+    record.status = "failed";
+    record.lastError =
+      `${phase}: both AI providers appear unavailable. Last provider outage: ${outageReason}.`;
+    record.updatedAt = new Date().toISOString();
+    record.lastHeartbeatAt = record.updatedAt;
+    await writeRunRecord(issueRuntimePaths(this.config, issue.number), record);
+
+    await this.github.removeLabel(issue.number, this.config.runningLabel);
+    await this.github.addLabels(issue.number, [this.config.pausedLabel]);
+    await this.syncIssueStatusComment(issue.number, {
+      status: "queued",
+      phase: "paused",
+      iteration: record.iteration,
+      detail:
+        `${providerLabels.join(" and ")} both appear unavailable, so OpenReactor paused this ` +
+        `issue until a provider recovers.`
+    });
+    await this.github.createComment(
+      issue.number,
+      [
+        "OpenReactor paused this issue because both AI providers appear unavailable.",
+        "",
+        `Phase: ${phase}`,
+        `Last provider outage signal: ${outageReason}`,
+        `Preferred tool: ${getAgentTool(preferredToolName).label}`,
+        "",
+        `The watchdog can retry this issue automatically once provider availability recovers, or you can remove \`${this.config.pausedLabel}\` to let the reactor reclaim it later.`
+      ].join("\n")
+    );
+    return true;
   }
 
   private async refreshPullRequestExecutionFooter(
@@ -1585,6 +1708,31 @@ function formatExecutionLine(execution: ExecutionMetadata): string {
   ].filter(Boolean);
 
   return parts.join(" • ");
+}
+
+async function readProviderFailureContext(logPath: string, exitCode: number | null): Promise<string> {
+  const logTail = await readLogTail(logPath, 8000);
+  return [logTail, `exit code: ${exitCode ?? "unknown"}`].filter(Boolean).join("\n");
+}
+
+async function readLogTail(logPath: string, maxChars: number): Promise<string> {
+  try {
+    const contents = await fs.readFile(logPath, "utf8");
+    return contents.slice(Math.max(0, contents.length - maxChars));
+  } catch {
+    return "";
+  }
+}
+
+function uniqueAgentTools(values: AgentToolName[]): AgentToolName[] {
+  return Array.from(new Set(values));
+}
+
+function uniqueProviderLabels(values: AgentToolName[]): string[] {
+  const labels = values.map((toolName) =>
+    getAgentTool(toolName).provider === "claude" ? "Claude" : "Codex"
+  );
+  return Array.from(new Set(labels));
 }
 
 function formatMaintainerOwnerMention(owner: string): string {

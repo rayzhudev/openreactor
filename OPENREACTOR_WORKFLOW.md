@@ -60,6 +60,10 @@ maintainer consideration.
 - OpenReactor should surface hard execution facts in public workflow artifacts
   where possible, such as provider, model, reasoning effort, and runtime
   duration, instead of relying only on narrative summaries.
+- If the selected implementation provider is unavailable, OpenReactor should
+  retry the run through the other provider before giving up on the issue. Only
+  when both providers appear unavailable should it pause the issue and wait for
+  provider recovery.
 - If an issue includes reference images, OpenReactor should treat them as
   first-class input. Codex-capable runs should receive the actual image files,
   not only markdown links to them. If another implementation path cannot

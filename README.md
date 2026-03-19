@@ -287,6 +287,8 @@ The reactor currently:
 - creates a dedicated git worktree per issue from the latest `origin/main`
 - persists per-issue run files under `.openreactor/`
 - retries the same issue until it reaches a real terminal state
+- falls back to the other AI provider when the selected implementation provider
+  appears unavailable, and pauses cleanly only if both providers are down
 - reconsiders banked, paused, or previously rejected issues when later
   discussion materially refines the task or explicitly calls the bot back in,
   even if the issue had only been parked in GitHub state and never reached a
