@@ -223,11 +223,12 @@
   improve the shared engine. The repair should land in one place, then the
   watchdog should redeploy that updated engine to the affected local instances.
 
-- Decision: when a maintainer raises an OpenReactor-core problem, fix the
-  immediate incident and also add the durable engine/workflow fix for that
-  failure class.
+- Decision: when a maintainer raises an OpenReactor-core problem, land the
+  durable engine/workflow fix first and, whenever feasible, let that fix heal
+  the already-stuck work instead of doing a separate one-off manual recovery.
   Reason: OpenReactor should not keep relearning the same operational lessons
-  one incident at a time.
+  one incident at a time, and it should converge back to forward progress from
+  partially broken states through its own repaired workflow.
 
 - Decision: conflicted maintainer-authored core PRs outside the normal
   `openreactor/issue-*` branch pattern should still be surfaced as explicit

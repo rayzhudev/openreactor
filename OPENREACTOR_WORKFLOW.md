@@ -197,9 +197,15 @@ machine identity so commit authorship is visibly automated.
 When a maintainer surfaces an OpenReactor-core failure, the expected response
 should include both:
 
-- an immediate operational fix that gets blocked work moving again
 - a durable engine or workflow fix that prevents the same class of failure from
   recurring silently
+- and, whenever feasible, let that new fix heal the already-stuck work instead
+  of relying on a separate one-off manual recovery step
+
+Manual intervention is still allowed when the system cannot recover the stuck
+state without it, but the preferred pattern is self-healing through the engine
+fix itself. OpenReactor should be able to enter a partially broken state, land
+the repair, and then converge back to progress on its own.
 
 ## OpenReactor proposals
 
