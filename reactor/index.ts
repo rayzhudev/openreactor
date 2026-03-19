@@ -779,14 +779,13 @@ class Reactor {
     selectedTriage?: TriageResult
   ): Promise<void> {
     const paths = issueRuntimePaths(this.config, issue.number);
-    const agentTool = isAgentToolName(selectedTriage?.toolName)
+    const requestedAgentTool = isAgentToolName(selectedTriage?.toolName)
       ? selectedTriage.toolName
       : existingRecord?.agentTool ?? DEFAULT_AGENT_TOOL;
     const record =
       existingRecord ??
       (await readRunRecord(paths)) ??
       (await createInitialRunRecord(issue, paths));
-    record.agentTool = agentTool;
     record.targetSurface = selectedTriage?.targetSurface ?? record.targetSurface;
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
@@ -794,8 +793,9 @@ class Reactor {
 
     try {
       const comments = await this.github.listIssueComments(issue.number);
+      record.agentTool = requestedAgentTool;
       await ensureIssueWorktree(this.config, paths);
-      await writeIssueContext(this.config, issue, paths, {
+      const referenceImages = await writeIssueContext(this.config, issue, paths, {
         targetSurface: record.targetSurface,
         sensitivity: record.sensitivity,
         evidenceStrength: record.evidenceStrength,
@@ -806,9 +806,16 @@ class Reactor {
         status: "in-progress",
         phase: existingRecord ? "retrying" : "reviewing",
         iteration: record.iteration + 1,
-        detail: existingRecord
-          ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
-          : "Full issue agent is reviewing the request and deciding the best product change."
+        detail: [
+          existingRecord
+            ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
+            : "Full issue agent is reviewing the request and deciding the best product change.",
+          referenceImages.length
+            ? requestedAgentTool === "spawn_claude_ui_agent"
+              ? `Prepared ${referenceImages.length} reference image${referenceImages.length === 1 ? "" : "s"} in the run directory so the Claude UI agent can inspect them by local path.`
+              : `Attached ${referenceImages.length} reference image${referenceImages.length === 1 ? "" : "s"} to the agent input.`
+            : ""
+        ].filter(Boolean).join(" ")
       });
 
       const accessToken = await this.github.getAgentAccessToken();
@@ -817,7 +824,8 @@ class Reactor {
         issue,
         paths,
         record,
-        githubToken: accessToken
+        githubToken: accessToken,
+        referenceImages
       });
 
       this.activeRuns.set(issue.number, activeRun);
@@ -828,7 +836,7 @@ class Reactor {
         phase: existingRecord ? "retry-startup" : "startup",
         error,
         record,
-        selectedTool: agentTool
+        selectedTool: requestedAgentTool
       });
     }
   }

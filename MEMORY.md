@@ -189,3 +189,13 @@
   Reason: the current MVP has no separate storage system for website uploads,
   but maintainers still need request images to survive the intake flow and stay
   visible to issue agents inside GitHub.
+
+- Decision: when an issue carries reference images, download them into the
+  issue run directory, attach them directly to Codex agent runs as real image
+  input, and expose the same local files to Claude UI runs through the allowed
+  run directory.
+  Reason: markdown image links in the issue body are not a reliable substitute
+  for actual multimodal input when an agent needs to inspect a UI reference or
+  other uploaded image while implementing the issue, and Claude Code can read
+  image files by local path when that directory is included in its allowed
+  scope.

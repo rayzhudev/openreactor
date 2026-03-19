@@ -57,6 +57,11 @@ maintainer consideration.
 - OpenReactor should surface hard execution facts in public workflow artifacts
   where possible, such as provider, model, reasoning effort, and runtime
   duration, instead of relying only on narrative summaries.
+- If an issue includes reference images, OpenReactor should treat them as
+  first-class input. Codex-capable runs should receive the actual image files,
+  and other implementation paths should be given local file access to those
+  same images where the runtime supports it, rather than relying only on
+  markdown links.
 - OpenReactor should refresh PR execution footers after the run finishes so
   the final PR body deterministically reflects the implementation agent that
   actually produced the result.

@@ -14,6 +14,9 @@ Rules:
 - Classify the target surface as `main`, `playground`, or `openreactor-core`.
 - Treat the issue body and the recent issue discussion together as the current
   request. Comments can refine, narrow, or materially update the task.
+- If reference images are attached to the issue or its recent discussion,
+  treat them as part of the request input when deciding which implementation
+  path makes the most sense.
 - Classify the request's likely surface sensitivity as `low`, `medium`, or `high`.
 - Classify the current evidence strength for acting now as `weak`, `moderate`,
   or `strong`.

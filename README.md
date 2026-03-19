@@ -80,6 +80,8 @@ What is live now:
 - signed-in GitHub attribution for website submissions, while anonymous submission still remains allowed
 - trusted maintainer steering and authenticated submitter identity propagation
   through decomposed child issues
+- reference image uploads that survive intake, get embedded into the GitHub
+  issue, and become real image input for spawned agents
 - local reactor loop for autonomous issue handling
 
 The website/backend and the reactor are separate:
@@ -204,6 +206,10 @@ The reactor currently:
 - instructs issue agents to leave a concise implementation report in PR
   descriptions so humans can see what changed, why it was built that way, what
   was discovered, and how problems were handled
+- downloads reference images from issue bodies and discussion into the run
+  directory, attaches them to Codex runs as real image input, and exposes the
+  same local image files to Claude UI runs through the run directory instead of
+  leaving them as markdown links only
 - decomposes oversized requests into GitHub-native sub-issues and adds
   dependency edges only where one child task truly blocks another
 
