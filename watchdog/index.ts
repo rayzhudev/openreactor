@@ -52,6 +52,13 @@ interface IssueWatchdogState {
   repairDeployCompletedAt?: string;
 }
 
+interface PullRequestWatchdogState {
+  repairIssueNumber?: number;
+  repairIssueOwner?: string;
+  repairIssueRepo?: string;
+  lastCommentedAt?: string;
+}
+
 interface WatchdogState {
   updatedAt: string;
   serviceCooldownUntil?: string;
@@ -64,6 +71,7 @@ interface WatchdogState {
     lastEscalatedAt?: string;
   };
   issues: Record<string, IssueWatchdogState>;
+  pullRequests?: Record<string, PullRequestWatchdogState>;
 }
 
 interface ServiceStatus {
@@ -142,6 +150,7 @@ class Watchdog {
       await this.inspectIssue(issue, state, serviceStatus, serviceFailure, currentHead, now);
     }
     await this.inspectDeadlock(issues.filter((item) => !item.pull_request), state, serviceStatus, now);
+    await this.inspectUnmanagedCorePullRequests(state, now);
 
     state.updatedAt = now.toISOString();
     await this.writeState(state);
@@ -788,6 +797,16 @@ class Watchdog {
     return state.issues[key];
   }
 
+  private pullRequestState(
+    state: WatchdogState,
+    pullRequestNumber: number
+  ): PullRequestWatchdogState {
+    const key = String(pullRequestNumber);
+    state.pullRequests ??= {};
+    state.pullRequests[key] ??= {};
+    return state.pullRequests[key];
+  }
+
   private async readState(): Promise<WatchdogState> {
     try {
       const raw = await fs.readFile(this.config.statePath, "utf8");
@@ -795,7 +814,8 @@ class Watchdog {
     } catch {
       return {
         updatedAt: new Date(0).toISOString(),
-        issues: {}
+        issues: {},
+        pullRequests: {}
       };
     }
   }
@@ -978,6 +998,72 @@ class Watchdog {
     }
     await this.github.createComment(issueNumber, fullBody);
   }
+
+  private async inspectUnmanagedCorePullRequests(
+    state: WatchdogState,
+    now: Date
+  ): Promise<void> {
+    if (!this.isManagingEngineRepo()) {
+      return;
+    }
+
+    const pullRequests = await this.github.listOpenPullRequests();
+    for (const pullRequest of pullRequests) {
+      const branchName = (pullRequest.head?.ref ?? "").trim();
+      if (!isMaintainerCoreBranch(branchName)) {
+        continue;
+      }
+
+      if (parseIssueNumberFromBranch(this.reactorConfig.branchPrefix, branchName) !== null) {
+        continue;
+      }
+
+      const fullPullRequest = await this.github.getPullRequest(pullRequest.number);
+      if (!hasMergeConflict(fullPullRequest)) {
+        continue;
+      }
+
+      const prState = this.pullRequestState(state, pullRequest.number);
+      const repairIssueNumber = await this.ensurePullRequestRepairIssue(fullPullRequest, prState, now);
+      if (!repairIssueNumber) {
+        continue;
+      }
+
+      await this.upsertWatchdogComment(
+        pullRequest.number,
+        [
+          "OpenReactor watchdog detected a conflicted maintainer core PR that is outside the normal issue-loop repair path.",
+          "",
+          `Repair issue: ${repairIssueRefForPullRequestState(prState, repairIssueNumber)}.`,
+          "OpenReactor will resolve the workflow defect through that repair issue instead of silently leaving this PR conflicted."
+        ].join("\n")
+      );
+      prState.lastCommentedAt = now.toISOString();
+    }
+  }
+
+  private async ensurePullRequestRepairIssue(
+    pullRequest: GitHubPullRequest,
+    pullRequestState: PullRequestWatchdogState,
+    now: Date
+  ): Promise<number | null> {
+    if (pullRequestState.repairIssueNumber) {
+      return pullRequestState.repairIssueNumber;
+    }
+
+    const repairRepo = this.repairRepoRef();
+    const created = await this.repairGitHubClient().createIssue({
+      title: `[OpenReactor Repair] Reconcile conflicted core PR #${pullRequest.number}`,
+      body: buildPullRequestRepairIssueBody(repairRepo, pullRequest),
+      labels: [OPENREACTOR_CORE_LABEL, this.engineConfig.maintainerSteeredLabel]
+    });
+
+    pullRequestState.repairIssueNumber = created.number;
+    pullRequestState.repairIssueOwner = repairRepo.owner;
+    pullRequestState.repairIssueRepo = repairRepo.repo;
+    pullRequestState.lastCommentedAt = now.toISOString();
+    return created.number;
+  }
 }
 
 function classifyFailure(message: string): FailureInfo {
@@ -1154,8 +1240,52 @@ function buildRepairIssueBody(
   ].join("\n");
 }
 
+function buildPullRequestRepairIssueBody(
+  repairRepo: { owner: string; repo: string },
+  pullRequest: GitHubPullRequest
+): string {
+  const prRef = repoPullRequestRef(repairRepo.owner, repairRepo.repo, pullRequest.number);
+  return [
+    "<!-- openreactor:feature-request -->",
+    REPAIR_REQUEST_MARKER,
+    "",
+    "## Summary",
+    `Reconcile conflicted maintainer core PR ${prRef}`,
+    "",
+    "## Problem",
+    `A maintainer-authored OpenReactor core PR is conflicted and sits outside the normal issue-loop repair path.`,
+    "",
+    `Source PR: ${prRef} ${pullRequest.html_url}`,
+    `Source branch: ${(pullRequest.head?.ref ?? "").trim() || "_unknown_"}`,
+    `Merge state: ${pullRequest.mergeable_state ?? "_unknown_"}`,
+    "",
+    "## Desired Outcome",
+    "Preserve the underlying OpenReactor fix while making the main branch mergeable again.",
+    "",
+    "## Constraints",
+    "- Treat this as maintainer-controlled OpenReactor work.",
+    "- Review the current engine code, the source PR diff, and the live GitHub state before deciding how to proceed.",
+    "- You may update shared workflow docs if the fix changes durable OpenReactor behavior.",
+    "- If keeping the original PR is not the best path, it is acceptable to supersede it with a new issue-loop PR as long as the old PR is clearly linked and closed out.",
+    "",
+    "## Success Criteria",
+    `- The underlying change from ${prRef} is no longer stranded in a conflicted PR.`,
+    "- A clear repair PR is opened and merged.",
+    "- The resulting workflow for maintainer core PRs is more resilient than before.",
+    "",
+    "## Intake Metadata",
+    "- Origin: local watchdog",
+    `- Source PR: ${prRef}`,
+    `- Generated at: ${new Date().toISOString()}`
+  ].join("\n");
+}
+
 function repoIssueRef(owner: string, repo: string, issueNumber: number): string {
   return `${owner}/${repo}#${issueNumber}`;
+}
+
+function repoPullRequestRef(owner: string, repo: string, pullRequestNumber: number): string {
+  return `${owner}/${repo}#${pullRequestNumber}`;
 }
 
 function repairIssueRef(owner: string, repo: string, issueNumber: number): string {
@@ -1169,6 +1299,37 @@ function repairIssueRefForState(issueState: IssueWatchdogState, issueNumber: num
     return repairIssueRef(owner, repo, issueNumber);
   }
   return `#${issueNumber}`;
+}
+
+function repairIssueRefForPullRequestState(
+  pullRequestState: PullRequestWatchdogState,
+  issueNumber: number
+): string {
+  const owner = pullRequestState.repairIssueOwner?.trim() || "";
+  const repo = pullRequestState.repairIssueRepo?.trim() || "";
+  if (owner && repo) {
+    return repairIssueRef(owner, repo, issueNumber);
+  }
+  return `#${issueNumber}`;
+}
+
+function parseIssueNumberFromBranch(branchPrefix: string, branchName: string): number | null {
+  const trimmedBranch = branchName.trim();
+  if (!trimmedBranch.startsWith(branchPrefix)) {
+    return null;
+  }
+
+  const suffix = trimmedBranch.slice(branchPrefix.length);
+  if (!/^\d+$/.test(suffix)) {
+    return null;
+  }
+
+  const issueNumber = Number.parseInt(suffix, 10);
+  return Number.isFinite(issueNumber) && issueNumber > 0 ? issueNumber : null;
+}
+
+function isMaintainerCoreBranch(branchName: string): boolean {
+  return branchName.trim().startsWith("openreactor/pr-");
 }
 
 function isServiceActive(status: ServiceStatus): boolean {

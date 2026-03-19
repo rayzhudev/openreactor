@@ -81,6 +81,10 @@ maintainer consideration.
   shared engine instead of only in that managed product repo. After the repair
   merges, the watchdog should fast-forward the local engine checkout and
   restart the affected local services.
+- Maintainer-authored OpenReactor core PRs that sit outside the normal
+  `openreactor/issue-*` branch pattern should not be left invisible when they
+  conflict. The watchdog should surface them as explicit repair work instead
+  of assuming only issue-loop PRs matter.
 - If an issue includes reference images, OpenReactor should treat them as
   first-class input. Codex-capable runs should receive the actual image files,
   not only markdown links to them. If another implementation path cannot
@@ -189,6 +193,14 @@ OpenReactor should not inherit a human maintainer's local git identity for
 authored commits. Even when the runtime is operating on a maintainer-owned
 machine, issue worktrees should be configured with an explicit OpenReactor
 machine identity so commit authorship is visibly automated.
+
+When a maintainer surfaces an OpenReactor-core failure, the expected response
+should include both:
+
+- an immediate operational fix that gets blocked work moving again
+- a durable engine or workflow fix that prevents the same class of failure from
+  recurring silently
+
 ## OpenReactor proposals
 
 If an issue is labeled `openreactor-core`, agents should treat it as an

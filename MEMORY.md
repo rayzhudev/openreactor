@@ -223,6 +223,18 @@
   improve the shared engine. The repair should land in one place, then the
   watchdog should redeploy that updated engine to the affected local instances.
 
+- Decision: when a maintainer raises an OpenReactor-core problem, fix the
+  immediate incident and also add the durable engine/workflow fix for that
+  failure class.
+  Reason: OpenReactor should not keep relearning the same operational lessons
+  one incident at a time.
+
+- Decision: conflicted maintainer-authored core PRs outside the normal
+  `openreactor/issue-*` branch pattern should still be surfaced as explicit
+  OpenReactor repair work.
+  Reason: manual core PRs can otherwise fall outside the issue-loop conflict
+  repair sweep and sit invisible even though they are blocking engine changes.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.
