@@ -19,6 +19,7 @@ export interface GitHubIssue {
   state: string;
   created_at: string;
   updated_at: string;
+  author_association?: string;
   user?: {
     login?: string;
   };
@@ -45,6 +46,7 @@ export interface GitHubIssueComment {
   id: number;
   body: string;
   updated_at: string;
+  author_association?: string;
   user?: {
     login?: string;
   };

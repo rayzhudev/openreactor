@@ -161,6 +161,12 @@ interface TrustedSubmitterSignal {
   source: "issue-author" | "trusted-label";
 }
 
+interface RepoActorTrustSignal {
+  username: string;
+  role: "owner" | "contributor";
+  source: "author-association";
+}
+
 export interface RunReferenceImage {
   sourceUrl: string;
   localPath: string;
@@ -223,6 +229,7 @@ export async function writeIssueContext(
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const repoActorTrust = getRepoActorTrustSignal(issue);
   const referenceImages = await prepareRunReferenceImages(issue, paths, discussionComments);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
 
@@ -247,6 +254,11 @@ export async function writeIssueContext(
         ? `yes (@${trustedSubmitter.username} via ${trustedSubmitter.source})`
         : "no"
     }`,
+    `- Repo actor trust: ${
+      repoActorTrust
+        ? `${repoActorTrust.role} (@${repoActorTrust.username} via ${repoActorTrust.source})`
+        : "public"
+    }`,
     governance?.evidenceSummary ? `- Evidence summary: ${governance.evidenceSummary}` : "",
     "",
     "## Issue Body",
@@ -269,6 +281,11 @@ export async function writeIssueContext(
     trustedSubmitter
       ? `- Trusted submitter attribution is available for @${trustedSubmitter.username}. If you create accepted work, you may credit that account as a co-author.`
       : "- Do not trust free-text GitHub usernames in the issue body for attribution unless the issue context says the submitter identity is trusted.",
+    repoActorTrust?.role === "owner"
+      ? `- The issue author is the repo owner by GitHub author association. Treat this as highest-trust product steering.`
+      : repoActorTrust?.role === "contributor"
+        ? `- The issue author is a repo contributor/collaborator by GitHub author association. Treat this as privileged product feedback with more weight than a random public issue.`
+        : "- The issue author has no elevated GitHub-native repository trust signal beyond ordinary issue authorship.",
     governance?.targetSurface === "playground"
       ? "- This request should be implemented on `/playground/` if accepted. Treat that surface as intentionally permissive, prank-friendly, and community-shaped. Do not drag the chaos back onto the homepage unless the request explicitly needs shared navigation or linking."
       : governance?.targetSurface === "main"
@@ -873,6 +890,7 @@ async function buildAgentPrompt(
   const tool = getAgentTool(agentTool);
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const repoActorTrust = getRepoActorTrustSignal(issue);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const extraFiles =
     agentTool === "spawn_claude_ui_agent"
@@ -930,6 +948,11 @@ async function buildAgentPrompt(
     `- Trusted submitter attribution: ${
       trustedSubmitter ? `yes (@${trustedSubmitter.username} via ${trustedSubmitter.source})` : "no"
     }`,
+    `- Repo actor trust: ${
+      repoActorTrust
+        ? `${repoActorTrust.role} (@${repoActorTrust.username} via ${repoActorTrust.source})`
+        : "public"
+    }`,
     "",
     "Rules for this run:",
     "- Stay on the current branch. Do not create a different branch name.",
@@ -962,6 +985,11 @@ async function buildAgentPrompt(
           "- Still enforce hard safety rules, legality, secret handling, and realistic human-handoff constraints."
         ]
       : []),
+    ...(!maintainerSteering && repoActorTrust?.role === "contributor"
+      ? [
+          `- The issue author is a repo contributor/collaborator via GitHub author association (@${repoActorTrust.username}). Treat this as privileged product feedback. Do not reject it solely for minor roadmap-fit or low-evidence concerns when the task is otherwise coherent and safe.`
+        ]
+      : []),
     ...(trustedSubmitter
       ? [
           `- Trusted submitter attribution is available for @${trustedSubmitter.username}. If you create accepted work, you may credit that account as a co-author.`
@@ -984,6 +1012,7 @@ async function buildTriagePrompt(
 ): Promise<string> {
   const maintainerSteering = getMaintainerSteeringSignal(config, issue);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
+  const repoActorTrust = getRepoActorTrustSignal(issue);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
@@ -1010,6 +1039,11 @@ async function buildTriagePrompt(
     }`,
     `- Trusted submitter attribution: ${
       trustedSubmitter ? `yes (@${trustedSubmitter.username} via ${trustedSubmitter.source})` : "no"
+    }`,
+    `- Repo actor trust: ${
+      repoActorTrust
+        ? `${repoActorTrust.role} (@${repoActorTrust.username} via ${repoActorTrust.source})`
+        : "public"
     }`,
     `- Labels: ${labels}`,
     "",
@@ -1043,6 +1077,11 @@ async function buildTriagePrompt(
           "- Do not reject or bank it solely for roadmap fit, product-direction fit, or constitution-fit concerns. Dispatch an implementation tool unless a hard safety or feasibility blocker is obvious."
         ]
       : []),
+    ...(!maintainerSteering && repoActorTrust?.role === "contributor"
+      ? [
+          `- The issue author is a repo contributor/collaborator via GitHub author association (@${repoActorTrust.username}). Weigh that more heavily than random public feedback and bias toward dispatch when the request is coherent and safe.`
+        ]
+      : []),
     "- Do not perform implementation work, open PRs, or mutate files.",
     "",
     "Available implementation tools:",
@@ -1054,10 +1093,14 @@ async function buildTriagePrompt(
 
 function getMaintainerSteeringSignal(
   config: Pick<OrchestratorConfig, "owner" | "maintainerSteeredLabel">,
-  issue: Pick<GitHubIssue, "body" | "labels" | "user">
+  issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): MaintainerSteeringSignal | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
   if (authorLogin && authorLogin.toLowerCase() === config.owner.toLowerCase()) {
+    return { username: authorLogin, source: "issue-author" };
+  }
+
+  if (authorLogin && normalizeAuthorAssociation(issue.author_association) === "OWNER") {
     return { username: authorLogin, source: "issue-author" };
   }
 
@@ -1094,6 +1137,34 @@ function getTrustedSubmitterSignal(
   return { username, source: "trusted-label" };
 }
 
+function getRepoActorTrustSignal(
+  issue: Pick<GitHubIssue, "user" | "author_association">
+): RepoActorTrustSignal | null {
+  const username = normalizeGitHubUsername(issue.user?.login ?? null);
+  const association = normalizeAuthorAssociation(issue.author_association);
+  if (!username || !association) {
+    return null;
+  }
+
+  if (association === "OWNER") {
+    return {
+      username,
+      role: "owner",
+      source: "author-association"
+    };
+  }
+
+  if (association === "COLLABORATOR" || association === "MEMBER" || association === "CONTRIBUTOR") {
+    return {
+      username,
+      role: "contributor",
+      source: "author-association"
+    };
+  }
+
+  return null;
+}
+
 function readStructuredIssueField(body: string | null | undefined, field: string): string | null {
   if (!body) {
     return null;
@@ -1116,6 +1187,10 @@ function normalizeGitHubUsername(value: string | null): string | null {
   }
 
   return cleaned;
+}
+
+function normalizeAuthorAssociation(value: string | null | undefined): string {
+  return (value ?? "").trim().toUpperCase();
 }
 
 function issueHasLabel(

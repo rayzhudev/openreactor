@@ -156,6 +156,11 @@ Bootstrap that repo-local steering layer with:
 bun run reactor:tool init-repo-state
 ```
 
+That bootstrap now tries to seed the repo-local files from:
+
+- the repo README, if one exists
+- existing GitHub issues, especially PRD-like setup issues
+
 The intended onboarding shape for managed repos is:
 
 1. user creates a repo and writes an initial PRD, usually as a README or an
@@ -179,6 +184,10 @@ The intended privilege model is also GitHub-native:
 - maintainers/contributors should count as privileged steering entities
 - random public issue authors should still go through the normal product
   governance filters
+
+The first runtime implementation of that model now uses GitHub's native
+`author_association` field on issues, so owners and contributors are detected
+from the repository itself rather than only from OpenReactor-managed labels.
 
 OpenReactor should also use its own git identity for authored commits. Branch
 publication already goes through the GitHub token/app path; issue worktrees now

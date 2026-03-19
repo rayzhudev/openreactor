@@ -213,12 +213,24 @@
   file from scratch before the system can begin, and most early product
   context already exists in the repo README or a PRD-style issue.
 
+- Decision: the repo-state bootstrap helper should seed its first-pass files
+  from the repo README and the existing GitHub issues when those inputs are
+  available.
+  Reason: even a lightweight inferred seed is better than starting from blank
+  product steering files during onboarding.
+
 - Decision: managed-repo privilege should be inferred from GitHub itself.
   Repo owners should have the highest steering authority, maintainers and
   contributors should count as privileged steering entities, and ordinary issue
   authors should still pass through the normal governance filters.
   Reason: GitHub is the natural source of truth for repository trust and
   authorship in the default OpenReactor deployment model.
+
+- Decision: use GitHub's native `author_association` field as the first runtime
+  trust signal for repo-owner and contributor privilege on issues.
+  Reason: this lets OpenReactor infer owner/contributor privilege directly from
+  the repository instead of relying only on OpenReactor-specific labels or
+  body fields.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local

@@ -4,7 +4,8 @@ import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConfig } from "./config";
 import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
-import { initializeRepoState, REPO_STATE_DIR } from "./repo-state";
+import { GitHubClient } from "./github";
+import { initializeRepoState, REPO_STATE_DIR, type RepoStateSeedIssue } from "./repo-state";
 
 const execFileAsync = promisify(execFile);
 
@@ -229,7 +230,12 @@ async function initRepoState(args: string[]): Promise<void> {
   const cwd = optionalStringArg(args, "--cwd") || process.cwd();
   const explicitName = optionalStringArg(args, "--repo-name");
   const repoName = explicitName || inferRepoDisplayName(cwd);
-  const writtenPaths = await initializeRepoState(cwd, repoName);
+  const readmeBody = await readRepoReadme(cwd);
+  const issues = await loadBootstrapIssues(cwd);
+  const writtenPaths = await initializeRepoState(cwd, repoName, {
+    readmeBody,
+    issues
+  });
 
   console.log(
     JSON.stringify(
@@ -237,6 +243,8 @@ async function initRepoState(args: string[]): Promise<void> {
         repoRoot: cwd,
         repoStateDir: path.join(cwd, REPO_STATE_DIR),
         repoName,
+        seededFromReadme: Boolean(readmeBody),
+        seededIssueCount: issues.length,
         created: writtenPaths
       },
       null,
@@ -450,6 +458,37 @@ async function fetchGitHubUser(
   }
 
   return (await response.json()) as { id: number; login: string; name?: string | null };
+}
+
+async function readRepoReadme(repoRoot: string): Promise<string> {
+  for (const candidate of ["README.md", "Readme.md", "readme.md"]) {
+    const filePath = path.join(repoRoot, candidate);
+    try {
+      return await fs.readFile(filePath, "utf8");
+    } catch {
+      // Try the next variant.
+    }
+  }
+
+  return "";
+}
+
+async function loadBootstrapIssues(repoRoot: string): Promise<RepoStateSeedIssue[]> {
+  try {
+    const config = loadConfig(repoRoot);
+    const github = new GitHubClient(config);
+    const issues = await github.listOpenIssues();
+    return issues
+      .filter((issue) => !issue.pull_request)
+      .slice(0, 8)
+      .map((issue) => ({
+        number: issue.number,
+        title: issue.title,
+        body: issue.body
+      }));
+  } catch {
+    return [];
+  }
 }
 
 function normalizeGitHubUsername(value: string): string {

@@ -118,6 +118,9 @@ For managed repos, onboarding should prefer inference over blank setup:
   material
 - open a bootstrap PR that creates `.openreactor/repo/`
 
+The current bootstrap helper seeds that first pass from the repo README and the
+existing GitHub issues when those inputs are available.
+
 OpenReactor's default external UX should be GitHub-native. It should not
 assume that every managed repo also exposes a public intake website.
 
@@ -126,6 +129,10 @@ Privilege should also be inferred from GitHub first:
 - repo owners have the strongest steering authority
 - maintainers and contributors count as privileged steering entities
 - ordinary issue authors still go through the normal governance filters
+
+The first runtime implementation of that trust model should come from GitHub's
+native `author_association` on issues and comments rather than from
+OpenReactor-only metadata.
 
 OpenReactor should not inherit a human maintainer's local git identity for
 authored commits. Even when the runtime is operating on a maintainer-owned
