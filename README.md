@@ -180,6 +180,11 @@ The intended privilege model is also GitHub-native:
 - random public issue authors should still go through the normal product
   governance filters
 
+OpenReactor should also use its own git identity for authored commits. Branch
+publication already goes through the GitHub token/app path; issue worktrees now
+also get an explicit OpenReactor author identity so commits do not inherit the
+local maintainer's git config by accident.
+
 ## Running The Reactor
 
 The repository includes the machine-local orchestration loop under

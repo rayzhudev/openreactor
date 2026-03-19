@@ -227,3 +227,11 @@
   but commit authorship still follows the local git config unless the runtime
   sets it explicitly, which is not the desired long-term behavior for managed
   repos.
+
+- Decision: configure each issue worktree with an explicit OpenReactor git
+  author identity and pass the same identity into spawned agents through
+  `GIT_AUTHOR_*` and `GIT_COMMITTER_*`.
+  Reason: push authentication and commit authorship are different concerns.
+  OpenReactor already publishes branches through the GitHub token path, but it
+  also needs explicit git author settings so commits do not inherit the local
+  machine user's identity.

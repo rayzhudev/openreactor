@@ -127,6 +127,11 @@ Privilege should also be inferred from GitHub first:
 - maintainers and contributors count as privileged steering entities
 - ordinary issue authors still go through the normal governance filters
 
+OpenReactor should not inherit a human maintainer's local git identity for
+authored commits. Even when the runtime is operating on a maintainer-owned
+machine, issue worktrees should be configured with an explicit OpenReactor
+machine identity so commit authorship is visibly automated.
+
 ## OpenReactor proposals
 
 If an issue is labeled `openreactor-core`, agents should treat it as an

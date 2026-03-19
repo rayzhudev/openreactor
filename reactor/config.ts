@@ -38,6 +38,8 @@ export interface OrchestratorConfig {
   claudeUiModel: string;
   claudeUiEffort: string;
   claudeUiBin: string;
+  gitAuthorName: string;
+  gitAuthorEmail: string;
   botMentionAliases: string[];
 }
 
@@ -92,6 +94,9 @@ export function loadConfig(repoRoot = process.cwd()): OrchestratorConfig {
     claudeUiModel: clean(process.env.OPENREACTOR_CLAUDE_UI_MODEL) || "sonnet",
     claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium",
     claudeUiBin: clean(process.env.OPENREACTOR_CLAUDE_UI_BIN) || "claude",
+    gitAuthorName: clean(process.env.OPENREACTOR_GIT_AUTHOR_NAME) || "OpenReactor Bot",
+    gitAuthorEmail:
+      clean(process.env.OPENREACTOR_GIT_AUTHOR_EMAIL) || "openreactor[bot]@users.noreply.github.com",
     botMentionAliases: listFromEnv(
       "OPENREACTOR_BOT_MENTION_ALIASES",
       [

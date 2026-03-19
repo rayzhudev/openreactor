@@ -407,6 +407,14 @@ export async function ensureIssueWorktree(
   ]);
 }
 
+export async function ensureWorktreeGitIdentity(
+  config: Pick<OrchestratorConfig, "gitAuthorName" | "gitAuthorEmail">,
+  worktreePath: string
+): Promise<void> {
+  await runCommand("git", ["-C", worktreePath, "config", "user.name", config.gitAuthorName]);
+  await runCommand("git", ["-C", worktreePath, "config", "user.email", config.gitAuthorEmail]);
+}
+
 async function refreshOriginMain(repoRoot: string): Promise<void> {
   await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
 }
@@ -493,6 +501,10 @@ async function spawnCodexIssueAgent(input: {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      GIT_AUTHOR_NAME: config.gitAuthorName,
+      GIT_AUTHOR_EMAIL: config.gitAuthorEmail,
+      GIT_COMMITTER_NAME: config.gitAuthorName,
+      GIT_COMMITTER_EMAIL: config.gitAuthorEmail,
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
@@ -590,6 +602,10 @@ async function spawnCodexPlannerAgent(input: {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      GIT_AUTHOR_NAME: config.gitAuthorName,
+      GIT_AUTHOR_EMAIL: config.gitAuthorEmail,
+      GIT_COMMITTER_NAME: config.gitAuthorName,
+      GIT_COMMITTER_EMAIL: config.gitAuthorEmail,
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
@@ -679,6 +695,10 @@ async function spawnClaudeUiIssueAgent(input: {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      GIT_AUTHOR_NAME: config.gitAuthorName,
+      GIT_AUTHOR_EMAIL: config.gitAuthorEmail,
+      GIT_COMMITTER_NAME: config.gitAuthorName,
+      GIT_COMMITTER_EMAIL: config.gitAuthorEmail,
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,

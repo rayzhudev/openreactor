@@ -20,6 +20,7 @@ import {
   createInitialRunRecord,
   ensureRemoteBranchExists,
   ensureIssueWorktree,
+  ensureWorktreeGitIdentity,
   ensureRuntimeDirectories,
   finalizeIssueAgentRun,
   issueHasReferenceImages,
@@ -801,6 +802,7 @@ class Reactor {
           : requestedAgentTool;
       record.agentTool = agentTool;
       await ensureIssueWorktree(this.config, paths);
+      await ensureWorktreeGitIdentity(this.config, paths.worktreePath);
       const referenceImages = await writeIssueContext(this.config, issue, paths, {
         targetSurface: record.targetSurface,
         sensitivity: record.sensitivity,
