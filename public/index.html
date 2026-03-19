@@ -247,6 +247,24 @@
               </select>
             </label>
 
+            <label class="grid gap-1.5" for="reference-images">
+              <span class="or-field-label">Reference images</span>
+              <input
+                id="reference-images"
+                name="referenceImages"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
+                class="or-input file:mr-3 file:border-0 file:bg-transparent file:font-medium file:text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                aria-describedby="reference-images-help reference-images-status"
+              />
+            </label>
+            <p id="reference-images-help" class="text-[var(--ink-faint)] text-sm leading-relaxed">
+              Optional. Add up to 4 PNG, JPG, WEBP, or GIF files. They will be embedded into the GitHub issue as visual references.
+            </p>
+            <div id="reference-images-status" class="min-h-6 text-sm leading-normal text-[var(--ink-soft)]" aria-live="polite"></div>
+            <div id="reference-images-list" class="grid grid-cols-2 max-md:grid-cols-1 gap-3" aria-live="polite"></div>
+
             <label class="absolute -left-[9999px] opacity-0 pointer-events-none" aria-hidden="true">
               <span>Website</span>
               <input id="website" name="website" tabindex="-1" autocomplete="off" />

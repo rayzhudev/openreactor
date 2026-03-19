@@ -180,3 +180,12 @@
   implementation, and native issue dependencies let OpenReactor avoid starting
   blocked child tasks while still allowing independent children to run in
   parallel.
+
+## 2026-03-19
+
+- Decision: persist intake-form reference image uploads in a dedicated
+  GitHub-backed assets branch and embed those hosted URLs into the created
+  issue body.
+  Reason: the current MVP has no separate storage system for website uploads,
+  but maintainers still need request images to survive the intake flow and stay
+  visible to issue agents inside GitHub.

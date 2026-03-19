@@ -1,6 +1,9 @@
 const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
+const referenceImagesField = document.querySelector("#reference-images");
+const referenceImagesStatusNode = document.querySelector("#reference-images-status");
+const referenceImagesList = document.querySelector("#reference-images-list");
 const submitButton = document.querySelector("#submit-button");
 const requestCountNode = document.querySelector("#request-count");
 const repoStarLink = document.querySelector("#repo-star-link");
@@ -52,6 +55,9 @@ const authProfileLink = document.querySelector("#auth-profile-link");
 const authSignOutButton = document.querySelector("#auth-sign-out");
 
 const SUBMIT_BUTTON_LABEL = "Submit";
+const MAX_REFERENCE_IMAGES = 4;
+const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_REFERENCE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const THEME_STORAGE_KEY = "openreactor-theme";
 const MY_REQUESTS_STORAGE_KEY = "openreactor-my-requests";
 const MAX_MY_REQUESTS = 12;
@@ -182,6 +188,7 @@ const queueState = {
 let deployFingerprint = "";
 let deployCheckTimer = 0;
 let updateAvailable = false;
+let referenceImagePreviewUrls = [];
 let reactorleState = loadReactorleState();
 let supportSession = {
   authAvailable: false,
@@ -243,6 +250,7 @@ async function boot() {
 
   form.addEventListener("submit", onSubmit);
   requestField.addEventListener("input", onRequestInput);
+  referenceImagesField?.addEventListener("change", onReferenceImagesChange);
   initDeployWatcher();
   document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -254,6 +262,7 @@ async function boot() {
   queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
 
   updateRequestCount(requestField.value);
+  renderSelectedReferenceImages([]);
   renderMyRequests();
   renderQueueView();
   syncQueueControls({
@@ -507,6 +516,24 @@ function onRequestInput(event) {
   }
 }
 
+function onReferenceImagesChange(event) {
+  const files = getSelectedReferenceImages(event.currentTarget);
+  const validationError = validateSelectedReferenceImages(files);
+
+  if (validationError) {
+    setReferenceImagesStatus(validationError, "error");
+  } else if (files.length) {
+    setReferenceImagesStatus(
+      `${files.length} image${files.length === 1 ? "" : "s"} ready to attach to the GitHub issue.`,
+      "info"
+    );
+  } else {
+    setReferenceImagesStatus("");
+  }
+
+  renderSelectedReferenceImages(files);
+}
+
 async function onSubmit(event) {
   event.preventDefault();
 
@@ -514,11 +541,13 @@ async function onSubmit(event) {
   submitButton.disabled = true;
   submitButton.textContent = "Sending...";
 
-  const formData = new FormData(form);
-  const request = `${formData.get("request") ?? ""}`.trim();
-  const website = `${formData.get("website") ?? ""}`;
-  const scopePreference = `${formData.get("scopePreference") ?? "auto"}`;
+  const selectedImages = getSelectedReferenceImages(referenceImagesField);
+  const submission = new FormData(form);
+  const request = `${submission.get("request") ?? ""}`.trim();
+  const website = `${submission.get("website") ?? ""}`;
+  const scopePreference = `${submission.get("scopePreference") ?? "auto"}`;
   const validationError = validateRequest(request);
+  const imageValidationError = validateSelectedReferenceImages(selectedImages);
 
   if (validationError) {
     setStatus(validationError, "error");
@@ -529,15 +558,20 @@ async function onSubmit(event) {
     return;
   }
 
-  const payload = buildPayload(request, website, scopePreference);
+  if (imageValidationError) {
+    setReferenceImagesStatus(imageValidationError, "error");
+    referenceImagesField?.focus();
+    submitButton.disabled = false;
+    submitButton.textContent = SUBMIT_BUTTON_LABEL;
+    return;
+  }
+
+  const payload = buildPayload(request, website, scopePreference, selectedImages);
 
   try {
     const response = await fetch("/api/requests", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      body: payload
     });
 
     const data = await readJsonResponse(response, "submission");
@@ -555,6 +589,8 @@ async function onSubmit(event) {
     form.reset();
     updateRequestCount("");
     requestField.removeAttribute("aria-invalid");
+    setReferenceImagesStatus("");
+    renderSelectedReferenceImages([]);
     rememberSubmittedRequest({
       number: data.number,
       url: data.url || "",
@@ -578,19 +614,24 @@ async function onSubmit(event) {
   }
 }
 
-function buildPayload(request, website, scopePreference = "auto") {
+function buildPayload(request, website, scopePreference = "auto", referenceImages = []) {
   const summary = summarizeRequest(request);
+  const payload = new FormData();
 
-  return {
-    website,
-    summary,
-    problem: request,
-    outcome: `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`,
-    constraints: "",
-    successCriteria: "",
-    notes: "",
-    scopePreference: normalizeScopePreference(scopePreference)
-  };
+  payload.set("website", website);
+  payload.set("summary", summary);
+  payload.set("problem", request);
+  payload.set("outcome", `Ship the request described in Summary and Problem.\n\nRequested change:\n${request}`);
+  payload.set("constraints", "");
+  payload.set("successCriteria", "");
+  payload.set("notes", "");
+  payload.set("scopePreference", normalizeScopePreference(scopePreference));
+
+  for (const image of referenceImages) {
+    payload.append("referenceImages", image, image.name);
+  }
+
+  return payload;
 }
 
 function normalizeScopePreference(value) {
@@ -662,6 +703,109 @@ function updateRequestCount(request) {
   const nearLimit = request.length > 1800;
   requestCountNode.style.color = nearLimit ? "var(--queue-rejected)" : "";
   requestCountNode.style.fontWeight = nearLimit ? "600" : "";
+}
+
+function getSelectedReferenceImages(field) {
+  if (!field?.files) {
+    return [];
+  }
+
+  return Array.from(field.files).filter((file) => file.size > 0);
+}
+
+function validateSelectedReferenceImages(files) {
+  if (files.length > MAX_REFERENCE_IMAGES) {
+    return `Attach up to ${MAX_REFERENCE_IMAGES} images per request.`;
+  }
+
+  for (const file of files) {
+    if (!ALLOWED_REFERENCE_IMAGE_TYPES.includes(file.type)) {
+      return "Only PNG, JPG, WEBP, and GIF files are supported.";
+    }
+
+    if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+      return `${file.name} is larger than ${formatFileSize(MAX_REFERENCE_IMAGE_BYTES)}.`;
+    }
+  }
+
+  return "";
+}
+
+function renderSelectedReferenceImages(files) {
+  if (!referenceImagesList) {
+    return;
+  }
+
+  for (const url of referenceImagePreviewUrls) {
+    URL.revokeObjectURL(url);
+  }
+  referenceImagePreviewUrls = [];
+
+  referenceImagesList.textContent = "";
+
+  if (!files.length) {
+    return;
+  }
+
+  for (const file of files) {
+    const previewUrl = URL.createObjectURL(file);
+    referenceImagePreviewUrls.push(previewUrl);
+
+    const card = document.createElement("article");
+    card.className = "rounded-lg border border-[var(--line)] bg-[var(--surface)] overflow-hidden";
+
+    const image = document.createElement("img");
+    image.src = previewUrl;
+    image.alt = file.name;
+    image.className = "block w-full aspect-[4/3] object-cover bg-[var(--surface-alt)]";
+
+    const meta = document.createElement("div");
+    meta.className = "grid gap-1 px-3 py-2";
+
+    const name = document.createElement("p");
+    name.className = "text-sm font-medium leading-snug break-all";
+    name.textContent = file.name;
+
+    const details = document.createElement("p");
+    details.className = "text-xs text-[var(--ink-soft)]";
+    details.textContent = `${describeReferenceImageType(file.type)} • ${formatFileSize(file.size)}`;
+
+    meta.append(name, details);
+    card.append(image, meta);
+    referenceImagesList.append(card);
+  }
+}
+
+function setReferenceImagesStatus(message, tone = "info") {
+  if (!referenceImagesStatusNode) {
+    return;
+  }
+
+  referenceImagesStatusNode.textContent = message;
+  referenceImagesStatusNode.style.color = tone === "error" ? "var(--queue-rejected)" : "";
+}
+
+function describeReferenceImageType(type) {
+  switch (type) {
+    case "image/png":
+      return "PNG";
+    case "image/jpeg":
+      return "JPG";
+    case "image/webp":
+      return "WEBP";
+    case "image/gif":
+      return "GIF";
+    default:
+      return "Image";
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 function loadMyRequests() {

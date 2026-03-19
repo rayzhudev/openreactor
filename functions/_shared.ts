@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { createPrivateKey } from "node:crypto";
 
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
@@ -24,6 +25,16 @@ const MAINTAINER_STEERED_LABEL = "maintainer-steered";
 const AUTHENTICATED_SUBMITTER_LABEL = "submitter:github-authenticated";
 const NEEDS_REFINEMENT_LABEL = "needs-refinement";
 const FEEDBACK_BANK_LABEL = "feedback-bank";
+const REQUEST_IMAGE_ASSET_BRANCH = "openreactor-intake-assets";
+const REQUEST_IMAGE_ASSET_DIRECTORY = "request-images";
+const MAX_REQUEST_IMAGE_COUNT = 4;
+const MAX_REQUEST_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_REQUEST_IMAGE_TYPES = new Map<string, string>([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"]
+]);
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
@@ -85,6 +96,20 @@ interface ValidatedFeatureRequest {
   successCriteria: string;
   notes: string;
   scopePreference: ScopePreference;
+}
+
+interface ValidatedRequestImage {
+  fileName: string;
+  contentType: string;
+  size: number;
+  bytes: Uint8Array;
+}
+
+interface UploadedRequestImage {
+  fileName: string;
+  contentType: string;
+  size: number;
+  url: string;
 }
 
 type ScopePreference = "auto" | "25" | "50" | "75";
@@ -161,6 +186,12 @@ interface GitHubRepo {
   html_url: string;
 }
 
+interface GitHubRef {
+  object?: {
+    sha?: string;
+  };
+}
+
 interface GitHubCommit {
   sha: string;
   html_url: string;
@@ -174,6 +205,12 @@ interface GitHubCommit {
       name?: string;
       date?: string;
     };
+  };
+}
+
+interface GitHubContentWriteResponse {
+  content?: {
+    path?: string;
   };
 }
 
@@ -721,15 +758,45 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
   }
 
   const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return jsonResponse({ error: "Expected application/json." }, 415);
-  }
-
   let payload: FeatureRequestInput;
-  try {
-    payload = (await request.json()) as FeatureRequestInput;
-  } catch {
-    return jsonResponse({ error: "Invalid JSON request body." }, 400);
+  let requestImages: ValidatedRequestImage[] = [];
+
+  if (contentType.includes("multipart/form-data")) {
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonResponse({ error: "Invalid multipart form submission." }, 400);
+    }
+
+    payload = {
+      name: getFormField(formData, "name"),
+      contact: getFormField(formData, "contact"),
+      githubUsername: getFormField(formData, "githubUsername"),
+      summary: getFormField(formData, "summary"),
+      problem: getFormField(formData, "problem"),
+      outcome: getFormField(formData, "outcome"),
+      constraints: getFormField(formData, "constraints"),
+      successCriteria: getFormField(formData, "successCriteria"),
+      notes: getFormField(formData, "notes"),
+      website: getFormField(formData, "website"),
+      scopePreference: getFormField(formData, "scopePreference")
+    };
+
+    const validatedImages = await validateRequestImages(formData.getAll("referenceImages"));
+    if ("error" in validatedImages) {
+      return jsonResponse({ error: validatedImages.error }, 400);
+    }
+
+    requestImages = validatedImages;
+  } else if (contentType.includes("application/json")) {
+    try {
+      payload = (await request.json()) as FeatureRequestInput;
+    } catch {
+      return jsonResponse({ error: "Invalid JSON request body." }, 400);
+    }
+  } else {
+    return jsonResponse({ error: "Expected multipart/form-data or application/json." }, 415);
   }
 
   const validated = validateFeatureRequest(payload);
@@ -744,9 +811,27 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
     githubUsername: session?.login ?? ""
   };
 
+  if (requestImages.length && !hasGitHubApiAuth(normalized)) {
+    return jsonResponse(
+      {
+        error: "Image uploads require GitHub API-backed intake. Try again after repository API auth is configured."
+      },
+      503
+    );
+  }
+
   const fallbackUrl = buildIssueCreateUrl(normalized, attributedRequest, request);
   const labels = await getExistingLabels(normalized, trustedLabels);
+  let uploadedImages: UploadedRequestImage[] = [];
+  if (requestImages.length) {
+    try {
+      uploadedImages = await uploadRequestImages(normalized, requestImages);
+    } catch (error) {
+      return errorResponse("Request image upload failed.", 502, error);
+    }
+  }
   const body = buildIssueBody(attributedRequest, request, {
+    referenceImages: uploadedImages,
     authenticatedGithubLogin: session?.login ?? null
   });
 
@@ -783,6 +868,14 @@ export async function handleCreateRequest(request: Request, env: Env): Promise<R
       201
     );
   } catch (error) {
+    if (requestImages.length) {
+      return errorResponse(
+        "GitHub issue creation failed after preparing the uploaded image references. Please retry the submission.",
+        502,
+        error
+      );
+    }
+
     if (hasGitHubAppAuth(normalized) || isGithubAuthError(error)) {
       console.warn("Falling back to GitHub issue URL after API auth failure.", error);
       return jsonResponse(
@@ -891,10 +984,169 @@ function validateFeatureRequest(input: FeatureRequestInput): ValidatedFeatureReq
   };
 }
 
+function getFormField(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+async function validateRequestImages(
+  values: FormDataEntryValue[]
+): Promise<ValidatedRequestImage[] | { error: string }> {
+  const files = values.filter((value): value is File => value instanceof File && value.size > 0);
+
+  if (files.length > MAX_REQUEST_IMAGE_COUNT) {
+    return { error: `Attach up to ${MAX_REQUEST_IMAGE_COUNT} images per request.` };
+  }
+
+  const validatedImages: ValidatedRequestImage[] = [];
+
+  for (const file of files) {
+    const contentType = clean(file.type).toLowerCase();
+
+    if (!ALLOWED_REQUEST_IMAGE_TYPES.has(contentType)) {
+      return { error: "Only PNG, JPG, WEBP, and GIF files are supported." };
+    }
+
+    if (file.size > MAX_REQUEST_IMAGE_BYTES) {
+      return {
+        error: `${file.name || "One image"} is larger than ${formatImageSize(MAX_REQUEST_IMAGE_BYTES)}.`
+      };
+    }
+
+    validatedImages.push({
+      fileName: sanitizeRequestImageName(file.name, contentType),
+      contentType,
+      size: file.size,
+      bytes: new Uint8Array(await file.arrayBuffer())
+    });
+  }
+
+  return validatedImages;
+}
+
+async function uploadRequestImages(
+  env: NormalizedEnv,
+  images: ValidatedRequestImage[]
+): Promise<UploadedRequestImage[]> {
+  if (!images.length) {
+    return [];
+  }
+
+  await ensureRequestImageAssetBranch(env);
+  const today = new Date().toISOString().slice(0, 10);
+  const uploaded: UploadedRequestImage[] = [];
+
+  for (const [index, image] of images.entries()) {
+    const extension = ALLOWED_REQUEST_IMAGE_TYPES.get(image.contentType) ?? "bin";
+    const baseName = image.fileName.replace(new RegExp(`\\.${extension}$`, "i"), "");
+    const token = crypto.randomUUID().slice(0, 8);
+    const path = `${REQUEST_IMAGE_ASSET_DIRECTORY}/${today}/${baseName}-${index + 1}-${token}.${extension}`;
+
+    await githubRequest<GitHubContentWriteResponse>(
+      env,
+      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${path
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          message: `Add request reference image ${today}`,
+          content: Buffer.from(image.bytes).toString("base64"),
+          branch: REQUEST_IMAGE_ASSET_BRANCH
+        })
+      }
+    );
+
+    uploaded.push({
+      fileName: image.fileName,
+      contentType: image.contentType,
+      size: image.size,
+      url: buildPublicAssetUrl(env, REQUEST_IMAGE_ASSET_BRANCH, path)
+    });
+  }
+
+  return uploaded;
+}
+
+async function ensureRequestImageAssetBranch(env: NormalizedEnv): Promise<void> {
+  try {
+    await githubRequest<GitHubRef>(
+      env,
+      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/git/ref/heads/${REQUEST_IMAGE_ASSET_BRANCH}`
+    );
+    return;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.startsWith("404")) {
+      throw error;
+    }
+  }
+
+  const repo = await githubRequest<GitHubRepo>(env, `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}`);
+  const defaultRef = await githubRequest<GitHubRef>(
+    env,
+    `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/git/ref/heads/${repo.default_branch}`
+  );
+  const defaultSha = clean(defaultRef.object?.sha);
+
+  if (!defaultSha) {
+    throw new Error("Unable to resolve the default branch SHA for request image uploads.");
+  }
+
+  try {
+    await githubRequest(
+      env,
+      `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/git/refs`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ref: `refs/heads/${REQUEST_IMAGE_ASSET_BRANCH}`,
+          sha: defaultSha
+        })
+      }
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.startsWith("422")) {
+      throw error;
+    }
+  }
+}
+
+function sanitizeRequestImageName(fileName: string, contentType: string): string {
+  const extension = ALLOWED_REQUEST_IMAGE_TYPES.get(contentType) ?? "bin";
+  const stem = clean(fileName)
+    .replace(/\.[A-Za-z0-9]+$/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  return `${stem || "reference-image"}.${extension}`;
+}
+
+function buildPublicAssetUrl(env: NormalizedEnv, branch: string, path: string): string {
+  const encodedPath = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `https://raw.githubusercontent.com/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/${branch}/${encodedPath}`;
+}
+
+function formatImageSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 function buildIssueBody(
   input: ValidatedFeatureRequest,
   request: Request,
-  options: { authenticatedGithubLogin?: string | null } = {}
+  options: {
+    authenticatedGithubLogin?: string | null;
+    referenceImages?: UploadedRequestImage[];
+  } = {}
 ): string {
   const url = new URL(request.url);
   const submittedAt = new Date().toISOString();
@@ -904,6 +1156,7 @@ function buildIssueBody(
   const submissionIdentity = options.authenticatedGithubLogin
     ? `Authenticated GitHub session (@${options.authenticatedGithubLogin})`
     : "Unauthenticated / anonymous";
+  const referenceImages = options.referenceImages ?? [];
 
   return [
     REQUEST_MARKER,
@@ -943,7 +1196,17 @@ function buildIssueBody(
     "",
     "## Intake Metadata",
     `- Submitted at: ${submittedAt}`,
-    `- Origin: ${origin}`
+    `- Origin: ${origin}`,
+    ...(referenceImages.length
+      ? [
+          "",
+          "## Reference Images",
+          ...referenceImages.flatMap((image, index) => [
+            `${index + 1}. ${image.fileName} (${formatImageSize(image.size)})`,
+            `   ![${image.fileName}](${image.url})`
+          ])
+        ]
+      : [])
   ].join("\n");
 }
 
