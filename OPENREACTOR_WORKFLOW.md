@@ -76,6 +76,11 @@ maintainer consideration.
   workflow deadlock. It should first try operational recovery, such as merging
   a completed accepted PR or restarting the reactor so a conflicted branch can
   be reclaimed, before escalating the condition as OpenReactor repair work.
+- When a managed repo detects an OpenReactor-core fault, the repair work should
+  be opened in the central OpenReactor engine repo so the fix lands in the
+  shared engine instead of only in that managed product repo. After the repair
+  merges, the watchdog should fast-forward the local engine checkout and
+  restart the affected local services.
 - If an issue includes reference images, OpenReactor should treat them as
   first-class input. Codex-capable runs should receive the actual image files,
   not only markdown links to them. If another implementation path cannot

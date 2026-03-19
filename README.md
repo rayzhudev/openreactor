@@ -417,7 +417,11 @@ native GitHub auto-merge, OpenReactor can finish the merge itself instead of
 letting the queue deadlock behind a stale accepted PR. The watchdog backs that
 up with a deadlock detector that looks for an idle queue stuck behind accepted
 PRs, then either merges the completed PR or restarts the reactor to repair a
-conflicted branch.
+conflicted branch. When a managed repo exposes a concrete OpenReactor workflow
+fault that needs engine changes, the watchdog now opens the repair issue in the
+central OpenReactor engine repo, not only in the managed product repo. After
+that repair merges, the watchdog fast-forwards the local engine checkout and
+restarts the affected local OpenReactor services.
 
 Run files under `.openreactor/runs/issue-*` include:
 

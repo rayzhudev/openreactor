@@ -216,6 +216,13 @@
   should either merge the completed PR or reclaim the conflicted branch so work
   continues automatically.
 
+- Decision: managed repos should route OpenReactor repair work back into the
+  central OpenReactor engine repo instead of keeping those repair issues local
+  to the managed product repo.
+  Reason: workflow failures discovered while serving another repo still need to
+  improve the shared engine. The repair should land in one place, then the
+  watchdog should redeploy that updated engine to the affected local instances.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.
