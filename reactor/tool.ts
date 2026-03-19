@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { loadConfig } from "./config";
 import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
+import { initializeRepoState, REPO_STATE_DIR } from "./repo-state";
 
 const execFileAsync = promisify(execFile);
 
@@ -27,6 +28,11 @@ async function main(): Promise<void> {
 
   if (command === "coauthor-trailer") {
     await printCoauthorTrailer(rest);
+    return;
+  }
+
+  if (command === "init-repo-state") {
+    await initRepoState(rest);
     return;
   }
 
@@ -219,6 +225,26 @@ async function printCoauthorTrailer(args: string[]): Promise<void> {
   console.log(`Co-authored-by: ${displayName} <${email}>`);
 }
 
+async function initRepoState(args: string[]): Promise<void> {
+  const cwd = optionalStringArg(args, "--cwd") || process.cwd();
+  const explicitName = optionalStringArg(args, "--repo-name");
+  const repoName = explicitName || inferRepoDisplayName(cwd);
+  const writtenPaths = await initializeRepoState(cwd, repoName);
+
+  console.log(
+    JSON.stringify(
+      {
+        repoRoot: cwd,
+        repoStateDir: path.join(cwd, REPO_STATE_DIR),
+        repoName,
+        created: writtenPaths
+      },
+      null,
+      2
+    )
+  );
+}
+
 async function resolvePullRequestNumber(
   owner: string,
   repo: string,
@@ -380,6 +406,23 @@ function hasFlag(args: string[], name: string): boolean {
   return args.includes(name);
 }
 
+function inferRepoDisplayName(repoRoot: string): string {
+  try {
+    const raw = execFileSync("git", ["-C", repoRoot, "remote", "get-url", "origin"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    const match = raw.match(/github\.com[:/](.+?)\/(.+?)(?:\.git)?$/);
+    if (match?.[2]) {
+      return match[2];
+    }
+  } catch {
+    // Fall through to basename.
+  }
+
+  return path.basename(repoRoot);
+}
+
 async function fetchGitHubUser(
   username: string,
   token: string
@@ -426,11 +469,13 @@ function printHelp(): void {
       "  ensure-plan --issue <number> --title <title> --branch <branch> [--run-dir <dir>]",
       "  ensure-pr --issue <number> --branch <branch> --title <title> --body-file <file> [--base main] [--cwd <dir>] [--merge-method squash] [--no-auto-merge]",
       "  coauthor-trailer --username <github-login>",
+      "  init-repo-state [--cwd <dir>] [--repo-name <name>]",
       "",
       "Notes:",
       "  ensure-pr pushes over HTTPS using GITHUB_TOKEN/GH_TOKEN, so reactor runs publish branches as the GitHub App rather than the machine's SSH identity.",
       "  Auto-merge is enabled by default. Pass --no-auto-merge when the PR should wait for human or manual review.",
-      "  coauthor-trailer resolves a GitHub login to a GitHub-recognized Co-authored-by trailer using the account's user id."
+      "  coauthor-trailer resolves a GitHub login to a GitHub-recognized Co-authored-by trailer using the account's user id.",
+      "  init-repo-state creates the committed repo-local product steering files under .openreactor/repo/."
     ].join("\n")
   );
 }

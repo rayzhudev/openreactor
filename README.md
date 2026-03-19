@@ -131,6 +131,31 @@ What it did need was a clearer policy split:
 OpenReactor issues should carry the `openreactor-core` label so they are not
 confused with normal website/product feedback.
 
+## Repo-local State
+
+OpenReactor is moving toward a split between:
+
+- the shared OpenReactor engine, which stays centralized
+- the repo-local product steering state, which travels with the target repo
+
+The first committed shape for that repo-local state is:
+
+- `.openreactor/repo/README.md`
+- `.openreactor/repo/PRODUCT_SPEC.md`
+- `.openreactor/repo/PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/ROADMAP.md`
+- `.openreactor/repo/MEMORY.md`
+
+When those files exist, the reactor prefers them over the legacy top-level
+product docs. This lets a target repo keep its own product direction and memory
+without needing to vendor the whole OpenReactor runtime into the repo.
+
+Bootstrap that repo-local steering layer with:
+
+```bash
+bun run reactor:tool init-repo-state
+```
+
 ## Running The Reactor
 
 The repository includes the machine-local orchestration loop under

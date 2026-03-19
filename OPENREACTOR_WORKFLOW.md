@@ -37,6 +37,9 @@ maintainer consideration.
   explicitly labeled OpenReactor issues.
 - Trusted maintainer steering should come from real GitHub authorship or
   trusted OpenReactor-applied labels, not from free-text body fields.
+- Product-specific memory and steering should live with the target repo in a
+  committed repo-local state layer, instead of being trapped only in the
+  shared OpenReactor engine repo.
 - Readability and recoverability matter more than cleverness in core runtime
   code.
 - OpenReactor should be allowed to evolve as a process, not frozen as a rigid
@@ -87,6 +90,25 @@ This workflow applies to:
 - triage and orchestration rules
 - deployment/merge policy
 - privileged internal or admin behavior
+
+## Repo-local state
+
+OpenReactor should separate:
+
+- shared engine/runtime code
+- repo-local product steering state
+
+The repo-local state is where product-specific direction, roadmap, and durable
+memory should live for a managed repository. The current committed layout is:
+
+- `.openreactor/repo/README.md`
+- `.openreactor/repo/PRODUCT_SPEC.md`
+- `.openreactor/repo/PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/ROADMAP.md`
+- `.openreactor/repo/MEMORY.md`
+
+When those files exist, issue agents and triage should prefer them over the
+legacy top-level product docs.
 
 ## OpenReactor proposals
 
