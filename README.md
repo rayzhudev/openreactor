@@ -410,7 +410,14 @@ the repo owner on both the issue and the PR so the single highest-authority
 maintainer gets a direct GitHub notification. Accepted issues are also re-queued automatically
 if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
-branches get re-claimed even when the issue itself is already closed.
+branches get re-claimed even when the issue itself is already closed. The
+reactor now also reconciles already-accepted, non-running issues with still-open
+PRs: if the PR is clean, complete, and not waiting on maintainer action or
+native GitHub auto-merge, OpenReactor can finish the merge itself instead of
+letting the queue deadlock behind a stale accepted PR. The watchdog backs that
+up with a deadlock detector that looks for an idle queue stuck behind accepted
+PRs, then either merges the completed PR or restarts the reactor to repair a
+conflicted branch.
 
 Run files under `.openreactor/runs/issue-*` include:
 

@@ -202,6 +202,20 @@
   stalled accepted PRs can deadlock downstream issue dependencies even though
   the work is already mergeable.
 
+- Decision: the reactor should reconcile already-accepted open PRs after the
+  run ends and merge them when they are clean, complete, and not intentionally
+  waiting on maintainer action or native auto-merge.
+  Reason: accepted runs can still leave a PR open because of timing, GitHub
+  feature differences, or earlier helper failures, and that stale PR state can
+  deadlock downstream issue dependencies.
+
+- Decision: the watchdog should detect an idle queue stuck behind accepted PRs
+  and attempt operational deadlock recovery before escalating it.
+  Reason: when the reactor is healthy but every remaining task is blocked
+  behind a stranded accepted PR, restarting blindly is not enough. The system
+  should either merge the completed PR or reclaim the conflicted branch so work
+  continues automatically.
+
 - Decision: persist intake-form reference image uploads in a dedicated
   GitHub-backed assets branch and embed those hosted URLs into the created
   issue body.

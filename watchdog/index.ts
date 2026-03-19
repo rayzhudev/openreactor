@@ -3,14 +3,20 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { loadConfig as loadReactorConfig } from "../reactor/config";
-import { GitHubClient, type GitHubIssue } from "../reactor/github";
+import { GitHubClient, type GitHubIssue, type GitHubPullRequest } from "../reactor/github";
 import { detectProviderOutage } from "../reactor/provider-outage";
+import {
+  canDirectlyMergeAcceptedPullRequest,
+  hasMergeConflict,
+  isExpectedDirectMergeWaitError
+} from "../reactor/pull-request-state";
 import { issueRuntimePaths, readRunRecord, type RunRecord } from "../reactor/runner";
 import { loadWatchdogConfig, type WatchdogConfig } from "./config";
 
 const WATCHDOG_COMMENT_MARKER = "<!-- openreactor:watchdog -->";
 const REPAIR_REQUEST_MARKER = "<!-- openreactor:repair-request -->";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
+const MAINTAINER_ACTION_REQUIRED_LABEL = "maintainer-action-required";
 
 type FailureClass =
   | "none"
@@ -20,6 +26,7 @@ type FailureClass =
   | "schema_mismatch"
   | "missing_binary"
   | "runaway_iterations"
+  | "workflow_deadlock"
   | "service_unhealthy"
   | "github_api"
   | "unknown";
@@ -48,6 +55,12 @@ interface WatchdogState {
   serviceCooldownUntil?: string;
   lastServiceFailureClass?: FailureClass;
   lastServiceActionAt?: string;
+  deadlock?: {
+    firstObservedAt?: string;
+    lastAutoHealAt?: string;
+    lastRepresentativeIssue?: number;
+    lastEscalatedAt?: string;
+  };
   issues: Record<string, IssueWatchdogState>;
 }
 
@@ -124,6 +137,7 @@ class Watchdog {
     for (const issue of issues.filter((item) => !item.pull_request)) {
       await this.inspectIssue(issue, state, serviceStatus, serviceFailure, currentHead, now);
     }
+    await this.inspectDeadlock(issues.filter((item) => !item.pull_request), state, serviceStatus, now);
 
     state.updatedAt = now.toISOString();
     await this.writeState(state);
@@ -399,6 +413,183 @@ class Watchdog {
     }
   }
 
+  private async inspectDeadlock(
+    issues: GitHubIssue[],
+    state: WatchdogState,
+    serviceStatus: ServiceStatus,
+    now: Date
+  ): Promise<void> {
+    const runningIssues = issues.filter((issue) =>
+      labelNames(issue).has(this.reactorConfig.runningLabel)
+    );
+    if (runningIssues.length > 0) {
+      state.deadlock = undefined;
+      return;
+    }
+
+    const acceptedBacklog = await this.listAcceptedIdlePullRequests(issues);
+    if (!acceptedBacklog.length) {
+      state.deadlock = undefined;
+      return;
+    }
+
+    state.deadlock ??= {};
+    state.deadlock.firstObservedAt ??= now.toISOString();
+    state.deadlock.lastRepresentativeIssue = acceptedBacklog[0]?.issue.number;
+
+    const lastAutoHealAt = parseDate(state.deadlock.lastAutoHealAt);
+    const canAutoHealAgain =
+      !lastAutoHealAt ||
+      now.getTime() - lastAutoHealAt.getTime() >= this.config.deadlockAutoHealCooldownMs;
+
+    if (canAutoHealAgain) {
+      const healed = await this.attemptDeadlockAutoHeal(acceptedBacklog, state, serviceStatus, now);
+      if (healed) {
+        state.deadlock.lastAutoHealAt = now.toISOString();
+        return;
+      }
+    }
+
+    const observedAt = parseDate(state.deadlock.firstObservedAt) ?? now;
+    const deadlockedForMs = now.getTime() - observedAt.getTime();
+    if (deadlockedForMs < this.config.deadlockEscalationMs) {
+      return;
+    }
+
+    const representative = acceptedBacklog[0];
+    if (!representative) {
+      return;
+    }
+
+    const shouldEscalate =
+      !state.deadlock.lastEscalatedAt ||
+      now.getTime() - Date.parse(state.deadlock.lastEscalatedAt) >= this.config.deadlockEscalationMs;
+    if (!shouldEscalate) {
+      return;
+    }
+
+    state.deadlock.lastEscalatedAt = now.toISOString();
+    if (this.isManagingEngineRepo()) {
+      const issueState = this.issueState(state, representative.issue.number);
+      issueState.lastFailureClass = "workflow_deadlock";
+      await this.ensureRepairIssue(
+        representative.issue,
+        await readRunRecord(issueRuntimePaths(this.reactorConfig, representative.issue.number)),
+        {
+          className: "workflow_deadlock",
+          retryable: false,
+          global: false,
+          requiresCodeChange: true
+        },
+        issueState,
+        now
+      );
+    } else {
+      await this.upsertWatchdogComment(
+        representative.issue.number,
+        [
+          "OpenReactor watchdog detected a persistent workflow deadlock.",
+          "",
+          `Representative accepted issue: #${representative.issue.number}.`,
+          representative.pullRequest
+            ? `Blocked PR: ${representative.pullRequest.html_url}.`
+            : null,
+          "The watchdog already attempted operational recovery and is surfacing this for maintainer attention because this managed repo cannot patch the OpenReactor engine by itself."
+        ].filter(Boolean).join("\n")
+      );
+    }
+  }
+
+  private async listAcceptedIdlePullRequests(
+    issues: GitHubIssue[]
+  ): Promise<Array<{ issue: GitHubIssue; pullRequest: GitHubPullRequest }>> {
+    const backlog: Array<{ issue: GitHubIssue; pullRequest: GitHubPullRequest }> = [];
+
+    for (const issue of issues) {
+      const labels = labelNames(issue);
+      if (
+        !labels.has(this.reactorConfig.acceptedLabel) ||
+        labels.has(this.reactorConfig.runningLabel) ||
+        labels.has(this.reactorConfig.pausedLabel) ||
+        labels.has(MAINTAINER_ACTION_REQUIRED_LABEL)
+      ) {
+        continue;
+      }
+
+      const branchName = issueRuntimePaths(this.reactorConfig, issue.number).branchName;
+      const pullRequest = await this.github.findPullRequestByBranch(branchName, "open");
+      if (!pullRequest) {
+        continue;
+      }
+
+      backlog.push({
+        issue,
+        pullRequest: await this.github.getPullRequest(pullRequest.number)
+      });
+    }
+
+    return backlog;
+  }
+
+  private async attemptDeadlockAutoHeal(
+    backlog: Array<{ issue: GitHubIssue; pullRequest: GitHubPullRequest }>,
+    state: WatchdogState,
+    serviceStatus: ServiceStatus,
+    now: Date
+  ): Promise<boolean> {
+    for (const item of backlog) {
+      if (hasMergeConflict(item.pullRequest)) {
+        if (isServiceActive(serviceStatus)) {
+          await this.restartService(
+            state,
+            this.config.reactorServiceName,
+            `accepted PR ${item.pullRequest.html_url} is conflicted and blocking the queue`
+          );
+        }
+        await this.upsertWatchdogComment(
+          item.issue.number,
+          [
+            "OpenReactor watchdog detected a deadlock caused by a conflicted accepted PR.",
+            "",
+            `Blocked PR: ${item.pullRequest.html_url}.`,
+            "The watchdog restarted the reactor so it can reclaim the issue and repair the branch."
+          ].join("\n")
+        );
+        return true;
+      }
+
+      if (await this.github.isPullRequestAutoMergeEnabled(item.pullRequest.number)) {
+        continue;
+      }
+
+      if (!canDirectlyMergeAcceptedPullRequest(item.pullRequest)) {
+        continue;
+      }
+
+      try {
+        await this.github.mergePullRequest(item.pullRequest.number, "squash");
+      } catch (error) {
+        if (isExpectedDirectMergeWaitError(error)) {
+          continue;
+        }
+        throw error;
+      }
+
+      await this.upsertWatchdogComment(
+        item.issue.number,
+        [
+          "OpenReactor watchdog resolved a deadlock by merging a completed accepted PR.",
+          "",
+          `Merged PR: ${item.pullRequest.html_url}.`,
+          "The queue can now continue on the downstream dependency chain."
+        ].join("\n")
+      );
+      return true;
+    }
+
+    return false;
+  }
+
   private shouldAutoHealPausedIssue(
     issueState: IssueWatchdogState,
     failure: FailureInfo,
@@ -658,6 +849,10 @@ class Watchdog {
     return execFileSync("git", ["-C", this.reactorConfig.repoRoot, "rev-parse", "HEAD"], {
       encoding: "utf8"
     }).trim();
+  }
+
+  private isManagingEngineRepo(): boolean {
+    return path.resolve(this.reactorConfig.engineRoot) === path.resolve(this.reactorConfig.repoRoot);
   }
 
   private currentBranch(): string {

@@ -43,6 +43,11 @@ import {
 } from "./runner";
 import { detectProviderOutage } from "./provider-outage";
 import {
+  canDirectlyMergeAcceptedPullRequest,
+  hasMergeConflict,
+  isExpectedDirectMergeWaitError
+} from "./pull-request-state";
+import {
   ensureRepoRuntimeGitignore,
   hasRepoStateFiles,
   initializeRepoState,
@@ -246,6 +251,7 @@ class Reactor {
     }
 
     await this.reconcileTerminalIssueState(candidates);
+    await this.reconcileAcceptedPullRequests(candidates);
     await this.reconcileOpenPullRequests();
     await this.resumeClaimedIssues(candidates);
 
@@ -664,6 +670,57 @@ class Reactor {
 
       const issue = await this.github.getIssue(issueNumber);
       await this.queueConflictRepair(issue, fullPullRequest);
+    }
+  }
+
+  private async reconcileAcceptedPullRequests(issues: GitHubIssue[]): Promise<void> {
+    for (const issue of issues) {
+      if (this.activeRuns.has(issue.number) || this.pendingRetries.has(issue.number)) {
+        continue;
+      }
+
+      const labels = getLabelNames(issue);
+      if (
+        !labels.has(this.config.acceptedLabel) ||
+        labels.has(this.config.runningLabel) ||
+        labels.has(MAINTAINER_ACTION_REQUIRED_LABEL)
+      ) {
+        continue;
+      }
+
+      const paths = issueRuntimePaths(this.config, issue.number);
+      const record = await readRunRecord(paths);
+      if (record?.status !== "accepted") {
+        continue;
+      }
+
+      const pullRequest = await this.github.findOpenPullRequestByBranch(paths.branchName);
+      if (!pullRequest) {
+        continue;
+      }
+
+      const fullPullRequest = await this.github.getPullRequest(pullRequest.number);
+      if (hasMergeConflict(fullPullRequest)) {
+        await this.queueConflictRepair(issue, fullPullRequest);
+        continue;
+      }
+
+      if (await this.github.isPullRequestAutoMergeEnabled(fullPullRequest.number)) {
+        continue;
+      }
+
+      if (!canDirectlyMergeAcceptedPullRequest(fullPullRequest)) {
+        continue;
+      }
+
+      try {
+        await this.github.mergePullRequest(fullPullRequest.number, "squash");
+      } catch (error) {
+        if (isExpectedDirectMergeWaitError(error)) {
+          continue;
+        }
+        throw error;
+      }
     }
   }
 
@@ -1827,34 +1884,6 @@ function formatDurationMs(durationMs: number): string {
   }
 
   return `${totalSeconds}s`;
-}
-
-function hasConflictingMergeState(value?: string | null): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return normalized === "dirty" || normalized === "conflicting";
-}
-
-function hasKnownCleanMergeState(value?: string | null): boolean {
-  const normalized = (value ?? "").trim().toLowerCase();
-  return ["clean", "behind", "blocked", "unstable", "has_hooks", "draft", "unknown"].includes(
-    normalized
-  );
-}
-
-function hasMergeConflict(pullRequest: GitHubPullRequest): boolean {
-  if (pullRequest.mergeable === false) {
-    return true;
-  }
-
-  if (hasConflictingMergeState(pullRequest.mergeable_state)) {
-    return true;
-  }
-
-  if (pullRequest.mergeable === true || hasKnownCleanMergeState(pullRequest.mergeable_state)) {
-    return false;
-  }
-
-  return false;
 }
 
 function normalizeDecomposedIssueTitle(title: string): string {

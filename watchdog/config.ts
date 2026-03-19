@@ -5,6 +5,8 @@ export interface WatchdogConfig {
   stateDir: string;
   statePath: string;
   pollIntervalMs: number;
+  deadlockEscalationMs: number;
+  deadlockAutoHealCooldownMs: number;
   runningClaimGraceMs: number;
   runningStallMs: number;
   maxRunningIterationsBeforeReset: number;
@@ -24,6 +26,14 @@ export function loadWatchdogConfig(repoRoot = process.cwd()): WatchdogConfig {
     stateDir,
     statePath: path.join(stateDir, "state.json"),
     pollIntervalMs: numberFromEnv("OPENREACTOR_WATCHDOG_POLL_INTERVAL_MS", 120_000),
+    deadlockEscalationMs: numberFromEnv(
+      "OPENREACTOR_WATCHDOG_DEADLOCK_ESCALATION_MS",
+      20 * 60_000
+    ),
+    deadlockAutoHealCooldownMs: numberFromEnv(
+      "OPENREACTOR_WATCHDOG_DEADLOCK_AUTO_HEAL_COOLDOWN_MS",
+      5 * 60_000
+    ),
     runningClaimGraceMs: numberFromEnv(
       "OPENREACTOR_WATCHDOG_RUNNING_CLAIM_GRACE_MS",
       5 * 60_000

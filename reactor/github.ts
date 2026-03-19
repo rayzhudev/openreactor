@@ -39,6 +39,7 @@ export interface GitHubPullRequest {
   node_id?: string;
   merged_at?: string | null;
   title?: string;
+  draft?: boolean | null;
   mergeable?: boolean | null;
   mergeable_state?: string | null;
   head?: {
@@ -380,6 +381,21 @@ export class GitHubClient {
     const detail = await safeErrorDetail(response);
     throw new Error(
       `${response.status} ${response.statusText}${detail ? `: ${detail}` : ""}`
+    );
+  }
+
+  async mergePullRequest(
+    pullRequestNumber: number,
+    mergeMethod: "merge" | "rebase" | "squash" = "squash"
+  ): Promise<void> {
+    await this.request(
+      `/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}/merge`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          merge_method: mergeMethod
+        })
+      }
     );
   }
 
