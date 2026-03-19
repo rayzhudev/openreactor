@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { loadConfig as loadReactorConfig } from "../reactor/config";
 import { GitHubClient, type GitHubIssue } from "../reactor/github";
+import { detectProviderOutage } from "../reactor/provider-outage";
 import { issueRuntimePaths, readRunRecord, type RunRecord } from "../reactor/runner";
 import { loadWatchdogConfig, type WatchdogConfig } from "./config";
 
@@ -15,6 +16,7 @@ type FailureClass =
   | "none"
   | "rate_limit"
   | "auth"
+  | "provider_unavailable"
   | "schema_mismatch"
   | "missing_binary"
   | "runaway_iterations"
@@ -773,6 +775,19 @@ function classifyFailure(message: string): FailureInfo {
       className: "auth",
       retryable: false,
       global: true,
+      requiresCodeChange: false
+    };
+  }
+
+  if (
+    normalized.includes("both ai providers appear unavailable") ||
+    Boolean(detectProviderOutage("codex", normalized)) ||
+    Boolean(detectProviderOutage("claude", normalized))
+  ) {
+    return {
+      className: "provider_unavailable",
+      retryable: true,
+      global: false,
       requiresCodeChange: false
     };
   }

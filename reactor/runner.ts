@@ -86,6 +86,8 @@ export interface RunRecord {
   issueTitle: string;
   branchName: string;
   agentTool?: AgentToolName;
+  preferredAgentTool?: AgentToolName;
+  providerFallbackToolsTried?: AgentToolName[];
   targetSurface?: ProductSurfaceTarget;
   sensitivity?: SurfaceSensitivity;
   evidenceStrength?: EvidenceStrength;
@@ -454,6 +456,12 @@ export async function spawnIssueAgent(input: {
   if (tool.name === "spawn_codex_planner_agent") {
     return spawnCodexPlannerAgent(input);
   }
+  if (tool.name === "spawn_claude_planner_agent") {
+    return spawnClaudePlannerAgent(input);
+  }
+  if (tool.name === "spawn_claude_issue_agent") {
+    return spawnClaudeIssueAgent(input);
+  }
   if (tool.provider === "claude") {
     return spawnClaudeUiIssueAgent(input);
   }
@@ -661,13 +669,46 @@ async function spawnClaudeUiIssueAgent(input: {
   record: RunRecord;
   githubToken: string;
 }): Promise<ActiveRun> {
+  return spawnClaudeAgent(input, "spawn_claude_ui_agent");
+}
+
+async function spawnClaudeIssueAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  return spawnClaudeAgent(input, "spawn_claude_issue_agent");
+}
+
+async function spawnClaudePlannerAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+}): Promise<ActiveRun> {
+  return spawnClaudeAgent(input, "spawn_claude_planner_agent");
+}
+
+async function spawnClaudeAgent(
+  input: {
+    config: OrchestratorConfig;
+    issue: GitHubIssue;
+    paths: IssueRuntimePaths;
+    record: RunRecord;
+    githubToken: string;
+  },
+  toolName: AgentToolName
+): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
   const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
   const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
   const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
   const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = await buildAgentPrompt(config, issue, paths, iteration, "spawn_claude_ui_agent");
+  const prompt = await buildAgentPrompt(config, issue, paths, iteration, toolName);
   const schema = await fs.readFile(schemaPath, "utf8");
 
   await fs.writeFile(promptPath, prompt, "utf8");
@@ -707,7 +748,7 @@ async function spawnClaudeUiIssueAgent(input: {
 
   const record: RunRecord = {
     ...input.record,
-    agentTool: "spawn_claude_ui_agent",
+    agentTool: toolName,
     status: "running",
     iteration,
     startFailureCount: 0,
@@ -737,9 +778,9 @@ async function spawnClaudeUiIssueAgent(input: {
       model: config.claudeUiModel,
       reasoningEffort: config.claudeUiEffort,
       serviceTier: null,
-      toolName: "spawn_claude_ui_agent",
-      toolLabel: getAgentTool("spawn_claude_ui_agent").label,
-      primaryUse: getAgentTool("spawn_claude_ui_agent").primaryUse
+      toolName,
+      toolLabel: getAgentTool(toolName).label,
+      primaryUse: getAgentTool(toolName).primaryUse
     },
     parseResult: () => parseClaudeAgentResult(stdoutChunks, resultPath)
   };
@@ -865,7 +906,7 @@ async function buildAgentPrompt(
   const extraFiles =
     agentTool === "spawn_claude_ui_agent"
       ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))}`]
-      : agentTool === "spawn_codex_planner_agent"
+      : agentTool === "spawn_codex_planner_agent" || agentTool === "spawn_claude_planner_agent"
         ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "planner-agent.md"))}`]
         : [];
   const toolRules =
@@ -875,6 +916,20 @@ async function buildAgentPrompt(
           `- Use ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))} as your frontend design skill equivalent while making design decisions.`,
           "- Prefer tight, polished UI work over broad refactors when solving the issue."
         ]
+      : agentTool === "spawn_claude_planner_agent"
+        ? [
+            `- This issue is running via ${tool.label} because the preferred provider was unavailable.`,
+            `- Use ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "planner-agent.md"))} as the planning-specific rule set for this run.`,
+            "- Your primary job is still to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.",
+            "- If the request is worth pursuing but too large, return `decomposed` with a structured decomposition plan instead of `rejected`.",
+            "- Use `dependsOn` only for true blocking relationships between child tasks. Leave it empty for tasks that can proceed in parallel.",
+            "- Do not open a PR for the oversized parent issue itself."
+          ]
+        : agentTool === "spawn_claude_issue_agent"
+          ? [
+              `- This issue is running via ${tool.label} because the preferred provider was unavailable.`,
+              "- Handle it as the general-purpose implementation path, not as a UI-specialized run."
+            ]
       : agentTool === "spawn_codex_planner_agent"
         ? [
             `- This issue was dispatched via ${tool.label}. Your primary job is to decide whether the request should be decomposed into multiple smaller issues instead of being implemented directly.`,

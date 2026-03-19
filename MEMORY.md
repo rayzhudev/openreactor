@@ -215,6 +215,11 @@
   Reason: maintainers need per-instance visibility for debugging and oversight,
   but those extra endpoints should stay laptop/local-facing by default instead
   of being automatically wired into the public OpenReactor website.
+- Decision: if the selected implementation provider is unavailable, OpenReactor
+  should retry the issue through the other provider before pausing it.
+  Reason: transient Claude/OpenAI outages are common enough that automatic
+  cross-provider failover is a cheaper recovery path than immediately burning
+  retries or waiting for manual intervention.
 - Decision: the intended onboarding flow for managed repos should infer a
   first-pass product description from the repo README and existing GitHub
   issues, then open a bootstrap PR creating `.openreactor/repo/`.
