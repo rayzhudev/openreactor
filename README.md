@@ -383,7 +383,9 @@ default; agents should pass `--no-auto-merge` when a PR must wait for manual
 review or human intervention. If a feature is blocked on a maintainer-only step
 such as OAuth setup or secret provisioning, the reactor now leaves the PR open,
 disables auto-merge, and applies `maintainer-action-required` instead of
-merging a documented partial. Accepted issues are also re-queued automatically
+merging a documented partial. In that maintainer-handoff path, OpenReactor tags
+the repo owner on both the issue and the PR so the single highest-authority
+maintainer gets a direct GitHub notification. Accepted issues are also re-queued automatically
 if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed.

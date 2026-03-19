@@ -78,6 +78,9 @@ maintainer consideration.
 - When a product issue is blocked on a maintainer-only prerequisite, OpenReactor
   should leave a reviewable PR open, disable auto-merge, and mark the issue as
   waiting for maintainer action instead of merging a documented partial.
+- In that maintainer-handoff path, OpenReactor should tag the repo owner on the
+  issue and the PR so the notification goes to the single highest-authority
+  maintainer rather than broadcasting to all contributors.
 
 ## Scope
 

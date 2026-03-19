@@ -105,6 +105,11 @@
   maintainer action instead of merging a documented partial.
   Reason: maintainer-blocked features need a real waiting state in the workflow,
   not just handoff text inside an otherwise accepted PR.
+- Decision: when a run enters the maintainer-handoff state, OpenReactor should
+  tag the repo owner on both the issue and the PR.
+  Reason: maintainer-only steps need a deterministic GitHub notification path,
+  and that notification should go to the single highest-authority maintainer
+  instead of all contributors.
 
 - Decision: expose local OpenReactor runtime state through a machine-local
   read-only metadata service and let the website handle visualization.
