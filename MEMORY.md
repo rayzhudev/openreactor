@@ -110,6 +110,11 @@
   Reason: maintainer-only steps need a deterministic GitHub notification path,
   and that notification should go to the single highest-authority maintainer
   instead of all contributors.
+- Decision: when a maintainer-hand-off PR is merged manually, OpenReactor
+  should close the source issue automatically on the next reconciliation tick.
+  Reason: a maintainer-merged PR is the terminal success condition for that
+  workflow, so leaving the issue open would strand completed work in a stale
+  `waiting-maintainer` state.
 
 - Decision: expose local OpenReactor runtime state through a machine-local
   read-only metadata service and let the website handle visualization.
@@ -229,6 +234,12 @@
   Reason: OpenReactor should not keep relearning the same operational lessons
   one incident at a time, and it should converge back to forward progress from
   partially broken states through its own repaired workflow.
+
+- Decision: treat idempotency and resumability as core OpenReactor properties,
+  not narrow recovery details.
+  Reason: the whole system should be safe to replay after partial failure, so
+  retries, reconciliations, and resumed runs converge on the same intended
+  state instead of depending on bespoke cleanup.
 
 - Decision: conflicted maintainer-authored core PRs outside the normal
   `openreactor/issue-*` branch pattern should still be surfaced as explicit

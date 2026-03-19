@@ -50,6 +50,10 @@ If that loop becomes reliable, software development changes shape. The
 bottleneck is no longer "can the model write code?" but "can the product
 govern itself well enough to evolve safely and coherently over time?"
 
+A core OpenReactor tenet is idempotency. The system should be safe to replay,
+resume, and reconcile after partial failure, so interrupted work converges back
+to the intended result instead of depending on one-off manual cleanup.
+
 ## Governance
 
 The system is intentionally not a literal ticket fulfiller.
@@ -407,7 +411,10 @@ such as OAuth setup or secret provisioning, the reactor now leaves the PR open,
 disables auto-merge, and applies `maintainer-action-required` instead of
 merging a documented partial. In that maintainer-handoff path, OpenReactor tags
 the repo owner on both the issue and the PR so the single highest-authority
-maintainer gets a direct GitHub notification. Accepted issues are also re-queued automatically
+maintainer gets a direct GitHub notification. Once that maintainer merges the
+handoff PR, the reactor reconciler closes the source issue automatically on the
+next tick instead of leaving the issue stranded in `waiting-maintainer`.
+Accepted issues are also re-queued automatically
 if their open PR becomes unmergeable due to merge conflicts, and the reactor
 also sweeps all open `openreactor/issue-*` PRs each tick so conflicted follow-up
 branches get re-claimed even when the issue itself is already closed. The

@@ -29,6 +29,9 @@ maintainer consideration.
 
 - Preserve OpenReactor's ability to safely supervise autonomous work.
 - Favor clear governance over convenience when the two conflict.
+- OpenReactor should be idempotent and resumable end to end. Replaying the
+  same workflow step after a partial failure should converge toward the same
+  intended result instead of corrupting state or requiring bespoke cleanup.
 - Protect secret handling, auth boundaries, deployment policy, and privileged
   internal controls.
 - Do not let random public feedback directly rewrite OpenReactor-governing
@@ -106,6 +109,9 @@ maintainer consideration.
 - In that maintainer-handoff path, OpenReactor should tag the repo owner on the
   issue and the PR so the notification goes to the single highest-authority
   maintainer rather than broadcasting to all contributors.
+- Once the maintainer merges that handoff PR, OpenReactor should automatically
+  reconcile the source issue to `completed` instead of leaving it open in a
+  stale `waiting-maintainer` state.
 
 ## Scope
 
