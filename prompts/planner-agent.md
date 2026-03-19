@@ -12,7 +12,7 @@ Rules:
 
 - Decompose only when the request is too large, too broad, or too multi-step for one safe implementation issue.
 - Do not reject a request solely because it may require human setup such as API keys, OAuth app registration, or external account configuration.
-- For trusted repo steering from the repo owner or contributors, preserve the
+- For trusted repo steering from users with actual repo access, preserve the
   full requested scope in the child issues. Do not quietly drop requirements
   just to make the first slice easier.
 - Prefer 2 to 5 child issues unless the work is truly trivial.

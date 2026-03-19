@@ -89,11 +89,14 @@ Internal run outcomes may also include:
 - `decomposed`
 
 Agent behavior requirements:
-- treat the issue as product feedback, not a binding implementation spec
+- derive whether the issue is steering or market feedback from GitHub repo
+  authority and treat those lanes differently
 - classify the sensitivity of the affected surface and the evidence strength for acting now
 - bank worthwhile ideas when the evidence is too weak for the sensitivity level instead of rejecting them prematurely
 - reject requests that are harmful, incoherent, or not worth building
-- if accepted, choose the best product change even if it differs from the literal request
+- if accepted from the feedback lane, choose the best product change even if it differs from the literal request
+- if accepted from the steering lane, preserve explicit scope unless a hard
+  blocker requires decomposition or human handoff
 - maintain issue comments/labels, testing notes, and PR linkage as part of the run
 
 ## 7.1) Canonical GitHub Support Signal

@@ -9,6 +9,10 @@ const INSTALLATION_TOKEN_REFRESH_BUFFER_MS = 60_000;
 
 const installationTokenCache = new Map<string, { token: string; expiresAt: number }>();
 const installationIdCache = new Map<string, string>();
+const collaboratorPermissionCache = new Map<
+  string,
+  "admin" | "maintain" | "write" | "triage" | "read" | "none"
+>();
 
 export interface GitHubIssue {
   id?: number;
@@ -51,6 +55,14 @@ export interface GitHubIssueComment {
   };
   author_association?: string;
 }
+
+export type GitHubRepositoryPermission =
+  | "admin"
+  | "maintain"
+  | "write"
+  | "triage"
+  | "read"
+  | "none";
 
 export class GitHubClient {
   constructor(private readonly config: OrchestratorConfig) {}
@@ -183,6 +195,34 @@ export class GitHubClient {
     return this.request<GitHubIssueComment[]>(
       `/repos/${this.config.owner}/${this.config.repo}/issues/${issueNumber}/comments?per_page=100`
     );
+  }
+
+  async getRepositoryPermissionForUser(username: string): Promise<GitHubRepositoryPermission> {
+    const normalized = username.trim().toLowerCase();
+    if (!normalized) {
+      return "none";
+    }
+
+    const cacheKey = `${this.config.owner}/${this.config.repo}:${normalized}`;
+    const cached = collaboratorPermissionCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const result = await this.request<{ permission?: string }>(
+        `/repos/${this.config.owner}/${this.config.repo}/collaborators/${encodeURIComponent(normalized)}/permission`
+      );
+      const permission = normalizeRepositoryPermission(result.permission);
+      collaboratorPermissionCache.set(cacheKey, permission);
+      return permission;
+    } catch (error) {
+      if (error instanceof Error && /\b404\b/.test(error.message)) {
+        collaboratorPermissionCache.set(cacheKey, "none");
+        return "none";
+      }
+      throw error;
+    }
   }
 
   async updateComment(commentId: number, body: string): Promise<void> {
@@ -601,6 +641,20 @@ export class GitHubClient {
     }
 
     return pullRequest;
+  }
+}
+
+function normalizeRepositoryPermission(value: string | null | undefined): GitHubRepositoryPermission {
+  const normalized = (value ?? "").trim().toLowerCase();
+  switch (normalized) {
+    case "admin":
+    case "maintain":
+    case "write":
+    case "triage":
+    case "read":
+      return normalized as GitHubRepositoryPermission;
+    default:
+      return "none";
   }
 }
 

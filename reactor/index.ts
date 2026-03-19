@@ -37,6 +37,7 @@ import {
   writeRunRecord,
   type ActiveRun,
   type IssueRuntimePaths,
+  type RequestAuthority,
   type RunRecord,
   type TriageResult
 } from "./runner";
@@ -59,6 +60,9 @@ const FEEDBACK_BANK_LABEL = "feedback-bank";
 const NEEDS_REFINEMENT_LABEL = "needs-refinement";
 const OPENREACTOR_CORE_LABEL = "openreactor-core";
 const MAINTAINER_ACTION_REQUIRED_LABEL = "maintainer-action-required";
+function isSteeringRepositoryPermission(permission: string): boolean {
+  return permission === "write" || permission === "maintain" || permission === "admin";
+}
 const SENSITIVITY_LABELS = {
   low: "sensitivity:low",
   medium: "sensitivity:medium",
@@ -254,6 +258,14 @@ class Reactor {
         continue;
       }
 
+      const paths = issueRuntimePaths(this.config, issue.number);
+      const record =
+        (await readRunRecord(paths)) ??
+        (await createInitialRunRecord(issue, paths));
+      record.issueTitle = issue.title;
+      record.updatedAt = new Date().toISOString();
+      record.lastHeartbeatAt = record.updatedAt;
+      await writeRunRecord(paths, record);
       await this.github.addLabels(issue.number, [this.config.runningLabel]);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
@@ -279,6 +291,34 @@ class Reactor {
     }
 
     await this.updateLiveStatus();
+  }
+
+  private async resolveRequestAuthority(
+    issue: GitHubIssue
+  ): Promise<{ requestAuthority: RequestAuthority; steeringUsername: string | null }> {
+    const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
+    if (authorLogin && !/\[bot\]$/i.test(authorLogin)) {
+      const permission = await this.github.getRepositoryPermissionForUser(authorLogin);
+      if (isSteeringRepositoryPermission(permission)) {
+        return {
+          requestAuthority: "steering",
+          steeringUsername: authorLogin
+        };
+      }
+    }
+
+    const inheritedSteering = getMaintainerSteeringSignal(this.config, issue);
+    if (inheritedSteering) {
+      return {
+        requestAuthority: "steering",
+        steeringUsername: inheritedSteering.username
+      };
+    }
+
+    return {
+      requestAuthority: "feedback",
+      steeringUsername: null
+    };
   }
 
   private async ensureRepoStateBootstrap(): Promise<boolean> {
@@ -384,15 +424,24 @@ class Reactor {
     const paths = issueRuntimePaths(this.config, issue.number);
     const accessToken = await this.github.getAgentAccessToken();
     const comments = await this.github.listIssueComments(issue.number);
+    const authority = await this.resolveRequestAuthority(issue);
     const { result, execution } = await runIssueTriage({
       config: this.config,
       issue,
       paths,
       githubToken: accessToken,
-      comments
+      comments,
+      requestAuthority: authority.requestAuthority,
+      steeringUsername: authority.steeringUsername
     });
-    const maintainerSteering = Boolean(getMaintainerSteeringSignal(this.config, issue));
-    const normalizedResult = normalizeTriageResult(result, maintainerSteering);
+    const maintainerSteering = authority.requestAuthority === "steering";
+    const normalizedResult = normalizeTriageResult(
+      this.config,
+      issue,
+      result,
+      authority.requestAuthority,
+      maintainerSteering
+    );
 
     if (normalizedResult) {
       await this.syncGovernanceLabels(issue.number, normalizedResult);
@@ -650,6 +699,10 @@ class Reactor {
       );
     }
 
+    await writeRunRecord(
+      paths,
+      existingRecord ?? (await createInitialRunRecord(issue, paths))
+    );
     await this.github.addLabels(issue.number, [this.config.runningLabel]);
     await this.startIssue(issue, record);
   }
@@ -849,6 +902,7 @@ class Reactor {
     }
   ): Promise<void> {
     const record = (await readRunRecord(paths)) ?? (await createInitialRunRecord(issue, paths));
+    const authority = await this.resolveRequestAuthority(issue);
     const latestComment = findLatestRelevantDiscussionComment(comments);
     const now = new Date().toISOString();
 
@@ -861,6 +915,8 @@ class Reactor {
       record.lastDiscussionCommentAt ??
       issue.updated_at ??
       issue.created_at;
+    record.requestAuthority = authority.requestAuthority;
+    record.steeringUsername = authority.steeringUsername;
     record.triageExecution = input?.triageExecution ?? record.triageExecution ?? null;
     record.lastError = input?.lastError ?? record.lastError;
 
@@ -873,7 +929,10 @@ class Reactor {
     execution: ExecutionMetadata
   ): Promise<void> {
     const record = (await readRunRecord(paths)) ?? (await createInitialRunRecord(issue, paths));
+    const authority = await this.resolveRequestAuthority(issue);
     record.issueTitle = issue.title;
+    record.requestAuthority = authority.requestAuthority;
+    record.steeringUsername = authority.steeringUsername;
     record.triageExecution = execution;
     record.updatedAt = new Date().toISOString();
     record.lastHeartbeatAt = record.updatedAt;
@@ -908,9 +967,19 @@ class Reactor {
       existingRecord ??
       (await readRunRecord(paths)) ??
       (await createInitialRunRecord(issue, paths));
+    const authority = await this.resolveRequestAuthority(issue);
     record.preferredAgentTool =
       selectedTriage?.toolName ?? record.preferredAgentTool ?? requestedAgentTool;
+    record.requestAuthority = authority.requestAuthority;
+    record.steeringUsername = authority.steeringUsername;
     record.targetSurface = selectedTriage?.targetSurface ?? record.targetSurface;
+    if (
+      record.targetSurface === "openreactor-core" &&
+      !isOpenReactorProductRepo(this.config) &&
+      !getLabelNames(issue).has(OPENREACTOR_CORE_LABEL)
+    ) {
+      record.targetSurface = "main";
+    }
     record.sensitivity = selectedTriage?.sensitivity ?? record.sensitivity;
     record.evidenceStrength = selectedTriage?.evidenceStrength ?? record.evidenceStrength;
     record.evidenceSummary = selectedTriage?.evidenceSummary ?? record.evidenceSummary;
@@ -925,6 +994,8 @@ class Reactor {
       record.agentTool = agentTool;
       await ensureIssueWorktree(this.config, paths);
       const referenceImages = await writeIssueContext(this.config, issue, paths, {
+        requestAuthority: record.requestAuthority,
+        steeringUsername: record.steeringUsername,
         targetSurface: record.targetSurface,
         sensitivity: record.sensitivity,
         evidenceStrength: record.evidenceStrength,
@@ -1998,7 +2069,7 @@ async function main(): Promise<void> {
   await reactor.start(once);
 }
 
-function getLabelNames(issue: GitHubIssue): Set<string> {
+function getLabelNames(issue: Pick<GitHubIssue, "labels">): Set<string> {
   return new Set(
     issue.labels.map((label) => (label.name ?? "").trim().toLowerCase()).filter(Boolean)
   );
@@ -2009,7 +2080,7 @@ function getMaintainerSteeringSignal(
   issue: Pick<GitHubIssue, "body" | "labels" | "user" | "author_association">
 ): { username: string } | null {
   const authorLogin = normalizeGitHubUsername(issue.user?.login ?? null);
-  if (authorLogin && isPrivilegedRepoAuthor(issue.author_association, authorLogin, config.owner)) {
+  if (authorLogin && authorLogin.toLowerCase() === config.owner.toLowerCase()) {
     return { username: authorLogin };
   }
 
@@ -2018,7 +2089,7 @@ function getMaintainerSteeringSignal(
   }
 
   const username = normalizeGitHubUsername(readStructuredIssueField(issue.body, "GitHub Username"));
-  if (username && username.toLowerCase() === config.owner.toLowerCase()) {
+  if (username) {
     return { username };
   }
 
@@ -2047,6 +2118,12 @@ function normalizeGitHubUsername(value: string | null): string | null {
   }
 
   return cleaned;
+}
+
+function isOpenReactorProductRepo(
+  config: Pick<OrchestratorConfig, "owner" | "repo">
+): boolean {
+  return config.owner.toLowerCase() === "rayzhudev" && config.repo.toLowerCase() === "openreactor";
 }
 
 function issueHasLabel(
@@ -2126,30 +2203,32 @@ function getTrustedSubmitterUsername(
   return null;
 }
 
-function isPrivilegedRepoAuthor(
-  authorAssociation: string | null | undefined,
-  authorLogin: string,
-  owner: string
-): boolean {
-  if (authorLogin.toLowerCase() === owner.toLowerCase()) {
-    return true;
-  }
-
-  const association = (authorAssociation ?? "").trim().toUpperCase();
-  return (
-    association === "OWNER" ||
-    association === "MEMBER" ||
-    association === "COLLABORATOR" ||
-    association === "CONTRIBUTOR"
-  );
-}
-
 function normalizeTriageResult(
+  config: Pick<OrchestratorConfig, "owner" | "repo">,
+  issue: Pick<GitHubIssue, "labels">,
   result: TriageResult | null,
+  requestAuthority: RequestAuthority,
   maintainerSteering: boolean
 ): TriageResult | null {
   if (!result) {
     return null;
+  }
+
+  const isOpenReactorRepo = isOpenReactorProductRepo(config);
+  const issueLabels = getLabelNames(issue);
+
+  if (
+    result.targetSurface === "openreactor-core" &&
+    !isOpenReactorRepo &&
+    !issueLabels.has(OPENREACTOR_CORE_LABEL)
+  ) {
+    result = {
+      ...result,
+      targetSurface: "main",
+      evidenceSummary:
+        result.evidenceSummary ||
+        "This task changes the managed product itself, not the OpenReactor engine, so it should stay on the main product surface."
+    };
   }
 
   if (result.targetSurface === "playground") {
@@ -2170,6 +2249,30 @@ function normalizeTriageResult(
       evidenceSummary:
         result.evidenceSummary ||
         "OpenReactor-core changes are maintainer-controlled and should be treated as high-sensitivity by default."
+    };
+  }
+
+  if (
+    isOpenReactorRepo &&
+    requestAuthority === "feedback" &&
+    result.targetSurface === "openreactor-core" &&
+    result.outcome === "dispatch"
+  ) {
+    return {
+      ...result,
+      outcome: "bank",
+      toolName: null,
+      toolReason: null,
+      summary:
+        "Banked because public feedback in the OpenReactor repo is limited to website/product surfaces, not the OpenReactor engine itself.",
+      bankReason:
+        "This request targets the OpenReactor core, but in the OpenReactor repo only steering-lane requests may directly change reactor/watchdog/prompt/core behavior.",
+      issueComment:
+        [
+          "OpenReactor banked this request instead of dispatching it.",
+          "",
+          "Reason: in the OpenReactor repo, public feedback may shape the website product surfaces, but OpenReactor-core changes require steering authority."
+        ].join("\n")
     };
   }
 

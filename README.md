@@ -182,22 +182,23 @@ open. Brand-new repos without those docs are gated on the bootstrap first.
 This is intentionally different from the public OpenReactor website. The
 website's public feature form is a demo/product surface for OpenReactor
 itself. The default product shape for other repos is GitHub-native: repo
-owners and contributors work through GitHub issues, and OpenReactor consumes
+owners and users with actual repo access work through GitHub issues, and OpenReactor consumes
 that issue stream directly.
 
 The intended privilege model is also GitHub-native:
 
 - repository owners should have the highest steering authority
-- maintainers/contributors should count as privileged steering entities
+- users with actual repo access (`write`, `maintain`, or `admin`) should count
+  as privileged steering entities
 - random public issue authors should still go through the normal product
   governance filters
-- trusted owner/contributor issues should keep their explicit requested scope
+- trusted steering-lane issues should keep their explicit requested scope
   unless a hard blocker requires decomposition or human handoff; OpenReactor
   should not quietly water them down for implementation convenience
 
-The first runtime implementation of that model now uses GitHub's native
-`author_association` field on issues, so owners and contributors are detected
-from the repository itself rather than only from OpenReactor-managed labels.
+The runtime should derive that authority from GitHub repository permissions
+first, not from contributor history. OpenReactor-managed labels remain useful
+as inheritance metadata for child issues created by the system itself.
 
 OpenReactor should also use its own git identity for authored commits. Branch
 publication already goes through the GitHub token/app path; issue worktrees now
@@ -312,6 +313,9 @@ The reactor currently:
 
 The watchdog currently:
 
+- waits through a short claim grace window before clearing a supposedly stale
+  `or:running` label, so it does not race a freshly claimed issue whose local
+  run record is still being written
 - watches for stalled `or:running` issues based on run heartbeats
 - treats very high iteration counts as a workflow red flag and escalates them
   into `openreactor-core` repair work instead of assuming more retries will
