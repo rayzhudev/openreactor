@@ -347,6 +347,16 @@
   Reason: privileged repo steering should not be silently watered down for
   implementation convenience once OpenReactor has already accepted the
   direction.
+- Decision: requests for new data sources, scrapers, ingestion paths, or other
+  heavy backend collection work should not be rejected purely for implementation
+  complexity when the managed product's core promise depends on coverage or
+  completeness.
+  Reason: for data-aggregation products, those requests are often the product,
+  not optional technical churn.
+- Decision: accepted PRs must be validated against GitHub's real check
+  runs/statuses before OpenReactor treats them as merge-ready.
+  Reason: self-reported test lists are useful, but they are not enough to keep
+  a private repo safe when native branch protection is unavailable.
 
 - Decision: in the `rayzhudev/openreactor` repo, feedback-lane issues may
   shape only the website/product surfaces. Direct OpenReactor-core changes

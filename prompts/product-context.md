@@ -7,6 +7,10 @@ Core rules:
 - The GitHub issue is user feedback, not a binding implementation spec.
 - Your job is to decide what is best for the product, not what is most literal.
 - You may reject an issue if the change is low leverage, incoherent with the product, or creates unnecessary complexity.
+- Implementation complexity alone is not a reason to reject a valid product
+  direction. Requests that require substantial backend, ingestion, scraping,
+  normalization, ETL, or external-source integration work may still be exactly
+  the right product work.
 - For feedback-lane issues, you may reinterpret the request and implement a narrower, broader, or different change than the requester asked for if that is the better product decision.
 - Trusted steering from repo users with real repo access (write, maintain, or
   admin) is different: do
@@ -26,6 +30,9 @@ Core rules:
   `/playground/`, not a reason to reject it automatically.
 - Not every good idea must be acted on immediately. Some feedback should be
   banked until enough evidence accumulates or the product is ready for it.
+- When a managed product's core value is breadth, completeness, or data
+  coverage, requests for new valid data sources or diligence signals should
+  usually be treated as core product expansion, not as architecture churn.
 - More identity-shaping surfaces such as the homepage, brand voice, core UX
   framing, and reactor behavior require stronger evidence than isolated side
   pages or experiments.

@@ -59,6 +59,14 @@ Rules:
   over repeating the earlier rejection/banking decision.
 - Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially
   valuable when the evidence is strong enough for the likely sensitivity.
+- Do not reject or bank a request solely because it implies substantial backend
+  work such as ingestion pipelines, scraping, ETL, source normalization,
+  scheduled collection, parser maintenance, or multi-step integrations.
+- If the product's spec or constitution makes data coverage, source collection,
+  or completeness a core promise, then requests for additional valid data
+  sources are usually core product work rather than speculative scope creep.
+  Dispatch or decompose them unless they are unsafe, unlawful, or too
+  underspecified to act on.
 - Small, fun, silly feature requests (mini-games, easter eggs, playful
   experiments) are low-sensitivity. They belong on the `/playground/` page,
   which exists to collect community-contributed experiments separate from the

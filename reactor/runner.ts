@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import type { OrchestratorConfig } from "./config";
+import { resolveDefaultBranch, type OrchestratorConfig } from "./config";
 import type { GitHubIssue, GitHubIssueComment } from "./github";
 import { resolveRepoDocumentationPaths } from "./repo-state";
 import {
@@ -381,7 +381,7 @@ export async function ensureIssueWorktree(
     return;
   }
 
-  await refreshOriginMain(config.repoRoot);
+  await refreshOriginDefaultBranch(config.repoRoot, config.defaultBranch);
 
   const branchExists = await runCommand("git", [
     "-C",
@@ -412,12 +412,12 @@ export async function ensureIssueWorktree(
     "-b",
     paths.branchName,
     paths.worktreePath,
-    "origin/main"
+    `origin/${config.defaultBranch}`
   ]);
 }
 
-async function refreshOriginMain(repoRoot: string): Promise<void> {
-  await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
+async function refreshOriginDefaultBranch(repoRoot: string, defaultBranch: string): Promise<void> {
+  await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", defaultBranch]);
 }
 
 export async function ensureRemoteBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
@@ -435,7 +435,7 @@ export async function ensureRemoteBranchExists(repoRoot: string, branchName: str
 export async function listChangedFilesForBranch(
   repoRoot: string,
   branchName: string,
-  baseRef = "origin/main"
+  baseRef = `origin/${resolveDefaultBranch(repoRoot)}`
 ): Promise<string[]> {
   const output = await runCommandCapture("git", [
     "-C",
@@ -1049,8 +1049,8 @@ async function buildAgentPrompt(
     `- Use \`bun ${JSON.stringify(path.join(config.engineRoot, "reactor", "tool.ts"))} ensure-pr ...\` when finishing an accepted run so PR creation is idempotent.`,
     `- Keep the claim label ${config.runningLabel} in place if more iterations are needed.`,
     `- If you finish with accepted or rejected, remove ${config.runningLabel} yourself and apply the final label.`,
-    "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, and no reported checks failed.",
-    "- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/main, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.",
+    "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, no reported checks failed, and any real GitHub CI checks on the PR head are not failing or still pending.",
+    `- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/${config.defaultBranch}, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.`,
     "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
     "- If a maintainer-only step still blocks the feature, do not return accepted. Leave an open PR, disable auto-merge with `--no-auto-merge`, set humanHandoff.required=true, and return retry.",

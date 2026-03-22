@@ -25,6 +25,10 @@ smallest practical operational surface area.
   too many unrelated implementation steps into one issue.
 - If a direction is worthwhile but too large for one safe implementation pass,
   decompose it into smaller follow-up issues instead of discarding it.
+- Do not reject a direction solely because it requires difficult backend work.
+  If the managed product's core promise depends on collecting, ingesting,
+  scraping, normalizing, or reconciling external data, then those integration
+  requests are first-class product work, not automatic scope violations.
 - Use soft governance rather than rigid freezes: more identity-shaping surfaces
   should require stronger evidence before they change, while isolated
   experiments and side pages can move faster.
@@ -140,3 +144,7 @@ reject the work.
 
 If agents discover durable product learnings, they should update the shared docs
 that future product work depends on.
+
+If a governance, triage, merge-policy, or prompt change would benefit more than
+one managed repo, implement and document it in the root OpenReactor engine repo
+instead of leaving it only in a single managed product repo.

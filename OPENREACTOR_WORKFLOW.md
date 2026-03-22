@@ -144,6 +144,12 @@ memory should live for a managed repository. The current committed layout is:
 When those files exist, issue agents and triage should prefer them over the
 legacy top-level product docs.
 
+When a triage rule, merge gate, prompt rule, or other OpenReactor mechanism
+would improve behavior across managed repos, the change belongs in the root
+OpenReactor engine repo. Repo-local constitutions should carry product-specific
+rules, but shared workflow logic should not be stranded in one private managed
+repo.
+
 For managed repos, initialization should prefer inference over blank setup:
 
 - read the repo README

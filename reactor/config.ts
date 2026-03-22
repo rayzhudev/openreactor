@@ -8,6 +8,7 @@ export interface OrchestratorConfig {
   repoRoot: string;
   runsDir: string;
   worktreesDir: string;
+  defaultBranch: string;
   pollIntervalMs: number;
   maxIterationRuntimeMs: number;
   maxConcurrentIssues: number;
@@ -55,6 +56,7 @@ export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorCon
     repoRoot,
     runsDir: path.join(stateRoot, "runs"),
     worktreesDir: path.join(stateRoot, "worktrees"),
+    defaultBranch: resolveDefaultBranch(repoRoot, localEnv),
     pollIntervalMs: numberFromEnv("OPENREACTOR_POLL_INTERVAL_MS", 60_000),
     maxIterationRuntimeMs: numberFromEnv("OPENREACTOR_MAX_ITERATION_RUNTIME_MS", 20 * 60_000),
     maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 3),
@@ -180,6 +182,62 @@ function resolveRepo(repoRoot: string, localEnv: Map<string, string>): string {
   }
 
   throw new Error("Missing required environment variable: GITHUB_REPO");
+}
+
+export function resolveDefaultBranch(
+  repoRoot: string,
+  localEnv = new Map<string, string>()
+): string {
+  const explicit =
+    clean(valueOf("OPENREACTOR_DEFAULT_BRANCH", localEnv)) ||
+    clean(valueOf("GITHUB_DEFAULT_BRANCH", localEnv));
+  if (explicit) {
+    return explicit;
+  }
+
+  try {
+    const raw = execFileSync(
+      "git",
+      ["-C", repoRoot, "symbolic-ref", "refs/remotes/origin/HEAD"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      }
+    ).trim();
+    const match = raw.match(/^refs\/remotes\/origin\/(.+)$/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  } catch {
+    // Ignore missing origin HEAD.
+  }
+
+  try {
+    const raw = execFileSync("git", ["-C", repoRoot, "remote", "show", "origin"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    const match = raw.match(/HEAD branch:\s+([^\r\n]+)/);
+    if (match?.[1]) {
+      return clean(match[1]);
+    }
+  } catch {
+    // Ignore missing remote metadata.
+  }
+
+  try {
+    const raw = execFileSync("git", ["-C", repoRoot, "branch", "--show-current"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    if (raw) {
+      return raw;
+    }
+  } catch {
+    // Ignore detached HEAD or git errors.
+  }
+
+  return "main";
 }
 
 function parseGitHubRemote(repoRoot: string): { owner: string; repo: string } | null {

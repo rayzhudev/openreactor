@@ -44,7 +44,28 @@ export interface GitHubPullRequest {
   mergeable_state?: string | null;
   head?: {
     ref?: string;
+    sha?: string;
   };
+}
+
+export interface GitHubCommitStatus {
+  state?: string;
+  context?: string;
+  description?: string | null;
+}
+
+export interface GitHubCheckRun {
+  name?: string;
+  status?: string;
+  conclusion?: string | null;
+}
+
+export interface GitHubRefCheckSummary {
+  hasAnyChecks: boolean;
+  passingCount: number;
+  hasPending: boolean;
+  hasFailing: boolean;
+  failing: string[];
 }
 
 export interface GitHubIssueComment {
@@ -302,6 +323,74 @@ export class GitHubClient {
     return this.request<GitHubPullRequest>(
       `/repos/${this.config.owner}/${this.config.repo}/pulls/${pullRequestNumber}`
     );
+  }
+
+  async summarizeChecksForRef(ref: string): Promise<GitHubRefCheckSummary> {
+    const encodedRef = encodeURIComponent(ref);
+    const [combinedStatus, checkRuns] = await Promise.all([
+      this.request<{
+        state?: string;
+        statuses?: GitHubCommitStatus[];
+      }>(`/repos/${this.config.owner}/${this.config.repo}/commits/${encodedRef}/status`),
+      this.request<{
+        check_runs?: GitHubCheckRun[];
+      }>(`/repos/${this.config.owner}/${this.config.repo}/commits/${encodedRef}/check-runs?per_page=100`)
+    ]);
+
+    const failing = new Set<string>();
+    let hasPending = false;
+    let passingCount = 0;
+
+    for (const status of combinedStatus.statuses ?? []) {
+      const state = (status.state ?? "").trim().toLowerCase();
+      const name = status.context?.trim() || "commit-status";
+      if (state === "success") {
+        passingCount += 1;
+      } else if (state === "pending") {
+        hasPending = true;
+      } else if (state === "failure" || state === "error") {
+        failing.add(name);
+      }
+    }
+
+    for (const checkRun of checkRuns.check_runs ?? []) {
+      const status = (checkRun.status ?? "").trim().toLowerCase();
+      const conclusion = (checkRun.conclusion ?? "").trim().toLowerCase();
+      const name = checkRun.name?.trim() || "check-run";
+
+      if (status !== "completed") {
+        hasPending = true;
+        continue;
+      }
+
+      if (["success", "neutral", "skipped"].includes(conclusion)) {
+        passingCount += 1;
+        continue;
+      }
+
+      if (
+        [
+          "failure",
+          "timed_out",
+          "cancelled",
+          "action_required",
+          "startup_failure",
+          "stale"
+        ].includes(conclusion)
+      ) {
+        failing.add(name);
+      }
+    }
+
+    return {
+      hasAnyChecks:
+        (combinedStatus.statuses?.length ?? 0) > 0 || (checkRuns.check_runs?.length ?? 0) > 0,
+      passingCount,
+      hasPending,
+      hasFailing:
+        failing.size > 0 || (combinedStatus.state ?? "").trim().toLowerCase() === "failure",
+      failing: Array.from(failing)
+    };
   }
 
   async createPullRequest(input: {

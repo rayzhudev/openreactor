@@ -44,7 +44,7 @@ if [[ -z "${GITHUB_APP_ID:-}" || -z "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
     fi
     if [[ -z "${GITHUB_TOKEN:-}" ]]; then
       if command -v gh >/dev/null 2>&1; then
-        GITHUB_TOKEN="$(gh auth status --show-token 2>/dev/null | awk '/Token:/ { print $2; exit }')"
+        GITHUB_TOKEN="$(gh auth status --show-token 2>/dev/null | sed -n 's/.*Token:[[:space:]]*//p' | head -n1)"
       fi
     fi
     if [[ -z "${GITHUB_TOKEN:-}" ]]; then

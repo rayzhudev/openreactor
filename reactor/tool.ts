@@ -92,7 +92,7 @@ async function ensurePr(args: string[]): Promise<void> {
   const branchName = requireStringArg(args, "--branch");
   const title = requireStringArg(args, "--title");
   const bodyFile = requireStringArg(args, "--body-file");
-  const base = optionalStringArg(args, "--base") || "main";
+  const base = optionalStringArg(args, "--base") || config.defaultBranch;
   const cwd = optionalStringArg(args, "--cwd") || process.cwd();
   const autoMerge = !hasFlag(args, "--no-auto-merge");
   const mergeMethod = optionalStringArg(args, "--merge-method") || "squash";
