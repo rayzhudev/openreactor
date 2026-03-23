@@ -1,4 +1,14 @@
-# OpenReactor — Product Spec (v0.2)
+# OpenReactor — Product Spec (v0.3)
+
+## 0) How To Read This Spec
+This spec serves two jobs:
+
+- describe the current implemented product and workflow
+- describe planned direction where it is explicitly marked as planned, deferred, or an open question
+
+Current implemented behavior is the primary source of truth. Planned sections
+should shape future work, but they should not be mistaken for something that is
+already shipped.
 
 ## 1) Vision
 OpenReactor is a self-building software platform where users propose features, and autonomous coding agents evaluate, implement, and deploy accepted changes.
@@ -32,15 +42,21 @@ A request should be rejected/deferred if:
 - it significantly diverges from current product direction.
 
 ## 4) User Experience (MVP)
-1. User submits feature request in web form.
-2. System creates GitHub issue using structured template.
+1. User submits a feature request through the website's lightweight intake form.
+   The current intake surface is intentionally simple: one request field,
+   desired scope, and optional reference images.
+2. System converts that submission into a structured GitHub issue template.
+   When GitHub API-backed intake is unavailable, it can fall back to a GitHub
+   issue creation redirect instead of dropping the request.
 3. Request enters the reactor queue and is claimed with a GitHub label.
 4. Lightweight triage classifies surface sensitivity and evidence strength, then decides whether to `reject`, `bank`, or dispatch the request.
 5. Ongoing issue discussion can refine the request; banked, paused, or previously rejected issues may be reconsidered when later comments materially change the task or explicitly call OpenReactor back in.
 6. If dispatched, an issue agent decides whether the request should be `accepted`, `rejected`, or decomposed into smaller follow-up issues.
 7. Decomposed follow-up issues may be linked with GitHub-native dependencies when one child task truly blocks another. Independent child tasks should remain parallelizable.
-7. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
-8. On merge to `main`, the website deploys automatically.
+8. If accepted, the issue agent may reinterpret the request and create the best product change, then open a branch + PR.
+9. If the remaining step is maintainer-only, the run may pause in a maintainer handoff state with an open PR and explicit continuation instructions.
+10. Clean accepted PRs may be merged automatically by the reactor or watchdog, depending on repository capabilities and current runtime state.
+11. On merge to `main`, the website deploys automatically.
 
 ## 5) System Architecture (MVP)
 - Frontend: public website for request intake and queue visibility
@@ -50,9 +66,9 @@ A request should be rejected/deferred if:
 - OpenReactor Autonomous Test Run: a deliberate automated canary issue that
   exercises the issue-to-PR loop end to end so workflow regressions are caught
   through a real run
-- OpenReactor status service: machine-local read-only metadata endpoint that exposes active-agent and blocker state to the website without giving the website direct control over the local runtime
+- OpenReactor status service: machine-local read-only metadata endpoint that exposes intake, triage/planning, execution, retry, blocked, and completed pipeline metadata to the website without giving the website direct control over the local runtime
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
-- Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state
+- Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state such as run records, live snapshots, watchdog state, archives, and repo-local steering files
 - Persistence (planned): application database for website/backend features that require stored data
 
 ## 6) Data Model (MVP)
@@ -87,6 +103,12 @@ Final issue outcomes are:
 Internal run outcomes may also include:
 - `retry`
 - `decomposed`
+- `bank`
+
+Workflow-visible execution states may also include:
+- `banked`
+- `waiting-maintainer`
+- `failed`
 
 Agent behavior requirements:
 - derive whether the issue is steering or market feedback from GitHub repo
@@ -98,6 +120,9 @@ Agent behavior requirements:
 - if accepted from the steering lane, preserve explicit scope unless a hard
   blocker requires decomposition or human handoff
 - maintain issue comments/labels, testing notes, and PR linkage as part of the run
+- enforce minimum acceptance evidence for shipped work, including a real branch,
+  a real PR, and at least one passing reported check
+- require browser-verification evidence before accepting UI work
 
 ## 7.1) Canonical GitHub Support Signal
 
@@ -164,9 +189,13 @@ Dashboard should show:
 - latest product memory updates
 
 Current state:
-- only the public request queue is implemented
-- a first live OpenReactor metadata feed is available for website-side visualization
-- the rest of the observability surface is still pending
+- the public request queue is implemented
+- the website also ships a richer live OpenReactor surface showing pipeline
+  stages, service health, active agents, retries, blocked work, and recent
+  completed runs
+- the website ships a contributor leaderboard derived from merged PRs
+- accepted/rejected aggregate rates, PR cycle-time reporting, deployment
+  success/failure reporting, and memory-update reporting are still pending
 
 ## 12) Non-goals (MVP)
 - Full autonomy across infrastructure migrations
@@ -188,24 +217,45 @@ Current state:
 - Which changes require human approval despite autonomy?
 - How should roadmap priorities be updated over time?
 
-## 15) Current MVP Cutline
+## 15) Current Shipped State And MVP Cutline
 
-As of March 9, 2026, the implementation target is intentionally narrower than
-the full product vision.
+As of March 23, 2026, the implementation target is still intentionally narrower
+than the full product vision, but the code has moved materially beyond the
+original March 9 cutline.
 
 What is already live:
 
 1. a live website,
-2. a structured feature request form,
-3. GitHub issue creation from that form,
-4. a public queue view of submitted requests,
-5. and a first local `reactor/` loop for autonomous issue processing.
-6. and a local watchdog layer that supervises the reactor and stalled issue handling.
+2. a lightweight intake form that is transformed into a structured GitHub issue,
+3. GitHub issue creation from that form, with GitHub redirect fallback when
+   API-backed intake is unavailable,
+4. optional signed-in GitHub attribution for submissions and support actions,
+5. optional reference-image upload support for intake,
+6. a public queue view of submitted requests,
+7. browser-local "My requests" tracking for submissions made from the current
+   browser,
+8. a contributor leaderboard based on merged PRs,
+9. a live OpenReactor website view of intake and local runtime metadata,
+10. a local `reactor/` loop for autonomous issue processing,
+11. discussion-triggered reconsideration of banked, paused, or previously
+    rejected issues,
+12. decomposition into GitHub-native child issues with dependency edges when
+    work must be sequenced,
+13. accepted-run validation that requires a real branch, a real PR, and passing
+    reported checks,
+14. accepted PR reconciliation and merge-state handling,
+15. maintainer-handoff support for maintainer-only continuation steps,
+16. a local watchdog layer that supervises the reactor, stalled issue handling,
+    queue deadlocks, and some OpenReactor self-repair cases,
+17. and an OpenReactor Autonomous Test Run command for deliberate end-to-end
+    canary verification.
 
 The following are still deferred:
 
-- reliable end-to-end PR creation on real issues,
-- PR follow-up and merge-state handling,
 - deployment health tracking,
+- incident issue creation from deployment failures,
+- accepted/rejected aggregate metrics in the public site,
+- PR cycle-time reporting in the public site,
+- latest product-memory reporting in the public site,
 - application-backed stored data features for the website/backend,
-- and a full transparency dashboard.
+- and richer product features that genuinely require a separate durable backend.
