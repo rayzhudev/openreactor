@@ -194,7 +194,23 @@ async function hydrateActiveAgents(
 
   return Promise.all(
     activeAgents.map(async (agent) => ({
-      ...agent,
+      issueNumber: agent.issueNumber,
+      issueTitle: agent.issueTitle,
+      issueUrl: agent.issueUrl,
+      branchName: agent.branchName,
+      iteration: agent.iteration,
+      targetSurface: agent.targetSurface,
+      toolName: agent.toolName,
+      toolLabel: agent.toolLabel,
+      provider: agent.provider,
+      primaryUse: agent.primaryUse,
+      sensitivity: agent.sensitivity,
+      evidenceStrength: agent.evidenceStrength,
+      startedAt: agent.startedAt,
+      updatedAt: agent.updatedAt,
+      lastHeartbeatAt: agent.lastHeartbeatAt,
+      status: agent.status,
+      summary: typeof agent.summary === "string" ? sanitizePublicText(agent.summary, 220) : null,
       transcriptPreview: (await readRecentTranscriptEntries(agent.runDir, 6)).map(
         sanitizePublicTranscriptEntry
       )
