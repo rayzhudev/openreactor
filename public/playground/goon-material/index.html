@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Goon Material Recommender - OpenReactor Playground</title>
+    <meta
+      name="description"
+      content="An absurd OpenReactor playground page recommending snacks, lighting, hydration, and comfort gear for long weird internet sessions."
+    />
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("openreactor-theme");
+        if (savedTheme === "dark") document.documentElement.classList.add("dark");
+        else if (savedTheme === "light") document.documentElement.classList.add("light");
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
+    <main class="or-shell">
+      <header class="or-topbar">
+        <p class="or-brand"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <nav class="or-nav" aria-label="Site navigation">
+          <a class="or-nav-link" href="/">Intake</a>
+          <a class="or-nav-link or-nav-link--active" href="/playground/" aria-current="page">Playground</a>
+        </nav>
+        <button class="topbar-toggle or-button or-button--icon hidden max-md:flex shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
+          <div class="or-button-group" role="group" aria-label="Color theme">
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system" aria-label="System theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+            </button>
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark" aria-label="Dark theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light" aria-label="Light theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="grid gap-5 mb-6" aria-labelledby="goon-material-title">
+        <div class="flex items-start justify-between gap-4 max-md:flex-col max-md:items-stretch">
+          <div class="grid gap-2">
+            <a href="/playground/" class="or-nav-link min-h-0 px-2 py-1 text-xs w-fit">← Playground</a>
+            <p class="or-kicker">Playground dispatch</p>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight" id="goon-material-title">Goon Material Recommender</h1>
+            <p class="text-[var(--ink-soft)] text-sm md:text-base leading-relaxed max-w-2xl">
+              A deadpan guide for assembling a long-haul weird-internet station:
+              comfort first, hydration second, and enough ambient dignity to
+              recover when the tabs get out of hand.
+            </p>
+          </div>
+          <div class="or-note or-note--stack max-w-sm">
+            <p class="font-medium text-[var(--ink)]">Operational advice</p>
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              If a recommendation sounds expensive, the correct move is usually
+              to buy fewer gadgets and a better pillow.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-3 mb-6" aria-label="Recommendation priorities">
+        <article class="or-panel or-panel--tight">
+          <p class="or-kicker">Priority 01</p>
+          <h2 class="text-lg font-semibold tracking-tight">Seat survival</h2>
+          <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+            The highest-leverage upgrade is anything that keeps your spine from
+            filing a complaint after hour two.
+          </p>
+        </article>
+        <article class="or-panel or-panel--tight">
+          <p class="or-kicker">Priority 02</p>
+          <h2 class="text-lg font-semibold tracking-tight">Hydration discipline</h2>
+          <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+            Oversized water bottle, reachable placement, no sticky cups near
+            the keyboard. Civilization is a systems problem.
+          </p>
+        </article>
+        <article class="or-panel or-panel--tight">
+          <p class="or-kicker">Priority 03</p>
+          <h2 class="text-lg font-semibold tracking-tight">Light management</h2>
+          <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+            Bias toward warm lamps and blackout curtains. If the room feels like
+            a gas-station freezer aisle, the vibe is already lost.
+          </p>
+        </article>
+      </section>
+
+      <section class="or-panel mb-6" aria-labelledby="loadout-title">
+        <div class="flex items-end justify-between gap-4 max-md:flex-col max-md:items-stretch">
+          <div class="grid gap-1">
+            <p class="or-kicker">Recommended loadout</p>
+            <h2 class="text-xl font-semibold tracking-tight" id="loadout-title">Starter kit by category</h2>
+          </div>
+          <span class="or-badge or-badge--neutral">No explicit content required</span>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 mt-2">
+          <article class="or-note or-note--stack">
+            <p class="font-medium text-[var(--ink)]">Comfort</p>
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              Lumbar pillow, soft blanket, house socks, and one shamelessly
+              oversized hoodie.
+            </p>
+          </article>
+          <article class="or-note or-note--stack">
+            <p class="font-medium text-[var(--ink)]">Desk tools</p>
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              Wireless mouse, charging dock, microfiber cloth, and a cable
+              situation that does not look like vines reclaiming a ruin.
+            </p>
+          </article>
+          <article class="or-note or-note--stack">
+            <p class="font-medium text-[var(--ink)]">Snacks</p>
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              Salted nuts, cold grapes, fizzy water, and one dramatic treat
+              reserved for a truly cursed session.
+            </p>
+          </article>
+          <article class="or-note or-note--stack">
+            <p class="font-medium text-[var(--ink)]">Recovery</p>
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              Eye drops, mint gum, face wash, and enough self-respect to close
+              the laptop and walk outside afterward.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]" aria-labelledby="tiers-title">
+        <section class="or-panel" aria-labelledby="tiers-title">
+          <p class="or-kicker">Budget logic</p>
+          <h2 class="text-xl font-semibold tracking-tight" id="tiers-title">Spending tiers</h2>
+          <div class="grid gap-3 mt-2">
+            <article class="or-note or-note--stack">
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-medium text-[var(--ink)]">Cheap but effective</p>
+                <span class="or-badge or-badge--neutral">Best value</span>
+              </div>
+              <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+                Blanket, water bottle, lamp with warm bulb, and a wiped-down
+                desk. This covers eighty percent of the benefit.
+              </p>
+            </article>
+            <article class="or-note or-note--stack">
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-medium text-[var(--ink)]">Mid-tier den upgrade</p>
+                <span class="or-badge or-badge--neutral">Balanced</span>
+              </div>
+              <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+                Add a monitor arm, decent headphones, blackout curtain, and a
+                better chair before buying novelty nonsense.
+              </p>
+            </article>
+            <article class="or-note or-note--stack">
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-medium text-[var(--ink)]">Too much money mode</p>
+                <span class="or-badge or-badge--neutral">Danger</span>
+              </div>
+              <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+                If you are pricing LED wall panels before fixing posture, the
+                recommender is revoking your license.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <aside class="or-panel" aria-labelledby="banlist-title">
+          <p class="or-kicker">Hard vetoes</p>
+          <h2 class="text-xl font-semibold tracking-tight" id="banlist-title">What not to buy</h2>
+          <ul class="grid gap-2 pl-5 m-0 text-[var(--ink-soft)] text-sm leading-relaxed">
+            <li>A fake racing chair that squeaks like a haunted shopping cart.</li>
+            <li>Lights bright enough to interrogate yourself.</li>
+            <li>Mystery energy powder with anime branding.</li>
+            <li>A second monitor if the first one is already covered in fingerprints.</li>
+          </ul>
+          <div class="pt-2 border-t border-[var(--line)]">
+            <p class="text-[var(--ink-soft)] text-sm leading-relaxed">
+              Need another weird request? The playground still has room.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-3">
+              <a class="or-button or-button--secondary" href="/playground/">Back to playground</a>
+              <a class="or-button or-button--secondary" href="/#request-form">Submit a stranger one</a>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
