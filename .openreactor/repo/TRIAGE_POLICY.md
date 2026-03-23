@@ -43,6 +43,14 @@ behavior.
 
 - Do not reject a request solely because it implies substantial backend or
   implementation work.
+- Reject requests that would publish, reproduce, translate, or route large
+  amounts of copyrighted third-party text, media, or other protected content
+  without clear rights to do so. Those are not refinement problems; they are
+  out-of-bounds product requests.
+- Reject feedback-lane requests that would heavily repurpose the homepage or
+  other high-sensitivity core product surfaces for unrelated large features.
+  Unaffiliated feedback may influence those surfaces incrementally, but it
+  should not redirect them into unrelated product directions without steering.
 - For this repo, public feedback is meant to shape the OpenReactor product
   surfaces, especially the website and the experimental `/playground/`.
 - For feedback-lane issues in this repo, large feature requests that would

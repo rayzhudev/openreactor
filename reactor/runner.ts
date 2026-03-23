@@ -1082,7 +1082,7 @@ async function buildTriagePrompt(
   steeringUsername: string | null
 ): Promise<string> {
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
-  const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
+  const repoDocs = await resolveRepoDocumentationPaths(config.repoRoot);
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,

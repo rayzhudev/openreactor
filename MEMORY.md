@@ -374,6 +374,15 @@
   live in repo-local `TRIAGE_POLICY.md`.
   Reason: the engine should be reusable across managed repos, but different
   products need different triage behavior and sensitivity maps.
+- Decision: untouched bootstrap placeholders under `.openreactor/repo/`
+  should not override richer legacy top-level product docs.
+  Reason: placeholder repo-state files can silently strip away real product
+  rules and cause incorrect triage decisions until a repo-local policy is
+  actually curated.
+- Decision: triage should read governance docs from the live repo root, not a
+  stale issue worktree snapshot.
+  Reason: re-triage must reflect the current product policy even when an old
+  issue branch or worktree still has outdated copies of the repo-local docs.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local

@@ -164,6 +164,11 @@ Shared prompts should stay generic. Repo-specific request judgment, surface
 routing, and “what counts as core work” rules belong in the repo-local
 `TRIAGE_POLICY.md`, not in the shared engine prompts.
 
+If repo-local steering files are still untouched bootstrap placeholders and the
+repo already has richer legacy top-level product docs, the reactor should fall
+back to those richer docs instead of letting placeholder repo-state files
+silently weaken product judgment.
+
 Bootstrap that repo-local steering layer manually with:
 
 ```bash
