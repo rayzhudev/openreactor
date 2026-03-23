@@ -15,6 +15,23 @@
   the repo says which file owns which kind of truth and when each file must be
   updated.
 
+- Decision: define the live status payload through a shared contracts module
+  instead of duplicating the shape in the website bridge and the local status
+  service.
+  Reason: the status surface is now rich enough that payload drift creates
+  avoidable breakage and slows down iteration.
+
+- Decision: give managed repos a repo-scoped workspace policy file with
+  provision and teardown hooks around isolated issue worktrees.
+  Reason: repo-native execution often needs small environment or setup hooks,
+  but those should stay attached to the managed repo instead of being baked
+  into the central engine.
+
+- Decision: persist structured per-run activity events and transcript slices in
+  `.openreactor/runs/issue-*` and expose them through the live status surface.
+  Reason: counters alone are not enough for operator trust. OpenReactor needs a
+  lightweight forensic trail for what each run is doing right now.
+
 ## 2026-03-09
 
 - Decision: treat GitHub issues as the initial system of record.

@@ -68,7 +68,7 @@ A request should be rejected/deferred if:
   through a real run
 - OpenReactor status service: machine-local read-only metadata endpoint that exposes intake, triage/planning, execution, retry, blocked, and completed pipeline metadata to the website without giving the website direct control over the local runtime
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
-- Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state such as run records, live snapshots, watchdog state, archives, and repo-local steering files
+- Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state such as run records, event logs, transcripts, live snapshots, watchdog state, archives, and repo-local steering/workspace-policy files
 - Persistence (planned): application database for website/backend features that require stored data
 
 ## 6) Data Model (MVP)
@@ -77,6 +77,7 @@ Current agent-workflow state lives in:
 - GitHub labels and comments
 - GitHub pull requests
 - local `.openreactor/runs/*` state files
+- repo-local `workspace-policy.json` or `.openreactor/repo/workspace-policy.json` execution policy files
 
 Planned backend data model for product features that require stored data:
 - feature_requests
@@ -193,6 +194,8 @@ Current state:
 - the website also ships a richer live OpenReactor surface showing pipeline
   stages, service health, active agents, retries, blocked work, and recent
   completed runs
+- the live surface now also exposes recent runtime events and transcript
+  previews from active runs
 - the website ships a contributor leaderboard derived from merged PRs
 - accepted/rejected aggregate rates, PR cycle-time reporting, deployment
   success/failure reporting, and memory-update reporting are still pending
@@ -247,7 +250,13 @@ What is already live:
 15. maintainer-handoff support for maintainer-only continuation steps,
 16. a local watchdog layer that supervises the reactor, stalled issue handling,
     queue deadlocks, and some OpenReactor self-repair cases,
-17. and an OpenReactor Autonomous Test Run command for deliberate end-to-end
+17. a repo-scoped workspace policy file that can inject runtime env and run
+    provision/teardown hooks around isolated issue worktrees,
+18. structured per-run event and transcript artifacts that feed the live status
+    surface with recent activity and transcript previews,
+19. a shared status contract package used by the local status service and the
+    website bridge,
+20. and an OpenReactor Autonomous Test Run command for deliberate end-to-end
     canary verification.
 
 The following are still deferred:

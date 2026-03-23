@@ -5,12 +5,14 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { resolveDefaultBranch, type OrchestratorConfig } from "./config";
 import type { GitHubIssue, GitHubIssueComment } from "./github";
 import { resolveRepoDocumentationPaths } from "./repo-state";
+import { appendRunActivity, appendTranscriptEntry } from "./runtime-artifacts";
 import {
   DEFAULT_AGENT_TOOL,
   describeAgentToolsForPrompt,
   getAgentTool,
   type AgentToolName
 } from "./agent-tools";
+import { runWorkspacePolicyCommand } from "./workspace-policy";
 
 export interface AgentTestResult {
   command: string;
@@ -123,6 +125,8 @@ export interface IssueRuntimePaths {
   worktreePath: string;
   branchName: string;
   runFilePath: string;
+  eventsPath: string;
+  transcriptPath: string;
   triagePromptPath: string;
   triageResultPath: string;
   triageLogPath: string;
@@ -183,6 +187,8 @@ export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: numbe
     worktreePath,
     branchName,
     runFilePath: path.join(runDir, "run.json"),
+    eventsPath: path.join(runDir, "events.jsonl"),
+    transcriptPath: path.join(runDir, "transcript.jsonl"),
     triagePromptPath: path.join(runDir, "triage.prompt.md"),
     triageResultPath: path.join(runDir, "triage.result.json"),
     triageLogPath: path.join(runDir, "triage.log"),
@@ -379,6 +385,16 @@ export async function ensureIssueWorktree(
   await fs.mkdir(config.worktreesDir, { recursive: true });
 
   if (await pathExists(paths.worktreePath)) {
+    await appendRunActivity(paths.runDir, {
+      issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+      kind: "workspace",
+      title: "Reused issue workspace",
+      message: `Using existing worktree at ${paths.worktreePath}.`,
+      data: {
+        branchName: paths.branchName,
+        executionMode: config.workspacePolicy.executionMode ?? "isolated-worktree"
+      }
+    });
     return;
   }
 
@@ -402,23 +418,96 @@ export async function ensureIssueWorktree(
       paths.worktreePath,
       paths.branchName
     ]);
-    return;
+  } else {
+    await runCommand("git", [
+      "-C",
+      config.repoRoot,
+      "worktree",
+      "add",
+      "-b",
+      paths.branchName,
+      paths.worktreePath,
+      `origin/${config.defaultBranch}`
+    ]);
   }
 
-  await runCommand("git", [
-    "-C",
-    config.repoRoot,
-    "worktree",
-    "add",
-    "-b",
-    paths.branchName,
-    paths.worktreePath,
-    `origin/${config.defaultBranch}`
-  ]);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+    kind: "workspace",
+    title: "Prepared issue workspace",
+    message: `Created isolated worktree at ${paths.worktreePath}.`,
+    data: {
+      branchName: paths.branchName,
+      executionMode: config.workspacePolicy.executionMode ?? "isolated-worktree"
+    }
+  });
+
+  if (config.workspacePolicy.provisionCommand) {
+    await appendRunActivity(paths.runDir, {
+      issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+      kind: "workspace",
+      title: "Provisioning workspace",
+      message: `Running workspace provision command from ${config.workspacePolicyPath ?? "inline policy"}.`,
+      data: {
+        command: config.workspacePolicy.provisionCommand
+      }
+    });
+
+    try {
+      const result = await runWorkspacePolicyCommand({
+        command: config.workspacePolicy.provisionCommand,
+        cwd: paths.worktreePath,
+        env: config.workspacePolicy.env,
+        phase: "provision",
+        policyPath: config.workspacePolicyPath,
+        issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+        branchName: paths.branchName,
+        runDir: paths.runDir
+      });
+
+      await appendRunActivity(paths.runDir, {
+        issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+        kind: "workspace",
+        title: "Workspace provisioned",
+        message: "Provision command completed successfully.",
+        data: {
+          command: config.workspacePolicy.provisionCommand,
+          stdout: truncateForEvent(result.stdout),
+          stderr: truncateForEvent(result.stderr)
+        }
+      });
+    } catch (error) {
+      await appendRunActivity(paths.runDir, {
+        issueNumber: parseIssueNumberFromRunDir(paths.runDir),
+        kind: "workspace",
+        level: "error",
+        title: "Workspace provisioning failed",
+        message: error instanceof Error ? error.message : "Provision command failed.",
+        data: {
+          command: config.workspacePolicy.provisionCommand
+        }
+      });
+      throw error;
+    }
+  }
 }
 
 async function refreshOriginDefaultBranch(repoRoot: string, defaultBranch: string): Promise<void> {
   await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", defaultBranch]);
+}
+
+function parseIssueNumberFromRunDir(runDir: string): number {
+  const match = path.basename(runDir).match(/^issue-(\d+)$/);
+  return Number.parseInt(match?.[1] ?? "0", 10) || 0;
+}
+
+function truncateForEvent(value: string, maxLength = 400): string {
+  const normalized = value.trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 export async function ensureRemoteBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
@@ -517,12 +606,14 @@ async function spawnCodexIssueAgent(input: {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      ...(config.workspacePolicy.env ?? {}),
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
       OPENREACTOR_ENGINE_ROOT: config.engineRoot,
       OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
+      OPENREACTOR_WORKSPACE_POLICY_PATH: config.workspacePolicyPath ?? "",
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -542,7 +633,13 @@ async function spawnCodexIssueAgent(input: {
 
   child.stdin.end(prompt);
 
-  await attachProcessLogging(child, logPath);
+  await attachProcessLogging(child, logPath, {
+    runDir: paths.runDir,
+    issueNumber: issue.number,
+    iteration,
+    provider: "codex",
+    toolName: "spawn_codex_issue_agent"
+  });
 
   const record: RunRecord = {
     ...input.record,
@@ -555,6 +652,18 @@ async function spawnCodexIssueAgent(input: {
     lastError: ""
   };
   await writeRunRecord(paths, record);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: issue.number,
+    iteration,
+    kind: "process",
+    title: "Started issue agent",
+    message: `Launched ${getAgentTool("spawn_codex_issue_agent").label}.`,
+    data: {
+      provider: "codex",
+      model: config.agentModel,
+      reasoningEffort: config.agentReasoningEffort
+    }
+  });
 
   const heartbeatTimer = setInterval(() => {
     record.updatedAt = new Date().toISOString();
@@ -624,12 +733,14 @@ async function spawnCodexPlannerAgent(input: {
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      ...(config.workspacePolicy.env ?? {}),
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
       OPENREACTOR_ENGINE_ROOT: config.engineRoot,
       OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
+      OPENREACTOR_WORKSPACE_POLICY_PATH: config.workspacePolicyPath ?? "",
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -644,7 +755,13 @@ async function spawnCodexPlannerAgent(input: {
 
   child.stdin.end(prompt);
 
-  await attachProcessLogging(child, logPath);
+  await attachProcessLogging(child, logPath, {
+    runDir: paths.runDir,
+    issueNumber: issue.number,
+    iteration,
+    provider: "codex",
+    toolName: "spawn_codex_planner_agent"
+  });
 
   const record: RunRecord = {
     ...input.record,
@@ -657,6 +774,18 @@ async function spawnCodexPlannerAgent(input: {
     lastError: ""
   };
   await writeRunRecord(paths, record);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: issue.number,
+    iteration,
+    kind: "process",
+    title: "Started planner agent",
+    message: `Launched ${getAgentTool("spawn_codex_planner_agent").label}.`,
+    data: {
+      provider: "codex",
+      model: config.plannerModel,
+      reasoningEffort: config.plannerReasoningEffort
+    }
+  });
 
   const heartbeatTimer = setInterval(() => {
     record.updatedAt = new Date().toISOString();
@@ -756,12 +885,14 @@ async function spawnClaudeAgent(
     cwd: paths.worktreePath,
     env: {
       ...process.env,
+      ...(config.workspacePolicy.env ?? {}),
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
       OPENREACTOR_ENGINE_ROOT: config.engineRoot,
       OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
+      OPENREACTOR_WORKSPACE_POLICY_PATH: config.workspacePolicyPath ?? "",
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir,
@@ -776,7 +907,13 @@ async function spawnClaudeAgent(
 
   child.stdin.end(prompt);
 
-  const stdoutChunks = await attachProcessLogging(child, logPath);
+  const stdoutChunks = await attachProcessLogging(child, logPath, {
+    runDir: paths.runDir,
+    issueNumber: issue.number,
+    iteration,
+    provider: "claude",
+    toolName
+  });
 
   const record: RunRecord = {
     ...input.record,
@@ -789,6 +926,18 @@ async function spawnClaudeAgent(
     lastError: ""
   };
   await writeRunRecord(paths, record);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: issue.number,
+    iteration,
+    kind: "process",
+    title: "Started issue agent",
+    message: `Launched ${getAgentTool(toolName).label}.`,
+    data: {
+      provider: "claude",
+      model: config.claudeUiModel,
+      reasoningEffort: config.claudeUiEffort
+    }
+  });
 
   const heartbeatTimer = setInterval(() => {
     record.updatedAt = new Date().toISOString();
@@ -858,12 +1007,14 @@ export async function runIssueTriage(input: {
     cwd: config.repoRoot,
     env: {
       ...process.env,
+      ...(config.workspacePolicy.env ?? {}),
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
       OPENREACTOR_REPO_NAME: config.repo,
       OPENREACTOR_ENGINE_ROOT: config.engineRoot,
       OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
+      OPENREACTOR_WORKSPACE_POLICY_PATH: config.workspacePolicyPath ?? "",
       OPENREACTOR_ISSUE_NUMBER: String(issue.number),
       OPENREACTOR_ISSUE_URL: issue.html_url,
       OPENREACTOR_RUN_DIR: paths.runDir
@@ -873,19 +1024,39 @@ export async function runIssueTriage(input: {
 
   child.stdin.end(prompt);
 
-  const logHandle = await fs.open(paths.triageLogPath, "w");
-  child.stdout.on("data", (chunk) => {
-    void logHandle.appendFile(chunk);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: issue.number,
+    kind: "process",
+    title: "Started triage pass",
+    message: "Launched lightweight triage.",
+    data: {
+      provider: "codex",
+      model: config.triageModel,
+      reasoningEffort: config.triageReasoningEffort
+    }
   });
-  child.stderr.on("data", (chunk) => {
-    void logHandle.appendFile(chunk);
-  });
-  child.on("close", () => {
-    void logHandle.close();
+  await attachProcessLogging(child, paths.triageLogPath, {
+    runDir: paths.runDir,
+    issueNumber: issue.number,
+    provider: "codex",
+    toolName: null
   });
 
   const exitCode = await waitForExit(child);
   const result = await parseTriageResult(paths.triageResultPath);
+  await appendRunActivity(paths.runDir, {
+    issueNumber: issue.number,
+    kind: "process",
+    level: result ? "info" : "warn",
+    title: "Finished triage pass",
+    message: result
+      ? `Triage returned ${result.outcome}.`
+      : `Triage exited without a structured result (exit code ${exitCode ?? "unknown"}).`,
+    data: {
+      exitCode,
+      outcome: result?.outcome ?? null
+    }
+  });
   return {
     result,
     exitCode,
@@ -926,6 +1097,22 @@ export async function finalizeIssueAgentRun(input: {
   input.activeRun.record.lastError =
     exitCode === 0 && parsedResult ? "" : `codex exited with code ${exitCode ?? "unknown"}`;
   await writeRunRecord(input.paths, input.activeRun.record);
+  await appendRunActivity(input.paths.runDir, {
+    issueNumber: input.activeRun.issue.number,
+    iteration: input.activeRun.record.iteration,
+    kind: "process",
+    level: parsedResult ? "info" : "warn",
+    title: "Finished issue agent run",
+    message: parsedResult
+      ? `Run completed with outcome ${parsedResult.outcome}.`
+      : `Run exited without a structured result (exit code ${exitCode ?? "unknown"}).`,
+    data: {
+      exitCode,
+      outcome: parsedResult?.outcome ?? null,
+      provider: input.activeRun.executionTemplate.providerKey,
+      toolName: input.activeRun.executionTemplate.toolName
+    }
+  });
 
   return {
     result: parsedResult,
@@ -1412,7 +1599,14 @@ export async function prepareRunReferenceImages(
 
 async function attachProcessLogging(
   child: ChildProcessWithoutNullStreams,
-  logPath: string
+  logPath: string,
+  input: {
+    runDir: string;
+    issueNumber: number;
+    iteration?: number;
+    provider?: string | null;
+    toolName?: AgentToolName | null;
+  }
 ): Promise<string[]> {
   const stdoutChunks: string[] = [];
   const logHandle = await fs.open(logPath, "w");
@@ -1421,9 +1615,26 @@ async function attachProcessLogging(
     const text = chunk.toString();
     stdoutChunks.push(text);
     void logHandle.appendFile(text);
+    void appendTranscriptEntry(input.runDir, {
+      issueNumber: input.issueNumber,
+      iteration: input.iteration,
+      stream: "stdout",
+      provider: input.provider ?? null,
+      toolName: input.toolName ?? null,
+      text
+    });
   });
   child.stderr.on("data", (chunk) => {
-    void logHandle.appendFile(chunk);
+    const text = chunk.toString();
+    void logHandle.appendFile(text);
+    void appendTranscriptEntry(input.runDir, {
+      issueNumber: input.issueNumber,
+      iteration: input.iteration,
+      stream: "stderr",
+      provider: input.provider ?? null,
+      toolName: input.toolName ?? null,
+      text
+    });
   });
   child.on("close", () => {
     void logHandle.close();

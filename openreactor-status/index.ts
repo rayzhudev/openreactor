@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { OpenReactorStatusPayload } from "../packages/contracts/src/openreactor-status";
 import { loadConfig as loadReactorConfig } from "../reactor/config";
 import { GitHubClient, type GitHubIssue } from "../reactor/github";
 import {
@@ -8,6 +9,10 @@ import {
   readReactorLiveSnapshot,
   type ReactorLiveSnapshot
 } from "../reactor/live-status";
+import {
+  readRecentActivityAcrossRuns,
+  readRecentTranscriptEntries
+} from "../reactor/runtime-artifacts";
 import {
   isServiceActive,
   loadOpenReactorStatusConfig,
@@ -129,10 +134,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   }
 }
 
-async function buildStatusPayload(): Promise<Record<string, unknown>> {
+async function buildStatusPayload(): Promise<OpenReactorStatusPayload> {
   const reactorSnapshot = await readReactorLiveSnapshot(reactorConfig.repoRoot);
   const watchdogState = await readWatchdogState();
   const runRecords = await listRunRecordSummaries();
+  const activeAgents = await hydrateActiveAgents(reactorSnapshot);
+  const recentEvents = (await readRecentActivityAcrossRuns(reactorConfig.runsDir, 12)).map(
+    sanitizePublicEvent
+  );
   const openIssues = await github.listOpenIssues();
   const openIssueMap = new Map(openIssues.map((issue) => [issue.number, issue] as const));
   const handoffs = await listMaintainerHandoffs(openIssueMap);
@@ -154,16 +163,19 @@ async function buildStatusPayload(): Promise<Record<string, unknown>> {
       watchdog: summarizeService(watchdogService, watchdogState?.updatedAt ?? null)
     },
     agents: {
-      activeCount: reactorSnapshot?.activeAgents.length ?? 0,
+      activeCount: activeAgents.length,
       pendingRetryCount: reactorSnapshot?.reactor.pendingRetryCount ?? 0,
       maxConcurrentIssues: reactorSnapshot?.reactor.maxConcurrentIssues ?? reactorConfig.maxConcurrentIssues,
-      items: reactorSnapshot?.activeAgents ?? []
+      items: activeAgents
     },
     blockers: {
       pausedCount: pausedIssues.length,
       pausedIssues,
       maintainerHandoffCount: handoffs.length,
       maintainerHandoffs: handoffs
+    },
+    activity: {
+      recentEvents
     },
     pipeline: buildLocalPipeline({
       generatedAt: now,
@@ -173,6 +185,79 @@ async function buildStatusPayload(): Promise<Record<string, unknown>> {
       maintainerHandoffs: handoffs
     })
   };
+}
+
+async function hydrateActiveAgents(
+  reactorSnapshot: ReactorLiveSnapshot | null
+): Promise<Array<Record<string, unknown>>> {
+  const activeAgents = reactorSnapshot?.activeAgents ?? [];
+
+  return Promise.all(
+    activeAgents.map(async (agent) => ({
+      issueNumber: agent.issueNumber,
+      issueTitle: agent.issueTitle,
+      issueUrl: agent.issueUrl,
+      branchName: agent.branchName,
+      iteration: agent.iteration,
+      targetSurface: agent.targetSurface,
+      toolName: agent.toolName,
+      toolLabel: agent.toolLabel,
+      provider: agent.provider,
+      primaryUse: agent.primaryUse,
+      sensitivity: agent.sensitivity,
+      evidenceStrength: agent.evidenceStrength,
+      startedAt: agent.startedAt,
+      updatedAt: agent.updatedAt,
+      lastHeartbeatAt: agent.lastHeartbeatAt,
+      status: agent.status,
+      summary: typeof agent.summary === "string" ? sanitizePublicText(agent.summary, 220) : null,
+      transcriptPreview: (await readRecentTranscriptEntries(agent.runDir, 6)).map(
+        sanitizePublicTranscriptEntry
+      )
+    }))
+  );
+}
+
+function sanitizePublicEvent(event: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: event.id,
+    at: event.at,
+    issueNumber: event.issueNumber,
+    iteration: event.iteration,
+    kind: event.kind,
+    level: event.level,
+    title: sanitizePublicText(typeof event.title === "string" ? event.title : ""),
+    message: sanitizePublicText(typeof event.message === "string" ? event.message : "")
+  };
+}
+
+function sanitizePublicTranscriptEntry(entry: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: entry.id,
+    at: entry.at,
+    issueNumber: entry.issueNumber,
+    iteration: entry.iteration,
+    stream: entry.stream,
+    provider: entry.provider,
+    toolName: entry.toolName,
+    text: sanitizePublicText(typeof entry.text === "string" ? entry.text : "", 240)
+  };
+}
+
+function sanitizePublicText(value: string, maxLength = 320): string {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  const redacted = collapsed
+    .replace(/gh[pousr]_[A-Za-z0-9_]+/g, "[redacted-token]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted-token]")
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, "[redacted-token]")
+    .replace(/\b(AWS|GITHUB|OPENAI|CLOUDFLARE|TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*=([^\s]+)/gi, "$1=[redacted]")
+    .replace(/-----BEGIN [^-]+-----.*?-----END [^-]+-----/g, "[redacted-key]");
+
+  if (redacted.length <= maxLength) {
+    return redacted;
+  }
+
+  return `${redacted.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 async function listRunRecordSummaries(): Promise<RunRecordSummary[]> {

@@ -11,6 +11,7 @@
     "skipLibCheck": true
   },
   "include": [
+    "packages/**/*.ts",
     "reactor/**/*.ts",
     "watchdog/**/*.ts",
     "functions/**/*.ts",

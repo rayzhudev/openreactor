@@ -1,5 +1,11 @@
 import { Buffer } from "node:buffer";
 import { createPrivateKey } from "node:crypto";
+import {
+  mergeOpenReactorStatusPayload,
+  type OpenReactorPipelineStage,
+  type OpenReactorStatusPayload
+} from "../packages/contracts/src/openreactor-status";
+export { mergeOpenReactorStatusPayload } from "../packages/contracts/src/openreactor-status";
 
 const REQUEST_MARKER = "<!-- openreactor:feature-request -->";
 const STATUS_COMMENT_MARKER = "<!-- openreactor:status -->";
@@ -228,34 +234,6 @@ interface LeaderboardContributor {
   };
 }
 
-type OpenReactorPipelineStage = {
-  key: string;
-  label: string;
-  available: boolean;
-  itemCount: number;
-  items: Array<Record<string, unknown>>;
-  recentTriage?: Array<Record<string, unknown>>;
-  pendingCount?: number;
-  source?: string;
-  error?: string;
-};
-
-type OpenReactorStatusPayload = {
-  ok?: boolean;
-  available?: boolean;
-  generatedAt?: string;
-  repo?: Record<string, unknown>;
-  services?: Record<string, unknown>;
-  agents?: Record<string, unknown>;
-  blockers?: Record<string, unknown>;
-  pipeline?: {
-    version?: number;
-    generatedAt?: string;
-    stages?: OpenReactorPipelineStage[];
-  };
-  error?: string;
-};
-
 export async function handleMeta(env: Env): Promise<Response> {
   return jsonResponse({
     configured: isRepoConfigured(env),
@@ -349,44 +327,6 @@ async function fetchLocalOpenReactorStatus(env: NormalizedEnv): Promise<OpenReac
   return data;
 }
 
-export function mergeOpenReactorStatusPayload(
-  localStatus: OpenReactorStatusPayload | null,
-  intakeStage: OpenReactorPipelineStage,
-  localError = ""
-): Record<string, unknown> {
-  const fallbackPipeline = buildFallbackPipeline({ intakeStage });
-  const localPipelineStages = Array.isArray(localStatus?.pipeline?.stages) ? localStatus.pipeline?.stages : [];
-
-  return {
-    ok: localStatus?.ok ?? true,
-    available: Boolean(localStatus?.available),
-    generatedAt: localStatus?.generatedAt ?? new Date().toISOString(),
-    repo: localStatus?.repo ?? null,
-    services: localStatus?.services ?? {
-      reactor: null,
-      watchdog: null
-    },
-    agents: localStatus?.agents ?? {
-      activeCount: 0,
-      pendingRetryCount: 0,
-      maxConcurrentIssues: 0,
-      items: []
-    },
-    blockers: localStatus?.blockers ?? {
-      pausedCount: 0,
-      pausedIssues: [],
-      maintainerHandoffCount: 0,
-      maintainerHandoffs: []
-    },
-    pipeline: {
-      version: Number(localStatus?.pipeline?.version ?? 1),
-      generatedAt: localStatus?.pipeline?.generatedAt ?? localStatus?.generatedAt ?? new Date().toISOString(),
-      stages: [intakeStage, ...(localPipelineStages.length ? localPipelineStages : fallbackPipeline.stages.slice(1))]
-    },
-    ...(localError ? { error: localError } : {})
-  };
-}
-
 export function buildIntakeStage(
   issues: GitHubIssue[],
   input?: {
@@ -415,37 +355,6 @@ export function buildIntakeStage(
     items,
     source: "github",
     ...(input?.error ? { error: input.error } : {})
-  };
-}
-
-function buildFallbackPipeline(input: { intakeStage: OpenReactorPipelineStage }): {
-  version: number;
-  generatedAt: string;
-  stages: OpenReactorPipelineStage[];
-} {
-  return {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    stages: [
-      input.intakeStage,
-      buildUnavailableStage("triage-planning", "Triage & planning"),
-      buildUnavailableStage("execution", "Execution"),
-      buildUnavailableStage("retry", "Retry"),
-      buildUnavailableStage("blocked", "Blocked"),
-      buildUnavailableStage("completed", "Completed")
-    ]
-  };
-}
-
-function buildUnavailableStage(key: string, label: string): OpenReactorPipelineStage {
-  return {
-    key,
-    label,
-    available: false,
-    itemCount: 0,
-    items: [],
-    source: "local-runtime",
-    error: "Live OpenReactor runtime metadata is unavailable."
   };
 }
 
@@ -1761,7 +1670,7 @@ function buildIssueCreateUrl(env: Env, input: ValidatedFeatureRequest, request: 
 }
 
 function jsonResponse(
-  data: Record<string, unknown>,
+  data: unknown,
   status = 200,
   extraHeaders: Record<string, string> = {}
 ): Response {

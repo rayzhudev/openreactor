@@ -10,7 +10,9 @@ import {
   hasMergeConflict,
   isExpectedDirectMergeWaitError
 } from "../reactor/pull-request-state";
+import { appendRunActivity } from "../reactor/runtime-artifacts";
 import { issueRuntimePaths, readRunRecord, type RunRecord } from "../reactor/runner";
+import { runWorkspacePolicyCommand } from "../reactor/workspace-policy";
 import { loadWatchdogConfig, type WatchdogConfig } from "./config";
 
 const WATCHDOG_COMMENT_MARKER = "<!-- openreactor:watchdog -->";
@@ -839,6 +841,50 @@ class Watchdog {
     );
 
     await fs.mkdir(archiveRoot, { recursive: true });
+
+    if (this.reactorConfig.workspacePolicy.teardownCommand) {
+      await appendRunActivity(paths.runDir, {
+        issueNumber,
+        kind: "workspace",
+        title: "Tearing down workspace",
+        message: "Watchdog is running the workspace teardown command before resetting this issue runtime.",
+        data: {
+          command: this.reactorConfig.workspacePolicy.teardownCommand
+        }
+      });
+
+      try {
+        const result = await runWorkspacePolicyCommand({
+          command: this.reactorConfig.workspacePolicy.teardownCommand,
+          cwd: paths.worktreePath,
+          env: this.reactorConfig.workspacePolicy.env,
+          phase: "teardown",
+          policyPath: this.reactorConfig.workspacePolicyPath,
+          issueNumber,
+          branchName,
+          runDir: paths.runDir
+        });
+
+        await appendRunActivity(paths.runDir, {
+          issueNumber,
+          kind: "workspace",
+          title: "Workspace teardown finished",
+          message: "Teardown command completed successfully.",
+          data: {
+            stdout: result.stdout.trim().slice(0, 400),
+            stderr: result.stderr.trim().slice(0, 400)
+          }
+        });
+      } catch (error) {
+        await appendRunActivity(paths.runDir, {
+          issueNumber,
+          kind: "workspace",
+          level: "warn",
+          title: "Workspace teardown failed",
+          message: error instanceof Error ? error.message : "Teardown command failed during watchdog reset."
+        });
+      }
+    }
 
     try {
       await fs.rename(paths.runDir, path.join(archiveRoot, "run"));
