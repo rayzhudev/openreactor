@@ -44,6 +44,14 @@ export async function resolveRepoDocumentationPaths(repoRoot: string): Promise<R
 async function preferRepoStateDoc(repoRoot: string, fileName: string): Promise<string> {
   const repoStatePath = path.join(repoRoot, REPO_STATE_DIR, fileName);
   if (await pathExists(repoStatePath)) {
+    const legacyPath = path.join(repoRoot, fileName);
+    if (
+      (await pathExists(legacyPath)) &&
+      isLikelyBootstrapPlaceholder(fileName, (await readOptionalText(repoStatePath)) ?? "")
+    ) {
+      return legacyPath;
+    }
+
     return repoStatePath;
   }
 
@@ -79,7 +87,7 @@ export async function initializeRepoState(
       continue;
     }
 
-    await fs.writeFile(targetPath, template, "utf8");
+    await fs.writeFile(targetPath, await seedRepoStateContent(repoRoot, fileName, template), "utf8");
     writtenPaths.push(targetPath);
   }
 
@@ -241,14 +249,25 @@ function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<str
       "",
       "- Add dated decisions with a short reason so future agents inherit them."
     ].join("\n") + "\n"
-    ,
-    "workspace-policy.json": [
-      "{",
-      '  "version": 1,',
-      '  "executionMode": "isolated-worktree"',
-      "}"
-    ].join("\n") + "\n"
   };
+}
+
+async function seedRepoStateContent(
+  repoRoot: string,
+  fileName: string,
+  template: string
+): Promise<string> {
+  if (fileName === "README.md" || fileName === "TRIAGE_POLICY.md") {
+    return template;
+  }
+
+  const legacyPath = path.join(repoRoot, fileName);
+  const legacyContent = await readOptionalText(legacyPath);
+  if (legacyContent?.trim()) {
+    return legacyContent.endsWith("\n") ? legacyContent : `${legacyContent}\n`;
+  }
+
+  return template;
 }
 
 function summarizeReadme(readmeBody: string): string {
@@ -310,3 +329,42 @@ async function readOptionalText(filePath: string): Promise<string | null> {
     return null;
   }
 }
+
+function isLikelyBootstrapPlaceholder(fileName: string, content: string): boolean {
+  const normalized = content.trim();
+  if (!normalized) {
+    return true;
+  }
+
+  const markers = BOOTSTRAP_PLACEHOLDER_MARKERS[fileName];
+  if (!markers?.length) {
+    return false;
+  }
+
+  return markers.some((marker) => normalized.includes(marker));
+}
+
+const BOOTSTRAP_PLACEHOLDER_MARKERS: Record<string, string[]> = {
+  "README.md": [
+    "This directory contains the repo-local OpenReactor state for this product.",
+    "Treat these files as the product steering layer for this repository."
+  ],
+  "PRODUCT_SPEC.md": [
+    "Describe what this repository's product is, who it is for, and what the main user-facing surfaces are.",
+    "- List the main user journeys.",
+    "- Document any technical or product constraints that issue agents should respect."
+  ],
+  "PRODUCT_CONSTITUTION.md": [
+    "State what this product is meant to optimize for.",
+    "- List the durable product rules agents should treat as binding.",
+    "- Note what kinds of requests should be rejected."
+  ],
+  "ROADMAP.md": [
+    "- Add the current priorities for this repo.",
+    "- Add ideas that are explicitly out of scope for the current stage."
+  ],
+  "MEMORY.md": [
+    "Record durable product and workflow learnings here.",
+    "- Add dated decisions with a short reason so future agents inherit them."
+  ]
+};

@@ -149,6 +149,10 @@ Shared engine prompts should remain reusable across repos. Repo-specific triage
 heuristics, surface routing, and “core work” policy belong in repo-local
 steering files, especially `.openreactor/repo/TRIAGE_POLICY.md`.
 
+If a repo-local steering file is still an untouched bootstrap placeholder while
+the repo already has richer legacy top-level docs, OpenReactor should prefer
+the richer legacy doc until the repo-local file is actually curated.
+
 When a triage rule, merge gate, prompt rule, or other OpenReactor mechanism
 would improve behavior across managed repos, the change belongs in the root
 OpenReactor engine repo. Repo-local constitutions should carry product-specific
@@ -162,6 +166,10 @@ For managed repos, initialization should prefer inference over blank setup:
 - infer a first-pass product description and product constitution from that
   material
 - open a bootstrap PR that creates `.openreactor/repo/`
+
+Triage should read governance and product-policy docs from the live repo root,
+not from a stale issue worktree snapshot, so re-triage reflects the current
+product rules.
 
 The current bootstrap helper seeds that first pass from the repo README and the
 existing GitHub issues when those inputs are available.

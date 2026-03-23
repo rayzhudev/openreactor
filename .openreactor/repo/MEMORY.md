@@ -23,3 +23,13 @@ feed their learnings back into the system again.
   narrowing discussion, or explicit steering. That validation should happen
   before decomposition, so under-validated parent requests do not become a
   large child-issue backlog by default.
+- Decision: in the `openreactor` repo, requests to publish or translate large
+  amounts of copyrighted third-party content without clear rights should be
+  rejected directly rather than banked for refinement.
+  Reason: that is an out-of-bounds legal/content-rights problem, not a normal
+  product-scope ambiguity.
+- Decision: in the `openreactor` repo, unaffiliated feedback should not
+  heavily repurpose the homepage or other high-sensitivity core surfaces for
+  unrelated large features.
+  Reason: those surfaces are product-defining and should only move
+  incrementally from feedback unless stronger validation or steering exists.

@@ -15,23 +15,6 @@
   the repo says which file owns which kind of truth and when each file must be
   updated.
 
-- Decision: define the live status payload through a shared contracts module
-  instead of duplicating the shape in the website bridge and the local status
-  service.
-  Reason: the status surface is now rich enough that payload drift creates
-  avoidable breakage and slows down iteration.
-
-- Decision: give managed repos a repo-scoped workspace policy file with
-  provision and teardown hooks around isolated issue worktrees.
-  Reason: repo-native execution often needs small environment or setup hooks,
-  but those should stay attached to the managed repo instead of being baked
-  into the central engine.
-
-- Decision: persist structured per-run activity events and transcript slices in
-  `.openreactor/runs/issue-*` and expose them through the live status surface.
-  Reason: counters alone are not enough for operator trust. OpenReactor needs a
-  lightweight forensic trail for what each run is doing right now.
-
 ## 2026-03-09
 
 - Decision: treat GitHub issues as the initial system of record.
@@ -391,6 +374,15 @@
   live in repo-local `TRIAGE_POLICY.md`.
   Reason: the engine should be reusable across managed repos, but different
   products need different triage behavior and sensitivity maps.
+- Decision: untouched bootstrap placeholders under `.openreactor/repo/`
+  should not override richer legacy top-level product docs.
+  Reason: placeholder repo-state files can silently strip away real product
+  rules and cause incorrect triage decisions until a repo-local policy is
+  actually curated.
+- Decision: triage should read governance docs from the live repo root, not a
+  stale issue worktree snapshot.
+  Reason: re-triage must reflect the current product policy even when an old
+  issue branch or worktree still has outdated copies of the repo-local docs.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local
