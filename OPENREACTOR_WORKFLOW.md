@@ -138,11 +138,22 @@ memory should live for a managed repository. The current committed layout is:
 - `.openreactor/repo/README.md`
 - `.openreactor/repo/PRODUCT_SPEC.md`
 - `.openreactor/repo/PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/TRIAGE_POLICY.md`
 - `.openreactor/repo/ROADMAP.md`
 - `.openreactor/repo/MEMORY.md`
 
 When those files exist, issue agents and triage should prefer them over the
 legacy top-level product docs.
+
+Shared engine prompts should remain reusable across repos. Repo-specific triage
+heuristics, surface routing, and “core work” policy belong in repo-local
+steering files, especially `.openreactor/repo/TRIAGE_POLICY.md`.
+
+When a triage rule, merge gate, prompt rule, or other OpenReactor mechanism
+would improve behavior across managed repos, the change belongs in the root
+OpenReactor engine repo. Repo-local constitutions should carry product-specific
+rules, but shared workflow logic should not be stranded in one private managed
+repo.
 
 For managed repos, initialization should prefer inference over blank setup:
 

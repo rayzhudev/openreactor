@@ -332,8 +332,8 @@ class Reactor {
       return true;
     }
 
-    await refreshRemoteMain(this.config.repoRoot);
-    if (await hasRepoStateOnRef(this.config.repoRoot, "origin/main")) {
+    await refreshRemoteDefaultBranch(this.config.repoRoot, this.config.defaultBranch);
+    if (await hasRepoStateOnRef(this.config.repoRoot, `origin/${this.config.defaultBranch}`)) {
       return true;
     }
 
@@ -362,7 +362,12 @@ class Reactor {
     }
 
     const bootstrapWorktreePath = path.join(this.config.worktreesDir, "bootstrap-repo-state");
-    await recreateBootstrapWorktree(this.config.repoRoot, bootstrapWorktreePath, BOOTSTRAP_BRANCH_NAME);
+    await recreateBootstrapWorktree(
+      this.config.repoRoot,
+      bootstrapWorktreePath,
+      BOOTSTRAP_BRANCH_NAME,
+      this.config.defaultBranch
+    );
     const readmeBody = await readRepoReadme(this.config.repoRoot);
     const issues = await this.loadBootstrapSeedIssues();
     await initializeRepoState(bootstrapWorktreePath, this.config.repo, {
@@ -394,7 +399,7 @@ class Reactor {
     const pullRequest = await this.github.createPullRequest({
       title: BOOTSTRAP_PR_TITLE,
       head: BOOTSTRAP_BRANCH_NAME,
-      base: "main",
+      base: this.config.defaultBranch,
       body: buildBootstrapPullRequestBody({
         repoName: this.config.repo,
         readmeDetected: Boolean(readmeBody.trim()),
@@ -711,6 +716,14 @@ class Reactor {
         continue;
       }
 
+      const headSha = fullPullRequest.head?.sha?.trim();
+      if (headSha) {
+        const checks = await this.github.summarizeChecksForRef(headSha);
+        if (checks.hasFailing || checks.hasPending) {
+          continue;
+        }
+      }
+
       if (await this.github.isPullRequestAutoMergeEnabled(fullPullRequest.number)) {
         continue;
       }
@@ -755,7 +768,7 @@ class Reactor {
       await this.github.createComment(
         pullRequest.number,
         [
-          "OpenReactor detected that this PR is blocked by merge conflicts with `main`.",
+          `OpenReactor detected that this PR is blocked by merge conflicts with \`${this.config.defaultBranch}\`.`,
           "",
           `The reactor is reclaiming issue #${issue.number} on branch \`${paths.branchName}\` to refresh this PR instead of leaving it hanging.`
         ].join("\n")
@@ -1657,6 +1670,33 @@ class Reactor {
 
     const openPullRequest = await this.github.findOpenPullRequestByBranch(branchName);
     if (openPullRequest) {
+      const fullPullRequest = await this.github.getPullRequest(openPullRequest.number);
+      const headSha = fullPullRequest.head?.sha?.trim();
+      if (headSha) {
+        const checks = await this.github.summarizeChecksForRef(headSha);
+        if (checks.hasPending) {
+          return {
+            ok: false,
+            reason: `GitHub checks are still pending for PR ${fullPullRequest.html_url}`
+          };
+        }
+
+        if (checks.hasFailing) {
+          const detail = checks.failing.length ? `: ${checks.failing.join(", ")}` : "";
+          return {
+            ok: false,
+            reason: `GitHub checks are failing for PR ${fullPullRequest.html_url}${detail}`
+          };
+        }
+
+        if (checks.hasAnyChecks && checks.passingCount < 1) {
+          return {
+            ok: false,
+            reason: `GitHub checks did not report a passing result for PR ${fullPullRequest.html_url}`
+          };
+        }
+      }
+
       return { ok: true, pullRequest: openPullRequest };
     }
 
@@ -1951,14 +1991,18 @@ async function hasLegacyRepoProductDocs(repoRoot: string): Promise<boolean> {
   return checks.every(Boolean);
 }
 
-async function refreshRemoteMain(repoRoot: string): Promise<void> {
-  await execFileAsync("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
+async function refreshRemoteDefaultBranch(
+  repoRoot: string,
+  defaultBranch: string
+): Promise<void> {
+  await execFileAsync("git", ["-C", repoRoot, "fetch", "--prune", "origin", defaultBranch]);
 }
 
 async function recreateBootstrapWorktree(
   repoRoot: string,
   worktreePath: string,
-  branchName: string
+  branchName: string,
+  defaultBranch: string
 ): Promise<void> {
   try {
     await execFileAsync("git", ["-C", repoRoot, "worktree", "remove", "--force", worktreePath]);
@@ -1980,7 +2024,7 @@ async function recreateBootstrapWorktree(
     "-b",
     branchName,
     worktreePath,
-    "origin/main"
+    `origin/${defaultBranch}`
   ]);
 }
 
@@ -2031,6 +2075,7 @@ function buildBootstrapPullRequestBody(input: {
     "- `.openreactor/repo/README.md`",
     "- `.openreactor/repo/PRODUCT_SPEC.md`",
     "- `.openreactor/repo/PRODUCT_CONSTITUTION.md`",
+    "- `.openreactor/repo/TRIAGE_POLICY.md`",
     "- `.openreactor/repo/ROADMAP.md`",
     "- `.openreactor/repo/MEMORY.md`",
     "- `.gitignore` rules so runtime state stays local while repo steering stays committed",

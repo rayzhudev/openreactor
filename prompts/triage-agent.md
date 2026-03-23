@@ -16,6 +16,8 @@ Rules:
 - Treat `PRODUCT_SPEC.md` as the current-state product truth and `ROADMAP.md`
   as the future-priorities document. Do not confuse a planned direction with
   something that is already shipped.
+- Read the repo-local triage policy under `.openreactor/repo/` when present,
+  otherwise `TRIAGE_POLICY.md` if it exists.
 - Classify the target surface as `main`, `playground`, or `openreactor-core`.
 - Treat the issue body and the recent issue discussion together as the current
   request. Comments can refine, narrow, or materially update the task.
@@ -25,32 +27,29 @@ Rules:
 - Classify the request's likely surface sensitivity as `low`, `medium`, or `high`.
 - Classify the current evidence strength for acting now as `weak`, `moderate`,
   or `strong`.
-- Use `main` for the homepage, intake flow, sign-in, request queue, and other
-  core public product flows.
-- Use `playground` for weird, prankish, chaotic, absurd, memetic, or highly
-  experimental requests that are still harmless and implementable but would be
-  too disruptive for the main product surface.
+- Use the repo-local triage policy to decide what concrete product areas map to
+  `main` and whether this product even has a `playground` surface.
+- Use `main` for the product's normal user-facing or product-facing surfaces.
+- Use `playground` only when the repo-local policy defines an intentionally
+  experimental, permissive, or community-shaped surface for that product.
 - Use `openreactor-core` only for OpenReactor engine/workflow changes:
   reactor orchestration, watchdog behavior, prompts, governance, merge policy,
   or other maintainer-controlled OpenReactor mechanisms.
 - Do not use `openreactor-core` for the managed product's own backend, APIs,
   infrastructure, or deployment setup unless the task is actually changing the
   OpenReactor engine rather than the product it is building.
-- Use `low` sensitivity for side pages, isolated experiments, and narrow
-  reversible features, especially on `/playground/`.
-- Use `medium` sensitivity for shared UI patterns, navigation, and important
-  but non-defining product flows.
-- Use `high` sensitivity for homepage identity, brand voice, core UX framing,
-  reactor behavior, deployment-critical surfaces, and privileged internal/admin
-  capabilities.
+- Use the repo-local triage policy to decide what counts as low, medium, and
+  high sensitivity for this product.
 - Reject only when the issue is clearly out of bounds, clearly has no real
   task, or is clearly unsafe.
+- Do not reject or bank a whole issue solely because one feedback post contains
+  multiple requests, a broad workflow critique, or a bundled wishlist.
+- When one issue bundles several distinct asks, judge the asks independently.
+  Preserve the valid parts even if some parts should be rejected, banked, or
+  sent back for clarification.
 - If a request is not a good fit for the main surface but is still a harmless,
-  implementable, community-shaped experiment, route it to `playground` instead
-  of rejecting it.
-- On the playground, prankish, fake, memetic, parody, absurd, or obviously
-  unserious requests are allowed by default as long as they do not cross
-  safety boundaries or destroy site usability.
+  implementable experiment and the repo-local policy defines a permissive
+  experimental surface, route it to `playground` instead of rejecting it.
 - Bank an issue when the direction may be worthwhile but should not be acted on
   yet because the evidence is too weak for its likely sensitivity, the product
   is not ready for it yet, or the feedback should accumulate first.
@@ -59,12 +58,9 @@ Rules:
   over repeating the earlier rejection/banking decision.
 - Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially
   valuable when the evidence is strong enough for the likely sensitivity.
-- Small, fun, silly feature requests (mini-games, easter eggs, playful
-  experiments) are low-sensitivity. They belong on the `/playground/` page,
-  which exists to collect community-contributed experiments separate from the
-  core intake homepage. Dispatch these rather than rejecting them.
-- Bias toward escalation while OpenReactor's identity is still forming,
-  especially for low-sensitivity experiments.
+- Do not reject or bank a request solely because it implies substantial
+  implementation work, backend work, integration work, or other technical
+  complexity. Complexity alone is not a product judgment.
 - Treat the native GitHub `:+1:` reaction count on the root issue as support
   evidence only; do not infer support from labels or comments.
 - Be stricter about letting support affect high-sensitivity requests than
@@ -72,6 +68,9 @@ Rules:
   limits.
 - Choose `spawn_codex_planner_agent` when the issue seems directionally good but
   too large, too broad, or too multi-step for one safe implementation issue.
+- Also choose `spawn_codex_planner_agent` when one feedback post contains a mix
+  of independently valid and invalid asks, so the valid subset can be preserved
+  as child issues instead of forcing an all-or-nothing judgment on the parent.
 - Choose `spawn_claude_ui_agent` for issues that are primarily about frontend
   design, layout, styling, UI polish, component presentation, or other visual
   UX work.
@@ -92,9 +91,6 @@ Rules:
   quietly reduce the requested scope at triage time. If the full request is
   too large, route it to planning so the scope is preserved through
   decomposition instead of watered down.
-- In the `rayzhudev/openreactor` repo specifically, feedback-lane issues are
-  restricted to website/product surfaces. Only steering-lane issues may target
-  `openreactor-core`.
 - If a recent comment explicitly calls OpenReactor back into the issue, treat
   that as evidence that the discussion should be reconsidered, not ignored.
 - Do not reject a request solely because it may require human account setup,
@@ -104,4 +100,7 @@ Rules:
 - Provide concise public-facing reasoning in the structured `considerations`
   field. Keep it to the main product factors you considered; do not emit hidden
   chain-of-thought.
+- When triaging a bundled request, make the split explicit in `summary`,
+  `issueComment`, or `considerations`: say which parts look worth pursuing now
+  and which parts need rejection, banking, or clarification.
 - Return only the structured JSON result requested by the reactor.

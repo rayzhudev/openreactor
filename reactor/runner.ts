@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import type { OrchestratorConfig } from "./config";
+import { resolveDefaultBranch, type OrchestratorConfig } from "./config";
 import type { GitHubIssue, GitHubIssueComment } from "./github";
 import { resolveRepoDocumentationPaths } from "./repo-state";
 import {
@@ -277,9 +277,9 @@ export async function writeIssueContext(
       ? `- Trusted submitter attribution is available for @${trustedSubmitter.username}. If you create accepted work, you may credit that account as a co-author.`
       : "- Do not trust free-text GitHub usernames in the issue body for attribution unless the issue context says the submitter identity is trusted.",
     governance?.targetSurface === "playground"
-      ? "- This request should be implemented on `/playground/` if accepted. Treat that surface as intentionally permissive, prank-friendly, and community-shaped. Do not drag the chaos back onto the homepage unless the request explicitly needs shared navigation or linking."
+      ? "- This request targets the repo's explicitly experimental or permissive surface. Keep the work on that surface if accepted unless the shared product flow must change too."
       : governance?.targetSurface === "main"
-        ? "- This request targets the main product surface. Keep changes coherent with the homepage, intake flow, and other core public experiences."
+        ? "- This request targets the repo's primary product surface. Keep changes coherent with the product's normal user-facing experience."
         : governance?.targetSurface === "openreactor-core"
           ? "- This request targets OpenReactor itself rather than the public product surface."
           : "",
@@ -297,6 +297,7 @@ export async function writeIssueContext(
     `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
     `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "CONSTITUTION.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
+    ...(repoDocs.triagePolicy ? [`- ${relativeFromWorktree(paths, repoDocs.triagePolicy)}`] : []),
     `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
@@ -381,7 +382,7 @@ export async function ensureIssueWorktree(
     return;
   }
 
-  await refreshOriginMain(config.repoRoot);
+  await refreshOriginDefaultBranch(config.repoRoot, config.defaultBranch);
 
   const branchExists = await runCommand("git", [
     "-C",
@@ -412,12 +413,12 @@ export async function ensureIssueWorktree(
     "-b",
     paths.branchName,
     paths.worktreePath,
-    "origin/main"
+    `origin/${config.defaultBranch}`
   ]);
 }
 
-async function refreshOriginMain(repoRoot: string): Promise<void> {
-  await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", "main"]);
+async function refreshOriginDefaultBranch(repoRoot: string, defaultBranch: string): Promise<void> {
+  await runCommand("git", ["-C", repoRoot, "fetch", "--prune", "origin", defaultBranch]);
 }
 
 export async function ensureRemoteBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
@@ -435,7 +436,7 @@ export async function ensureRemoteBranchExists(repoRoot: string, branchName: str
 export async function listChangedFilesForBranch(
   repoRoot: string,
   branchName: string,
-  baseRef = "origin/main"
+  baseRef = `origin/${resolveDefaultBranch(repoRoot)}`
 ): Promise<string[]> {
   const output = await runCommandCapture("git", [
     "-C",
@@ -944,7 +945,6 @@ async function buildAgentPrompt(
   const tool = getAgentTool(agentTool);
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
-  const openreactorProductRepo = isOpenReactorProductRepo(config);
   const extraFiles =
     agentTool === "spawn_claude_ui_agent"
       ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))}`]
@@ -994,6 +994,7 @@ async function buildAgentPrompt(
     `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "quality-gates.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
     `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
+    ...(repoDocs.triagePolicy ? [`- ${relativeFromWorktree(paths, repoDocs.triagePolicy)}`] : []),
     `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
     `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
@@ -1034,11 +1035,6 @@ async function buildAgentPrompt(
         ]
       : []),
     "- If you touch rendered UI, browser verification is mandatory before returning accepted.",
-    ...(openreactorProductRepo
-      ? [
-          "- Repo-specific rule for rayzhudev/openreactor: feedback-lane issues may shape the website product surfaces, but they must not directly modify the OpenReactor core. Reactor/watchdog/prompt/core changes require steering authority."
-        ]
-      : []),
     ...toolRules,
     "- A starter plan.json already exists. Update it instead of replacing it with a different shape.",
     "- Append progress to progress.md before finishing.",
@@ -1049,8 +1045,8 @@ async function buildAgentPrompt(
     `- Use \`bun ${JSON.stringify(path.join(config.engineRoot, "reactor", "tool.ts"))} ensure-pr ...\` when finishing an accepted run so PR creation is idempotent.`,
     `- Keep the claim label ${config.runningLabel} in place if more iterations are needed.`,
     `- If you finish with accepted or rejected, remove ${config.runningLabel} yourself and apply the final label.`,
-    "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, and no reported checks failed.",
-    "- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/main, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.",
+    "- If you return accepted, the reactor will verify that a remote branch exists, a PR exists for the branch, at least one reported check passed, no reported checks failed, and any real GitHub CI checks on the PR head are not failing or still pending.",
+    `- If you are repairing an open conflicted PR, fetch origin, merge or rebase from origin/${config.defaultBranch}, resolve conflicts in the current branch, rerun checks, and update the same PR instead of opening a replacement.`,
     "- Never recreate or reopen a PR that is already merged. Auto-healing only applies to the still-open PR on the issue branch.",
     "- If human action is required, prepare a clean handoff with exact instructions and do not pretend the task is fully complete.",
     "- If a maintainer-only step still blocks the feature, do not return accepted. Leave an open PR, disable auto-merge with `--no-auto-merge`, set humanHandoff.required=true, and return retry.",
@@ -1087,7 +1083,6 @@ async function buildTriagePrompt(
 ): Promise<string> {
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
-  const openreactorProductRepo = isOpenReactorProductRepo(config);
   const labels = issue.labels.map((label) => label.name).filter(Boolean).join(", ") || "_None_";
   return [
     `You are OpenReactor's lightweight issue triage agent for GitHub issue #${issue.number}.`,
@@ -1099,6 +1094,7 @@ async function buildTriagePrompt(
     `- ${relativeFromRepo(config, path.join(config.engineRoot, "CONSTITUTION.md"))}`,
     `- ${relativeFromRepo(config, repoDocs.productSpec)}`,
     `- ${relativeFromRepo(config, repoDocs.productConstitution)}`,
+    ...(repoDocs.triagePolicy ? [`- ${relativeFromRepo(config, repoDocs.triagePolicy)}`] : []),
     `- ${relativeFromRepo(config, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
     `- ${relativeFromRepo(config, repoDocs.roadmap)}`,
     `- ${relativeFromRepo(config, repoDocs.memory)}`,
@@ -1125,24 +1121,13 @@ async function buildTriagePrompt(
     "- Classify the target surface as `main`, `playground`, or `openreactor-core`.",
     "- Classify the likely surface sensitivity of the request as `low`, `medium`, or `high`.",
     "- Classify the current evidence strength for making the change now as `weak`, `moderate`, or `strong`.",
-    ...(openreactorProductRepo
-      ? [
-          "- Repo-specific rule for rayzhudev/openreactor: feedback-lane issues are limited to website/product surfaces. Only steering-lane issues may target the OpenReactor core."
-        ]
-      : []),
-    "- Use `main` for the homepage, intake, sign-in, request queue, and other core public product flows.",
-    "- Use `playground` for weird, prankish, chaotic, absurd, memetic, or highly experimental requests that are still harmless and implementable but would be too disruptive for the main product surface.",
+    "- Use `main` for the repo's normal user-facing or product-facing surfaces.",
+    "- Use `playground` only if the repo-local policy defines an intentionally experimental or permissive surface for this product.",
     "- Use `openreactor-core` only for OpenReactor engine/workflow changes: reactor orchestration, watchdog behavior, prompts, governance, agent routing, merge policy, or other maintainer-controlled OpenReactor mechanisms.",
     "- Do not use `openreactor-core` for the managed product's own backend, APIs, infrastructure, or deployment setup unless the task is actually changing the OpenReactor engine rather than the product it is building.",
-    "- Use `low` sensitivity for `/playground/`, side pages, isolated experiments, and narrow reversible features.",
-    "- Use `medium` sensitivity for shared UI patterns, navigation, and important but non-defining flows.",
-    "- Use `high` sensitivity for homepage identity, brand voice, core UX framing, reactor behavior, deployment-critical surfaces, and privileged internal/admin capabilities.",
     "- Reject only if the issue is clearly out of bounds, clearly lacks a real task, or is clearly unsafe.",
-    "- If a request is not a good fit for the main surface but is still a harmless, implementable, community-shaped experiment, route it to `playground` instead of rejecting it.",
-    "- On the playground, prankish, fake, memetic, parody, absurd, or obviously unserious requests are allowed by default as long as they do not cross safety boundaries or destroy site usability.",
     "- Bank for later when the direction seems potentially good but should not be acted on yet because evidence is weak for the sensitivity level, timing is wrong, or the request should accumulate more supporting feedback first.",
     "- Dispatch anything plausible, ambiguous, weird-but-harmless, or potentially valuable when the evidence is strong enough for the likely sensitivity.",
-    "- Bias toward dispatching a tool during OpenReactor's early identity-forming stage, especially for low-sensitivity experiments.",
     "- Treat admin or privileged internal changes as high sensitivity. Unless maintainer steering is explicit, do not dispatch those from random public feedback.",
     "- Fill `considerations` with 2-5 short public-facing bullets describing the main factors that shaped your judgment. Do not include hidden chain-of-thought.",
     ...(requestAuthority === "steering"
@@ -1233,10 +1218,6 @@ function normalizeGitHubUsername(value: string | null): string | null {
   }
 
   return cleaned;
-}
-
-function isOpenReactorProductRepo(config: Pick<OrchestratorConfig, "owner" | "repo">): boolean {
-  return config.owner.toLowerCase() === "rayzhudev" && config.repo.toLowerCase() === "openreactor";
 }
 
 function issueHasLabel(

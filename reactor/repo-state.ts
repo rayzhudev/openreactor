@@ -12,6 +12,7 @@ export interface RepoDocumentationPaths {
   readme: string;
   productSpec: string;
   productConstitution: string;
+  triagePolicy: string | null;
   roadmap: string;
   memory: string;
   uiSystem: string | null;
@@ -33,6 +34,7 @@ export async function resolveRepoDocumentationPaths(repoRoot: string): Promise<R
     readme: await preferRepoStateDoc(repoRoot, "README.md"),
     productSpec: await preferRepoStateDoc(repoRoot, "PRODUCT_SPEC.md"),
     productConstitution: await preferRepoStateDoc(repoRoot, "PRODUCT_CONSTITUTION.md"),
+    triagePolicy: await resolveOptionalRepoDoc(repoRoot, "TRIAGE_POLICY.md"),
     roadmap: await preferRepoStateDoc(repoRoot, "ROADMAP.md"),
     memory: await preferRepoStateDoc(repoRoot, "MEMORY.md"),
     uiSystem: await resolveOptionalRepoDoc(repoRoot, "UI_SYSTEM.md")
@@ -118,6 +120,8 @@ function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<str
       "- what this repo is for",
       "- what counts as a good change",
       "- what to avoid",
+      "- how triage should judge requests for this product",
+      "- how surfaces should be classified and routed",
       "- roadmap direction",
       "- durable memory from past work",
       "",
@@ -174,6 +178,32 @@ function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<str
       "## Human handoff rules",
       "",
       "- Document what should happen when a maintainer-only step is required."
+    ].join("\n") + "\n",
+    "TRIAGE_POLICY.md": [
+      "# Triage Policy",
+      "",
+      "This file contains repo-specific decision policy for triage and issue agents.",
+      "",
+      "## Surface map",
+      "",
+      "- Define what counts as `main` for this repo.",
+      "- If this repo has an intentionally experimental or permissive surface, define when to use `playground`.",
+      "- Note which areas are never public-feedback-driven.",
+      "",
+      "## Sensitivity map",
+      "",
+      "- Define what is low, medium, and high sensitivity for this product.",
+      "- Note which surfaces or actions require stronger evidence before acting.",
+      "",
+      "## Dispatch heuristics",
+      "",
+      "- Explain what kinds of requests are usually core product work for this repo.",
+      "- Note any classes of technically large work that should still be dispatched or decomposed rather than rejected.",
+      "",
+      "## Feedback vs steering",
+      "",
+      "- Document what public feedback may shape.",
+      "- Document what only steering-lane requests may change."
     ].join("\n") + "\n",
     "ROADMAP.md": [
       "# Roadmap",

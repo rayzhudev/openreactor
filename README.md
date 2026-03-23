@@ -23,6 +23,8 @@ In that loop:
 2. An agentic reactor decides what that request actually means for the product.
 3. The system can reject it, bank it for later, break it into smaller pieces,
    or implement it directly.
+   One user post can also turn into several child issues, with some parts
+   accepted and other parts rejected, banked, or left waiting for clarification.
 4. Discussion on the GitHub issue can refine the request over time, and
    OpenReactor can pick that updated discussion back up instead of freezing the
    original judgment forever.
@@ -67,6 +69,9 @@ The system is intentionally not a literal ticket fulfiller.
   instead of being rejected just for being disruptive to the core site.
 - Good ideas do not need to be implemented immediately; they can be stored in
   the feedback bank until more support accumulates.
+- Bundled feedback should be judged per sub-request rather than as a single
+  all-or-nothing ticket. One broad request can legitimately produce a mixed
+  outcome if only part of it is worth doing now.
 - Privileged internal/admin behavior remains a hard boundary.
 
 This is the mechanism that lets the product stay fluid without letting one
@@ -147,12 +152,17 @@ The first committed shape for that repo-local state is:
 - `.openreactor/repo/README.md`
 - `.openreactor/repo/PRODUCT_SPEC.md`
 - `.openreactor/repo/PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/TRIAGE_POLICY.md`
 - `.openreactor/repo/ROADMAP.md`
 - `.openreactor/repo/MEMORY.md`
 
 When those files exist, the reactor prefers them over the legacy top-level
 product docs. This lets a target repo keep its own product direction and memory
 without needing to vendor the whole OpenReactor runtime into the repo.
+
+Shared prompts should stay generic. Repo-specific request judgment, surface
+routing, and “what counts as core work” rules belong in the repo-local
+`TRIAGE_POLICY.md`, not in the shared engine prompts.
 
 Bootstrap that repo-local steering layer manually with:
 

@@ -7,6 +7,7 @@ OpenReactor's shared engine lives outside this repo-local state. What belongs he
 - what this repo is for
 - what counts as a good change
 - what to avoid
+- how triage should classify and route requests for this product
 - roadmap direction
 - durable memory from past work
 

@@ -347,12 +347,33 @@
   Reason: privileged repo steering should not be silently watered down for
   implementation convenience once OpenReactor has already accepted the
   direction.
+- Decision: requests for new data sources, scrapers, ingestion paths, or other
+  heavy backend collection work should not be rejected purely for implementation
+  complexity when the managed product's core promise depends on coverage or
+  completeness.
+  Reason: for data-aggregation products, those requests are often the product,
+  not optional technical churn.
+- Decision: accepted PRs must be validated against GitHub's real check
+  runs/statuses before OpenReactor treats them as merge-ready.
+  Reason: self-reported test lists are useful, but they are not enough to keep
+  a private repo safe when native branch protection is unavailable.
+- Decision: bundled feedback should be judged per sub-request rather than as an
+  all-or-nothing issue.
+  Reason: users should be free to submit one broad workflow critique or a
+  bundled feature wishlist without pre-splitting it into implementation-sized
+  tickets. OpenReactor should preserve the valid subset through decomposition
+  and reject or bank only the parts that actually fail product judgment.
 
 - Decision: in the `rayzhudev/openreactor` repo, feedback-lane issues may
   shape only the website/product surfaces. Direct OpenReactor-core changes
   require steering authority.
   Reason: the public product demo should stay shapeable by feedback, but the
   OpenReactor engine itself remains maintainer-controlled.
+- Decision: shared OpenReactor prompts should stay generic, while repo-specific
+  request-judgment rules, surface routing, and “core work” heuristics should
+  live in repo-local `TRIAGE_POLICY.md`.
+  Reason: the engine should be reusable across managed repos, but different
+  products need different triage behavior and sensitivity maps.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local
