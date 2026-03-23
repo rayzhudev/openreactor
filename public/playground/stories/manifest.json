@@ -4,6 +4,7 @@
       "id": "the-self-writing-codebase",
       "title": "The Self-Writing Codebase",
       "description": "A short tale about software that learns to build itself.",
+      "tags": ["autonomous-dev", "self-evolving"],
       "chapters": [
         {
           "title": "The First Request",
