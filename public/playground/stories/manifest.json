@@ -1,33 +1,29 @@
 {
   "stories": [
     {
-      "id": "the-self-writing-codebase",
-      "title": "The Self-Writing Codebase",
-      "description": "A short tale about software that learns to build itself.",
+      "id": "the-archive-of-borrowed-sunrises",
+      "title": "The Archive of Borrowed Sunrises",
+      "description": "Release 1 of a multilingual playground serial about a city that keeps tomorrow in many languages.",
       "chapters": [
         {
-          "title": "The First Request",
+          "title": "Chapter 1: The Room Above Morning",
           "pages": [
-            "The repository sat quiet on a Tuesday morning. No commits for three days. The CI pipeline idled, its runners gathering digital dust. Then, at 9:47 AM, someone opened an issue.",
-            "\"Add a button that changes color when you click it,\" the issue read. Nothing ambitious. Nothing clever. Just a person who wanted a button.\n\nThe system read the request, weighed it against the product rules, and decided: this was worth doing.",
-            "Within minutes, a branch appeared. Code materialized — clean, minimal, exactly what was asked for. A pull request opened with a description that explained not just what changed, but why.\n\nThe button shipped by lunch."
+            "Every dawn in Luma Harbor began twice. First came the ordinary sunrise over the cranes and tiled roofs. Then, seven minutes later, light spilled from the highest window of the Archive, as if the building had quietly opened a second morning just for itself.\n\nMina, the newest keeper, was told never to waste those seven minutes. \"That is when the unfinished futures come looking for a language,\" her supervisor said, handing her a ring of brass keys and a notebook with blank pages already numbered.",
+            "Mina subió la escalera de hierro hasta la sala más alta y encontró cientos de cajones pequeños, cada uno marcado con una palabra distinta para amanecer: alba, aurora, fajr, akatsuki.\n\nEn el centro de la habitación había una sola hoja nueva. No tenía firma. Solo una línea: \"Mañana llegará tarde si nadie la traduce\". Mina la leyó dos veces y, por primera vez, entendió por qué el archivo nunca dormía."
           ]
         },
         {
-          "title": "The Pattern Emerges",
+          "title": "Chapter 2: Letters That Refuse One Voice",
           "pages": [
-            "More requests arrived. Some were clear. Some were vague. Some were strange.\n\n\"Make the page load faster.\" \"Add dark mode.\" \"Put a frog on the homepage.\"\n\nThe system didn't treat them all the same. It read each one, considered the product, and made a judgment.",
-            "The frog request was unusual, but harmless. It shipped to the playground — the corner of the site where experiments lived without needing permission.\n\nThe performance request was vague. The system asked for specifics, then banked the idea for later when the evidence was stronger.",
-            "Dark mode shipped in a single pass. The system noticed the existing color tokens already supported it. The implementation was smaller than anyone expected.\n\nEach decision left a trace. Each trace made the next decision slightly better."
+            "A midi, la cloche de la tour sonna sans vent. Les tiroirs commencèrent a vibrer les uns apres les autres, comme si chaque langue voulait parler avant les autres.\n\nMina ouvrit le premier message. Il racontait le meme evenement que la feuille du matin, mais avec une nuance differente: dans cette version, demain n'etait pas en retard. Il etait perdu, coincé entre des phrases qui ne savaient pas encore s'accorder.",
+            "عندما فتحت الدرج الرابع، وجدت بطاقة مكتوبة بحبر أزرق داكن: \"لا تبحثي عن المعنى في كلمة واحدة. ابحثي عنه في المسافة بين الكلمات\".\n\nوضعت مينا البطاقات الأربع على الطاولة، ولاحظت أن كل لغة كانت تضيف تفصيلاً لا تملكه الأخرى. واحدة تصف الوقت، وأخرى تصف الخوف، وثالثة تصف الطريق. لم تكن الرسائل تتعارض. كانت تبني خريطة."
           ]
         },
         {
-          "title": "Building Itself",
+          "title": "Chapter 3: Release 1 of Tomorrow",
           "pages": [
-            "The most interesting requests were the ones about the system itself.\n\n\"Can the system explain why it rejected my idea?\" someone asked. It could — and after that issue merged, it did, every time.",
-            "\"Can it handle requests in other languages?\" The system considered this. The product wasn't ready. But the direction was sound. It banked the idea and noted the signal.",
-            "Slowly, the repository changed shape. Not through grand rewrites or ambitious roadmaps, but through a steady accumulation of small, considered decisions.\n\nEach one reversible. Each one reviewed. Each one making the product slightly more itself.",
-            "The codebase was writing itself — not because it was clever, but because it was patient.\n\nAnd every morning, it checked for new issues."
+            "夕方になるころ、ミナは最初の地図を完成させた。港の東側、古い信号所の地下に、まだ誰にも開かれていない「明日の保管庫」があると六つの文章が示していた。\n\nけれど地図の端には注意書きもあった。『すべてを一度に開けてはいけない。未来は少量ずつ公開したほうが、町にやさしい。』 ミナはそこで笑った。アーカイブでさえ、段階的リリースを信じているらしかった。",
+            "Naquela noite, Mina publicou apenas a primeira caixa: seis paginas, seis idiomas, um mapa suficiente para provar que o arquivo dizia a verdade sem despejar o oceano inteiro sobre a cidade.\n\nAo fechar a janela mais alta, ela viu o segundo nascer do sol refletido no vidro, esperando pelo proximo lote. O caderno numerado ainda tinha muitas paginas em branco. Agora isso parecia promessa, nao vazio."
           ]
         }
       ]
