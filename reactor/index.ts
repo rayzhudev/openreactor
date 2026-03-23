@@ -2075,6 +2075,7 @@ function buildBootstrapPullRequestBody(input: {
     "- `.openreactor/repo/README.md`",
     "- `.openreactor/repo/PRODUCT_SPEC.md`",
     "- `.openreactor/repo/PRODUCT_CONSTITUTION.md`",
+    "- `.openreactor/repo/TRIAGE_POLICY.md`",
     "- `.openreactor/repo/ROADMAP.md`",
     "- `.openreactor/repo/MEMORY.md`",
     "- `.gitignore` rules so runtime state stays local while repo steering stays committed",

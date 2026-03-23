@@ -152,12 +152,17 @@ The first committed shape for that repo-local state is:
 - `.openreactor/repo/README.md`
 - `.openreactor/repo/PRODUCT_SPEC.md`
 - `.openreactor/repo/PRODUCT_CONSTITUTION.md`
+- `.openreactor/repo/TRIAGE_POLICY.md`
 - `.openreactor/repo/ROADMAP.md`
 - `.openreactor/repo/MEMORY.md`
 
 When those files exist, the reactor prefers them over the legacy top-level
 product docs. This lets a target repo keep its own product direction and memory
 without needing to vendor the whole OpenReactor runtime into the repo.
+
+Shared prompts should stay generic. Repo-specific request judgment, surface
+routing, and “what counts as core work” rules belong in the repo-local
+`TRIAGE_POLICY.md`, not in the shared engine prompts.
 
 Bootstrap that repo-local steering layer manually with:
 

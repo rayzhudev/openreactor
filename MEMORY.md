@@ -369,6 +369,11 @@
   require steering authority.
   Reason: the public product demo should stay shapeable by feedback, but the
   OpenReactor engine itself remains maintainer-controlled.
+- Decision: shared OpenReactor prompts should stay generic, while repo-specific
+  request-judgment rules, surface routing, and “core work” heuristics should
+  live in repo-local `TRIAGE_POLICY.md`.
+  Reason: the engine should be reusable across managed repos, but different
+  products need different triage behavior and sensitivity maps.
 
 - Decision: OpenReactor should eventually author commits as the GitHub App or
   another explicit OpenReactor machine identity, not as the maintainer's local
