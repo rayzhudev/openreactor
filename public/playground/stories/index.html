@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stories - Playground - OpenReactor</title>
+    <meta name="description" content="Community-written stories and narrative experiments from the OpenReactor playground." />
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("openreactor-theme");
+        if (savedTheme === "dark") document.documentElement.classList.add("dark");
+        else if (savedTheme === "light") document.documentElement.classList.add("light");
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
+    <main class="or-shell">
+
+      <header class="or-topbar">
+        <p class="or-brand"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <nav class="or-nav" aria-label="Site navigation">
+          <a class="or-nav-link" href="/">Intake</a>
+          <a class="or-nav-link or-nav-link--active" href="/playground/" aria-current="page">Playground</a>
+        </nav>
+        <button class="topbar-toggle or-button or-button--icon hidden max-md:flex shrink-0" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="w-5 h-5 fill-none topbar-toggle-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="w-5 h-5 fill-none topbar-toggle-close hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="topbar-actions flex flex-wrap items-center justify-end gap-3 max-md:hidden max-md:flex-col max-md:items-stretch max-md:w-full max-md:order-3 max-md:pt-3 max-md:border-t max-md:border-[var(--line)] max-md:mt-1">
+          <div class="or-button-group" role="group" aria-label="Color theme">
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="system" aria-label="System theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+            </button>
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="dark" aria-label="Dark theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+            <button class="theme-option or-button or-button--ghost or-button--icon min-h-0 px-2 py-1.5 border-0 data-[active=true]:bg-[var(--accent)] data-[active=true]:text-white" type="button" data-theme-value="light" aria-label="Light theme">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Story index view -->
+      <div id="story-index">
+        <section class="mb-6" aria-labelledby="stories-title">
+          <div class="flex items-center gap-3 mb-1">
+            <a href="/playground/" class="or-nav-link min-h-0 px-2 py-1 text-xs">← Playground</a>
+          </div>
+          <h1 class="text-2xl font-bold tracking-tight" id="stories-title">Stories</h1>
+          <p class="mt-1 text-[var(--ink-soft)] text-sm max-w-xl">
+            Narrative experiments from the OpenReactor community. Each story is driven by a shared manifest that anyone can extend.
+          </p>
+        </section>
+        <div id="story-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+      </div>
+
+      <!-- Story reader view -->
+      <div id="story-reader" class="hidden">
+        <section class="mb-6">
+          <div class="flex items-center gap-3 mb-1">
+            <a href="/playground/stories/" class="or-nav-link min-h-0 px-2 py-1 text-xs" id="back-to-stories">← Stories</a>
+          </div>
+          <p class="or-section-eyebrow mb-1" id="reader-story-title"></p>
+          <h1 class="text-xl font-semibold tracking-tight" id="reader-chapter-title"></h1>
+        </section>
+
+        <article class="or-panel max-w-2xl">
+          <div id="reader-content" class="text-[var(--ink-soft)] text-sm leading-relaxed whitespace-pre-line"></div>
+          <div class="flex items-center justify-between gap-4 pt-2 border-t border-[var(--line)]">
+            <button id="reader-prev" class="or-button or-button--ghost min-h-0 px-3 py-1.5 text-sm" type="button">← Previous</button>
+            <span id="reader-position" class="text-[var(--ink-faint)] text-xs font-mono"></span>
+            <button id="reader-next" class="or-button or-button--ghost min-h-0 px-3 py-1.5 text-sm" type="button">Next →</button>
+          </div>
+        </article>
+
+        <nav class="mt-6 max-w-2xl" aria-label="Chapters">
+          <p class="or-section-eyebrow mb-2">Chapters</p>
+          <ol id="reader-chapters" class="grid gap-1"></ol>
+        </nav>
+      </div>
+
+    </main>
+
+    <script type="module">
+      // Theme toggle (shared with other pages via app.js pattern)
+      document.querySelectorAll(".theme-option").forEach((btn) => {
+        const value = btn.dataset.themeValue;
+        const current = localStorage.getItem("openreactor-theme") || "system";
+        if (value === current) btn.dataset.active = "true";
+        btn.addEventListener("click", () => {
+          document.documentElement.classList.remove("dark", "light");
+          if (value === "dark") document.documentElement.classList.add("dark");
+          else if (value === "light") document.documentElement.classList.add("light");
+          localStorage.setItem("openreactor-theme", value);
+          document.querySelectorAll(".theme-option").forEach((b) => { b.dataset.active = b.dataset.themeValue === value ? "true" : "false"; });
+        });
+      });
+
+      // Mobile menu toggle
+      const toggle = document.querySelector(".topbar-toggle");
+      const actions = document.querySelector(".topbar-actions");
+      if (toggle && actions) {
+        toggle.addEventListener("click", () => {
+          const open = toggle.getAttribute("aria-expanded") === "true";
+          toggle.setAttribute("aria-expanded", String(!open));
+          actions.classList.toggle("max-md:hidden", open);
+        });
+      }
+
+      // Story framework
+      const params = new URLSearchParams(location.search);
+      const storyId = params.get("story");
+
+      const indexEl = document.getElementById("story-index");
+      const readerEl = document.getElementById("story-reader");
+
+      let manifest = null;
+
+      async function loadManifest() {
+        const res = await fetch("/playground/stories/manifest.json");
+        manifest = await res.json();
+      }
+
+      function renderIndex() {
+        const list = document.getElementById("story-list");
+        list.innerHTML = "";
+        for (const story of manifest.stories) {
+          const totalPages = story.chapters.reduce((sum, ch) => sum + ch.pages.length, 0);
+          const card = document.createElement("a");
+          card.href = `?story=${encodeURIComponent(story.id)}`;
+          card.className = "or-panel or-panel--interactive no-underline";
+          card.innerHTML = `
+            <h2 class="text-base font-semibold tracking-tight">${esc(story.title)}</h2>
+            <p class="text-[var(--ink-soft)] text-sm">${esc(story.description)}</p>
+            <div class="flex gap-3 text-xs text-[var(--ink-faint)]">
+              <span>${story.chapters.length} chapter${story.chapters.length !== 1 ? "s" : ""}</span>
+              <span>${totalPages} page${totalPages !== 1 ? "s" : ""}</span>
+            </div>
+          `;
+          list.appendChild(card);
+        }
+      }
+
+      function renderReader() {
+        const story = manifest.stories.find((s) => s.id === storyId);
+        if (!story) {
+          indexEl.classList.remove("hidden");
+          readerEl.classList.add("hidden");
+          renderIndex();
+          return;
+        }
+
+        indexEl.classList.add("hidden");
+        readerEl.classList.remove("hidden");
+
+        let chapterIdx = parseInt(params.get("chapter") || "0", 10);
+        let pageIdx = parseInt(params.get("page") || "0", 10);
+
+        // Clamp
+        chapterIdx = Math.max(0, Math.min(chapterIdx, story.chapters.length - 1));
+        const chapter = story.chapters[chapterIdx];
+        pageIdx = Math.max(0, Math.min(pageIdx, chapter.pages.length - 1));
+
+        document.title = `${chapter.title} - ${story.title} - OpenReactor`;
+        document.getElementById("reader-story-title").textContent = story.title;
+        document.getElementById("reader-chapter-title").textContent = chapter.title;
+        document.getElementById("reader-content").textContent = chapter.pages[pageIdx];
+
+        // Flatten position
+        let globalPage = 0;
+        let totalPages = 0;
+        for (let ci = 0; ci < story.chapters.length; ci++) {
+          for (let pi = 0; pi < story.chapters[ci].pages.length; pi++) {
+            if (ci === chapterIdx && pi === pageIdx) globalPage = totalPages;
+            totalPages++;
+          }
+        }
+        document.getElementById("reader-position").textContent = `${globalPage + 1} / ${totalPages}`;
+
+        // Navigation
+        const prevBtn = document.getElementById("reader-prev");
+        const nextBtn = document.getElementById("reader-next");
+
+        const canPrev = chapterIdx > 0 || pageIdx > 0;
+        const canNext = chapterIdx < story.chapters.length - 1 || pageIdx < chapter.pages.length - 1;
+
+        prevBtn.disabled = !canPrev;
+        prevBtn.style.visibility = canPrev ? "visible" : "hidden";
+        nextBtn.disabled = !canNext;
+        nextBtn.textContent = canNext ? "Next →" : "Fin";
+        if (!canNext) nextBtn.disabled = true;
+
+        prevBtn.onclick = () => {
+          let pc = chapterIdx, pp = pageIdx - 1;
+          if (pp < 0) { pc--; pp = story.chapters[pc].pages.length - 1; }
+          navigateTo(story.id, pc, pp);
+        };
+
+        nextBtn.onclick = () => {
+          let nc = chapterIdx, np = pageIdx + 1;
+          if (np >= chapter.pages.length) { nc++; np = 0; }
+          navigateTo(story.id, nc, np);
+        };
+
+        // Chapter list
+        const chaptersEl = document.getElementById("reader-chapters");
+        chaptersEl.innerHTML = "";
+        story.chapters.forEach((ch, ci) => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = `?story=${encodeURIComponent(story.id)}&chapter=${ci}&page=0`;
+          a.className = ci === chapterIdx
+            ? "or-note text-sm font-medium no-underline border-[var(--accent)] text-[var(--accent-dark)]"
+            : "or-note text-sm no-underline";
+          a.textContent = ch.title;
+          a.addEventListener("click", (e) => {
+            e.preventDefault();
+            navigateTo(story.id, ci, 0);
+          });
+          li.appendChild(a);
+          chaptersEl.appendChild(li);
+        });
+      }
+
+      function navigateTo(sid, chapter, page) {
+        const url = new URL(location.href);
+        url.searchParams.set("story", sid);
+        url.searchParams.set("chapter", String(chapter));
+        url.searchParams.set("page", String(page));
+        history.pushState(null, "", url);
+        params.set("story", sid);
+        params.set("chapter", String(chapter));
+        params.set("page", String(page));
+        renderReader();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // Handle back/forward
+      window.addEventListener("popstate", () => {
+        const p = new URLSearchParams(location.search);
+        params.set("story", p.get("story") || "");
+        params.set("chapter", p.get("chapter") || "0");
+        params.set("page", p.get("page") || "0");
+        if (p.get("story")) {
+          renderReader();
+        } else {
+          indexEl.classList.remove("hidden");
+          readerEl.classList.add("hidden");
+          renderIndex();
+        }
+      });
+
+      // Init
+      loadManifest().then(() => {
+        if (storyId) {
+          renderReader();
+        } else {
+          renderIndex();
+        }
+      });
+    </script>
+  </body>
+</html>
