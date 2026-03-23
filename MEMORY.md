@@ -1,5 +1,20 @@
 # Product Memory
 
+## 2026-03-23
+
+- Decision: treat `PRODUCT_SPEC.md` as both the current-state product source of
+  truth and the near-term plan, with explicit separation between shipped and
+  planned behavior.
+  Reason: agents had started shipping meaningful capability changes without
+  updating the spec, which made the written product picture lag the code and
+  blurred the line between what is live now and what remains aspirational.
+
+- Decision: require a documentation-routing audit as part of non-trivial
+  autonomous implementation work.
+  Reason: telling agents to "update docs" is too vague. They work better when
+  the repo says which file owns which kind of truth and when each file must be
+  updated.
+
 ## 2026-03-09
 
 - Decision: treat GitHub issues as the initial system of record.

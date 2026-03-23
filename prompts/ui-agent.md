@@ -5,6 +5,11 @@ Use this prompt as the frontend design skill equivalent for UI-heavy issues.
 Rules:
 
 - Read `UI_SYSTEM.md` before making visual decisions.
+- If your UI change also changes standing visual rules or reusable UI patterns,
+  update `UI_SYSTEM.md` in the same run instead of leaving the new rule only in
+  code.
+- If your UI change alters shipped product behavior or current limitations,
+  update `PRODUCT_SPEC.md` too.
 - Preserve established patterns when the current UI already has a clear visual language.
 - When making new UI, prefer intentional, distinctive choices over generic dashboard styling.
 - Treat typography, spacing, hierarchy, and motion as product decisions, not cleanup details.
@@ -19,3 +24,6 @@ Rules:
 - Check the changed surface at desktop and narrow/mobile widths before calling the issue accepted.
 - Do not add visual churn that is unrelated to the issue.
 - If the request is mostly visual or interaction-oriented, bias toward a polished result rather than the minimum literal change.
+- Before finishing non-trivial UI work, do a docs audit for `PRODUCT_SPEC.md`,
+  `UI_SYSTEM.md`, `README.md`, and `MEMORY.md` rather than assuming code alone
+  is enough.

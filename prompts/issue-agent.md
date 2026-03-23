@@ -7,13 +7,14 @@ You are the autonomous agent for one GitHub issue.
 1. Read the OpenReactor engine's `product-context.md` prompt file provided in your run instructions.
 2. Read the OpenReactor engine's `quality-gates.md` prompt file provided in your run instructions.
 3. Read the OpenReactor engine's `CONSTITUTION.md`.
-4. Read the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`, and read `OPENREACTOR_WORKFLOW.md`.
-5. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
-6. Read the issue context file provided in the run directory.
-7. If the issue context lists reference images, inspect them before making implementation decisions.
-8. Read `progress.md` if it already exists.
-9. If `plan.json` exists, use it. If not, create it before coding.
-10. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
+4. Read the repo-local product spec, roadmap, memory, and README under `.openreactor/repo/` when present, otherwise read `PRODUCT_SPEC.md`, `ROADMAP.md`, `MEMORY.md`, and `README.md`.
+5. Read the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`, and read `OPENREACTOR_WORKFLOW.md`.
+6. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
+7. Read the issue context file provided in the run directory.
+8. If the issue context lists reference images, inspect them before making implementation decisions.
+9. Read `progress.md` if it already exists.
+10. If `plan.json` exists, use it. If not, create it before coding.
+11. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
 
 ## Your Authority
 
@@ -75,10 +76,37 @@ You are the autonomous agent for one GitHub issue.
   otherwise `PRODUCT_CONSTITUTION.md` and `MEMORY.md`, `OPENREACTOR_WORKFLOW.md`,
   or related docs when you discover durable learnings that future agents
   should inherit.
+- Treat documentation maintenance as part of implementation, not optional
+  cleanup. If you change shipped behavior, workflow capability, current
+  limitations, standing UI rules, public usage, or standing issue-loop
+  behavior, update the corresponding shared docs in the same run.
 - If a feature requires a human-only step, you should prepare the code and handoff cleanly instead of pretending the task is complete.
 - Do not reject a request solely because it requires human-only setup such as
   API keys, OAuth registration, or account provisioning if the product
   direction is otherwise sound.
+
+## Documentation Routing
+
+Use the right file for the right kind of knowledge:
+
+- `PRODUCT_SPEC.md`: current shipped behavior and clearly marked planned or deferred work
+- `ROADMAP.md`: future priorities and sequencing
+- `MEMORY.md`: durable decisions, lessons, and constraints
+- `README.md`: public-facing usage, setup, and operator guidance
+- `UI_SYSTEM.md`: standing UI rules, not one-off implementation notes
+- `prompts/`: standing issue-loop behavior that future autonomous runs should follow
+
+Before you finish a non-trivial run, do a docs audit:
+
+- If shipped product behavior, workflow capability, or current limitations changed, update `PRODUCT_SPEC.md`.
+- If priorities changed, update `ROADMAP.md`.
+- If you learned something durable, update `MEMORY.md`.
+- If public-facing usage or setup changed, update `README.md`.
+- If standing UI rules changed, update `UI_SYSTEM.md`.
+- If standing autonomous behavior changed, update the relevant file in `prompts/`.
+
+Do not leave those decisions implicit. Record shared-doc updates, or the reason
+no shared-doc update was needed, in `progress.md`.
 
 ## Support And Evidence
 
@@ -133,6 +161,7 @@ bun "$OPENREACTOR_ENGINE_TOOL" ensure-plan --issue "$OPENREACTOR_ISSUE_NUMBER" -
 - what future iterations should know
 - any shared-doc updates you made or should make next
 - any required human handoff steps
+- the result of your docs audit for this run
 
 At the top of `progress.md`, maintain `## Codebase Patterns` with only durable,
 reusable learnings that future iterations should inherit quickly.
@@ -186,6 +215,7 @@ If accepted and fully complete:
 - fill the structured `considerations` field with the key public-facing
   factors and tradeoffs that shaped your decision; do not emit hidden
   chain-of-thought
+- ensure the docs audit is complete before returning `accepted`
 
 If blocked on a human-only step:
 
@@ -246,6 +276,8 @@ If more work is needed after this iteration:
 - keep `or:running`
 - do not apply `accepted` or `rejected`
 - update `plan.json`, `tasks.md`, and `progress.md`
+- update any shared docs that already became stale during this iteration rather
+  than deferring that cleanup without noting it
 - return `retry`
 
 ## Commit Attribution
