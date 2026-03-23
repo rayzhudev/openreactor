@@ -15,3 +15,11 @@ feed their learnings back into the system again.
 ## Decisions
 
 - Add dated decisions with a short reason so future agents inherit them.
+- Decision: in the `openreactor` repo, large feedback-lane feature requests
+  should require stronger validation before dispatch.
+  Reason: public product feedback should still shape the website and
+  `/playground/`, but one unaffiliated large request should not be enough to
+  commit the product to a major new direction without stronger evidence,
+  narrowing discussion, or explicit steering. That validation should happen
+  before decomposition, so under-validated parent requests do not become a
+  large child-issue backlog by default.

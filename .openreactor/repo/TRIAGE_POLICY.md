@@ -45,6 +45,18 @@ behavior.
   implementation work.
 - For this repo, public feedback is meant to shape the OpenReactor product
   surfaces, especially the website and the experimental `/playground/`.
+- For feedback-lane issues in this repo, large feature requests that would
+  materially reshape the main product, core flows, or roadmap should not be
+  dispatched immediately from a single public suggestion alone.
+- Those larger feedback-lane requests should usually be banked until they gain
+  stronger validation through one or more of:
+  - stronger public support or repeated demand
+  - clarifying discussion that narrows the scope into a safer concrete slice
+  - explicit steering from the repo owner or another user with real repo write
+    access
+- Apply that validation gate before decomposition. Do not send a large
+  feedback-lane request to the planner just to turn an under-validated parent
+  request into a large set of child issues.
 - Harmless weird, prankish, parody, or absurd requests should usually route to
   `playground` instead of being rejected just because they do not fit the main
   product flow.
