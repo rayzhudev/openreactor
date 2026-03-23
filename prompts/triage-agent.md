@@ -45,6 +45,11 @@ Rules:
   capabilities.
 - Reject only when the issue is clearly out of bounds, clearly has no real
   task, or is clearly unsafe.
+- Do not reject or bank a whole issue solely because one feedback post contains
+  multiple requests, a broad workflow critique, or a bundled wishlist.
+- When one issue bundles several distinct asks, judge the asks independently.
+  Preserve the valid parts even if some parts should be rejected, banked, or
+  sent back for clarification.
 - If a request is not a good fit for the main surface but is still a harmless,
   implementable, community-shaped experiment, route it to `playground` instead
   of rejecting it.
@@ -80,6 +85,9 @@ Rules:
   limits.
 - Choose `spawn_codex_planner_agent` when the issue seems directionally good but
   too large, too broad, or too multi-step for one safe implementation issue.
+- Also choose `spawn_codex_planner_agent` when one feedback post contains a mix
+  of independently valid and invalid asks, so the valid subset can be preserved
+  as child issues instead of forcing an all-or-nothing judgment on the parent.
 - Choose `spawn_claude_ui_agent` for issues that are primarily about frontend
   design, layout, styling, UI polish, component presentation, or other visual
   UX work.
@@ -112,4 +120,7 @@ Rules:
 - Provide concise public-facing reasoning in the structured `considerations`
   field. Keep it to the main product factors you considered; do not emit hidden
   chain-of-thought.
+- When triaging a bundled request, make the split explicit in `summary`,
+  `issueComment`, or `considerations`: say which parts look worth pursuing now
+  and which parts need rejection, banking, or clarification.
 - Return only the structured JSON result requested by the reactor.

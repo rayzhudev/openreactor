@@ -23,6 +23,9 @@ smallest practical operational surface area.
   similar directions.
 - Reject requests that have no real task, are too vague to execute, or bundle
   too many unrelated implementation steps into one issue.
+- When one issue bundles multiple asks, do not treat that as an automatic
+  all-or-nothing rejection. Separate the asks, preserve the worthwhile subset,
+  and reject or bank only the parts that truly fail product judgment.
 - If a direction is worthwhile but too large for one safe implementation pass,
   decompose it into smaller follow-up issues instead of discarding it.
 - Do not reject a direction solely because it requires difficult backend work.

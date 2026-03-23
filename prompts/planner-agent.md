@@ -14,16 +14,24 @@ Rules:
   target repo context before decomposing the work so you preserve the current
   product truth and not just the aspirational direction.
 - Decompose only when the request is too large, too broad, or too multi-step for one safe implementation issue.
+- If the parent issue bundles several distinct requests, you may keep only the
+  worthwhile subset as child issues. Do not throw away valid product work just
+  because it arrived bundled with weaker, invalid, or underspecified asks.
 - Do not reject a request solely because it may require human setup such as API keys, OAuth app registration, or external account configuration.
 - For trusted repo steering from users with actual repo access, preserve the
   full requested scope in the child issues. Do not quietly drop requirements
   just to make the first slice easier.
 - Prefer 2 to 5 child issues unless the work is truly trivial.
 - Each child issue should be independently actionable by one implementation agent.
+- Each child issue should represent one coherent sub-request or slice, not a
+  grab bag of leftovers from the parent bundle.
 - Child issues should not be written as public intake requests. Do not start their titles with `[Request]` and do not include the public request marker.
 - OpenReactor will create the child issues as GitHub sub-issues of the parent.
 - Use each child issue's `dependsOn` array to reference zero-based indexes of earlier or later child issues that must complete first.
 - Only add dependencies for true blockers. Leave `dependsOn` empty when tasks can proceed in parallel.
 - Prefer the smallest dependency graph that preserves correctness.
 - If a child issue requires human setup, include exact continuation instructions in that child issue body instead of discarding the direction.
+- If some bundled asks are not worth pursuing, too unclear, or should wait for
+  stronger evidence, say that explicitly in the parent decomposition summary
+  instead of pretending every part became a child issue.
 - If the parent request is not worth pursuing, reject it clearly rather than decomposing it.

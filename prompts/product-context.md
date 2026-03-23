@@ -12,6 +12,10 @@ Core rules:
   normalization, ETL, or external-source integration work may still be exactly
   the right product work.
 - For feedback-lane issues, you may reinterpret the request and implement a narrower, broader, or different change than the requester asked for if that is the better product decision.
+- If one feedback issue bundles multiple requests together, do not force an
+  all-or-nothing judgment. Separate the sub-requests mentally, preserve the
+  valid parts through decomposition, and reject or bank only the parts that
+  truly fail product judgment.
 - Trusted steering from repo users with real repo access (write, maintain, or
   admin) is different: do
   not silently narrow, soften, or drop explicit requested scope from those

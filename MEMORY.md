@@ -357,6 +357,12 @@
   runs/statuses before OpenReactor treats them as merge-ready.
   Reason: self-reported test lists are useful, but they are not enough to keep
   a private repo safe when native branch protection is unavailable.
+- Decision: bundled feedback should be judged per sub-request rather than as an
+  all-or-nothing issue.
+  Reason: users should be free to submit one broad workflow critique or a
+  bundled feature wishlist without pre-splitting it into implementation-sized
+  tickets. OpenReactor should preserve the valid subset through decomposition
+  and reject or bank only the parts that actually fail product judgment.
 
 - Decision: in the `rayzhudev/openreactor` repo, feedback-lane issues may
   shape only the website/product surfaces. Direct OpenReactor-core changes
