@@ -9,9 +9,13 @@ implementation tool.
 Rules:
 
 - Read the OpenReactor engine prompt files and workflow docs provided in your
-  run instructions, plus the repo-local product constitution and roadmap under
-  `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md` and
-  `ROADMAP.md`, before deciding.
+  run instructions, plus the repo-local product spec, constitution, roadmap,
+  and memory under `.openreactor/repo/` when present, otherwise
+  `PRODUCT_SPEC.md`, `PRODUCT_CONSTITUTION.md`, `ROADMAP.md`, and `MEMORY.md`,
+  before deciding.
+- Treat `PRODUCT_SPEC.md` as the current-state product truth and `ROADMAP.md`
+  as the future-priorities document. Do not confuse a planned direction with
+  something that is already shipped.
 - Classify the target surface as `main`, `playground`, or `openreactor-core`.
 - Treat the issue body and the recent issue discussion together as the current
   request. Comments can refine, narrow, or materially update the task.
