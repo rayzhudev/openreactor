@@ -30,6 +30,7 @@ const openReactorDotWatchdogNode = document.querySelector("#openreactor-dot-watc
 const openReactorDotAgentsNode = document.querySelector("#openreactor-dot-agents");
 const openReactorLiveAgentsNode = document.querySelector("#openreactor-live-agents");
 const openReactorLiveBlockersNode = document.querySelector("#openreactor-live-blockers");
+const openReactorLiveEventsNode = document.querySelector("#openreactor-live-events");
 const openReactorPipelineNode = document.querySelector("#openreactor-pipeline");
 const leaderboardList = document.querySelector("#leaderboard-list");
 const leaderboardStatusNode = document.querySelector("#leaderboard-status");
@@ -216,6 +217,9 @@ let openReactorStatus = {
     pausedIssues: [],
     maintainerHandoffCount: 0,
     maintainerHandoffs: []
+  },
+  activity: {
+    recentEvents: []
   },
   pipeline: null
 };
@@ -1609,6 +1613,9 @@ function renderOpenReactorStatus(data) {
       maintainerHandoffCount: 0,
       maintainerHandoffs: []
     },
+    activity: data.activity || {
+      recentEvents: []
+    },
     pipeline: data.pipeline || null
   };
 
@@ -1634,6 +1641,9 @@ function renderOpenReactorStatusError(message) {
       pausedIssues: [],
       maintainerHandoffCount: 0,
       maintainerHandoffs: []
+    },
+    activity: {
+      recentEvents: []
     },
     pipeline: null
   };
@@ -1923,7 +1933,7 @@ function renderPipeline() {
 }
 
 function renderOpenReactorLivePanels() {
-  if (!openReactorLiveAgentsNode || !openReactorLiveBlockersNode) {
+  if (!openReactorLiveAgentsNode || !openReactorLiveBlockersNode || !openReactorLiveEventsNode) {
     return;
   }
 
@@ -1937,6 +1947,9 @@ function renderOpenReactorLivePanels() {
     : [];
   const pausedIssues = Array.isArray(openReactorStatus.blockers.pausedIssues)
     ? openReactorStatus.blockers.pausedIssues
+    : [];
+  const recentEvents = Array.isArray(openReactorStatus.activity?.recentEvents)
+    ? openReactorStatus.activity.recentEvents
     : [];
   const blockedCount = maintainerHandoffs.length + pausedIssues.length;
 
@@ -1994,6 +2007,17 @@ function renderOpenReactorLivePanels() {
     }
     openReactorLiveBlockersNode.append(fragment);
   }
+
+  openReactorLiveEventsNode.innerHTML = "";
+  if (!recentEvents.length) {
+    openReactorLiveEventsNode.append(createOpenReactorEmptyState("No runtime events yet."));
+  } else {
+    const fragment = document.createDocumentFragment();
+    for (const event of recentEvents) {
+      fragment.append(createOpenReactorEventCard(event));
+    }
+    openReactorLiveEventsNode.append(fragment);
+  }
 }
 
 function createOpenReactorAgentCard(item) {
@@ -2034,6 +2058,27 @@ function createOpenReactorAgentCard(item) {
     : "Heartbeat unavailable";
 
   row.append(top, meta, timing);
+
+  const transcriptPreview = Array.isArray(item.transcriptPreview) ? item.transcriptPreview : [];
+  if (transcriptPreview.length) {
+    const transcript = document.createElement("div");
+    transcript.className = "grid gap-1.5 pt-2 border-t border-[var(--line)]";
+
+    const transcriptLabel = document.createElement("p");
+    transcriptLabel.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
+    transcriptLabel.textContent = "Recent transcript";
+    transcript.append(transcriptLabel);
+
+    for (const entry of transcriptPreview.slice(-3)) {
+      const line = document.createElement("p");
+      line.className = "text-sm leading-relaxed text-[var(--ink-soft)]";
+      line.textContent = formatTranscriptPreview(entry);
+      transcript.append(line);
+    }
+
+    row.append(transcript);
+  }
+
   return row;
 }
 
@@ -2090,6 +2135,48 @@ function createOpenReactorBlockerCard(item, label) {
 
   row.append(heading, detail, meta);
   return row;
+}
+
+function createOpenReactorEventCard(event) {
+  const row = document.createElement("li");
+  row.className = "or-panel or-panel--tight grid gap-1.5";
+
+  const top = document.createElement("div");
+  top.className = "flex items-start justify-between gap-3 max-md:flex-col max-md:items-stretch";
+
+  const title = document.createElement("p");
+  title.className = "text-base font-semibold";
+  title.textContent = event.title || "Runtime event";
+
+  const badge = document.createElement("span");
+  badge.className = "or-badge or-badge--neutral";
+  badge.textContent = event.kind || "system";
+
+  top.append(title, badge);
+
+  const body = document.createElement("p");
+  body.className = "text-sm leading-relaxed text-[var(--ink-soft)]";
+  body.textContent = event.message || "";
+
+  const meta = document.createElement("p");
+  meta.className = "text-xs font-medium tracking-wide uppercase text-[var(--ink-faint)]";
+  meta.textContent = [
+    event.issueNumber ? `Issue #${event.issueNumber}` : "",
+    event.iteration ? `iteration ${event.iteration}` : "",
+    event.at ? formatIsoTimestamp(event.at) : ""
+  ]
+    .filter(Boolean)
+    .join(" • ");
+
+  row.append(top, body, meta);
+  return row;
+}
+
+function formatTranscriptPreview(entry) {
+  const stream = entry.stream ? `${entry.stream}: ` : "";
+  const text = typeof entry.text === "string" ? entry.text.trim().replace(/\s+/g, " ") : "";
+  const clipped = text.length > 180 ? `${text.slice(0, 179).trimEnd()}…` : text;
+  return `${stream}${clipped || "No transcript text."}`;
 }
 
 function createOpenReactorEmptyState(message) {

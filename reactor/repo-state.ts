@@ -241,6 +241,13 @@ function repoStateTemplates(repoName: string, seeds: RepoStateSeeds): Record<str
       "",
       "- Add dated decisions with a short reason so future agents inherit them."
     ].join("\n") + "\n"
+    ,
+    "workspace-policy.json": [
+      "{",
+      '  "version": 1,',
+      '  "executionMode": "isolated-worktree"',
+      "}"
+    ].join("\n") + "\n"
   };
 }
 

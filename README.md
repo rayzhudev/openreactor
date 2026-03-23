@@ -109,8 +109,8 @@ maintainer.
 OpenReactor can also expose a read-only live metadata feed from this machine so
 the website can visualize what the local system is doing without giving the
 public site direct control over the runtime. That feed is limited to metadata
-such as active agents, stalled work, and service health. The visual rendering
-stays in the website.
+such as active agents, stalled work, service health, recent runtime events, and
+transcript previews for live runs. The visual rendering stays in the website.
 
 UI quality is now also treated as a system concern, not just an agent taste
 problem. The standing visual rules live in
@@ -155,6 +155,7 @@ The first committed shape for that repo-local state is:
 - `.openreactor/repo/TRIAGE_POLICY.md`
 - `.openreactor/repo/ROADMAP.md`
 - `.openreactor/repo/MEMORY.md`
+- `.openreactor/repo/workspace-policy.json`
 
 When those files exist, the reactor prefers them over the legacy top-level
 product docs. This lets a target repo keep its own product direction and memory
@@ -348,7 +349,9 @@ The status service currently:
 
 - reads the reactor's live run snapshot from `.openreactor/live/`
 - reads watchdog pause and escalation state from `.openreactor/watchdog/`
-- exposes only metadata about active agents, stalled issues, maintainer handoffs, and local service health
+- reads per-run event logs and transcript artifacts from `.openreactor/runs/issue-*`
+- exposes metadata about active agents, stalled issues, maintainer handoffs,
+  recent runtime events, transcript previews, and local service health
 - is intended to be consumed by the website through `/api/openreactor-status`
 - should be exposed from this machine behind a token when the public site needs to reach it
 - can be published through a dedicated Cloudflare Tunnel hostname without exposing a raw public port
@@ -445,6 +448,13 @@ Run files under `.openreactor/runs/issue-*` include:
 - `plan.json` for structured decision state
 - `tasks.md` for the working checklist
 - `progress.md` with a `Codebase Patterns` section for durable learnings
+- `events.jsonl` for structured runtime activity
+- `transcript.jsonl` for recent stdout/stderr transcript slices
+
+The repo also now has a small shared contract layer under
+[`packages/contracts/`](/home/ray/projects/openreactor/packages/contracts/src/index.ts).
+The first use of it is the live OpenReactor status payload, so the website
+bridge and the local status service stop drifting on stage and activity shape.
 
 ## Reactor service
 

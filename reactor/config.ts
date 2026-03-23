@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import type { WorkspacePolicy } from "../packages/contracts/src/runtime";
+import { resolveWorkspacePolicy } from "./workspace-policy";
 
 export interface OrchestratorConfig {
   engineRoot: string;
@@ -9,6 +11,8 @@ export interface OrchestratorConfig {
   runsDir: string;
   worktreesDir: string;
   defaultBranch: string;
+  workspacePolicyPath: string | null;
+  workspacePolicy: WorkspacePolicy;
   pollIntervalMs: number;
   maxIterationRuntimeMs: number;
   maxConcurrentIssues: number;
@@ -50,6 +54,7 @@ export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorCon
   const engineRoot = clean(process.env.OPENREACTOR_ENGINE_ROOT) || ENGINE_ROOT;
   const stateRoot = path.join(repoRoot, ".openreactor");
   const localEnv = loadLocalEnv(repoRoot, engineRoot);
+  const workspacePolicy = resolveWorkspacePolicy(repoRoot);
 
   return {
     engineRoot,
@@ -57,6 +62,8 @@ export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorCon
     runsDir: path.join(stateRoot, "runs"),
     worktreesDir: path.join(stateRoot, "worktrees"),
     defaultBranch: resolveDefaultBranch(repoRoot, localEnv),
+    workspacePolicyPath: workspacePolicy.path,
+    workspacePolicy: workspacePolicy.policy,
     pollIntervalMs: numberFromEnv("OPENREACTOR_POLL_INTERVAL_MS", 60_000),
     maxIterationRuntimeMs: numberFromEnv("OPENREACTOR_MAX_ITERATION_RUNTIME_MS", 20 * 60_000),
     maxConcurrentIssues: numberFromEnv("OPENREACTOR_MAX_CONCURRENT_ISSUES", 3),

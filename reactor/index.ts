@@ -19,6 +19,7 @@ import {
   type GitHubPullRequest
 } from "./github";
 import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
+import { appendRunActivity } from "./runtime-artifacts";
 import {
   type AgentResult,
   type ExecutionMetadata,
@@ -1078,6 +1079,19 @@ class Reactor {
         evidenceSummary: record.evidenceSummary
       }, comments);
       await writeRunRecord(paths, record);
+      await appendRunActivity(paths.runDir, {
+        issueNumber: issue.number,
+        iteration: record.iteration + 1,
+        kind: "status",
+        title: existingRecord ? "Retrying issue" : "Dispatching issue",
+        message: existingRecord
+          ? "OpenReactor is starting a fresh retry iteration for this issue."
+          : "OpenReactor is starting the first full implementation iteration for this issue.",
+        data: {
+          toolName: record.agentTool ?? requestedAgentTool,
+          targetSurface: record.targetSurface ?? null
+        }
+      });
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
         phase: existingRecord ? "retrying" : "reviewing",
@@ -1242,6 +1256,13 @@ class Reactor {
             prUrl: handoffValidation.pullRequest.html_url
           };
           await writeRunRecord(paths, activeRun.record);
+          await appendRunActivity(paths.runDir, {
+            issueNumber,
+            iteration: activeRun.record.iteration,
+            kind: "status",
+            title: "Waiting on maintainer",
+            message: `Run paused for maintainer action on PR ${handoffValidation.pullRequest.html_url}.`
+          });
           await this.refreshPullRequestExecutionFooter(handoffValidation.pullRequest.number, paths);
           await this.github.disablePullRequestAutoMerge(handoffValidation.pullRequest.number);
           await this.github.addLabels(issueNumber, [MAINTAINER_ACTION_REQUIRED_LABEL]);
@@ -1301,6 +1322,13 @@ class Reactor {
             prUrl: acceptedValidation.pullRequest.html_url
           };
           await writeRunRecord(paths, activeRun.record);
+          await appendRunActivity(paths.runDir, {
+            issueNumber,
+            iteration: activeRun.record.iteration,
+            kind: "status",
+            title: "Accepted work",
+            message: `Run produced accepted work linked to ${acceptedValidation.pullRequest.html_url}.`
+          });
           await this.refreshPullRequestExecutionFooter(acceptedValidation.pullRequest.number, paths);
           await this.syncIssueStatusComment(issueNumber, {
             status: "complete",
@@ -1316,6 +1344,13 @@ class Reactor {
       }
 
       if (result?.outcome === "rejected") {
+        await appendRunActivity(paths.runDir, {
+          issueNumber,
+          iteration: activeRun.record.iteration,
+          kind: "status",
+          title: "Rejected request",
+          message: result.summary
+        });
         await this.syncIssueStatusComment(issueNumber, {
           status: "rejected",
           phase: "rejected",
@@ -1387,6 +1422,13 @@ class Reactor {
             detail: `Decomposed into ${createdIssues.length} follow-up issues for execution.`,
             execution: activeRun.record.lastAgentExecution ?? undefined
           });
+          await appendRunActivity(paths.runDir, {
+            issueNumber,
+            iteration: activeRun.record.iteration,
+            kind: "status",
+            title: "Decomposed request",
+            message: `Created ${createdIssues.length} follow-up issue${createdIssues.length === 1 ? "" : "s"} for execution.`
+          });
           await this.github.createComment(
             issueNumber,
             formatPublicDecisionComment(
@@ -1411,6 +1453,14 @@ class Reactor {
 
       const nextIteration = activeRun.record.iteration;
       if (nextIteration >= this.config.maxIterationsPerIssue) {
+        await appendRunActivity(paths.runDir, {
+          issueNumber,
+          iteration: nextIteration,
+          kind: "status",
+          level: "warn",
+          title: "Paused after retry limit",
+          message: `OpenReactor stopped after ${this.config.maxIterationsPerIssue} iterations without a final decision.`
+        });
         await this.github.removeLabel(issueNumber, this.config.runningLabel);
         await this.syncIssueStatusComment(issueNumber, {
           status: "queued",
@@ -1443,6 +1493,14 @@ class Reactor {
         });
       }
     } catch (error) {
+      await appendRunActivity(paths.runDir, {
+        issueNumber,
+        iteration: activeRun.record.iteration,
+        kind: "system",
+        level: "error",
+        title: "Execution error",
+        message: formatError(error)
+      });
       await this.github.removeLabel(issueNumber, this.config.runningLabel);
       await this.syncIssueStatusComment(issueNumber, {
         status: "queued",
@@ -1499,6 +1557,15 @@ class Reactor {
       record.updatedAt = new Date().toISOString();
       record.lastHeartbeatAt = record.updatedAt;
       await writeRunRecord(issueRuntimePaths(this.config, issue.number), record);
+      await appendRunActivity(record.runDir, {
+        issueNumber: issue.number,
+        iteration: record.iteration,
+        kind: "system",
+        level: "warn",
+        title: "Provider fallback",
+        message:
+          `${currentTool.label} appears unavailable (${outageReason}), so OpenReactor is switching to ${fallbackTool.label}.`
+      });
       await this.syncIssueStatusComment(issue.number, {
         status: "queued",
         phase: "retrying",
