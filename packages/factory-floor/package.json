@@ -1,0 +1,29 @@
+{
+  "name": "@openreactor/factory-floor",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Embeddable factory-floor visualization for automation-status/v1 payloads",
+  "main": "./dist/factory-floor.umd.cjs",
+  "module": "./dist/factory-floor.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/factory-floor.js",
+      "require": "./dist/factory-floor.umd.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc --emitDeclarationOnly --declaration --outDir dist",
+    "preview": "vite preview",
+    "sprites:chatgpt": "bun run ./scripts/send-chatgpt-sprite-prompts.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vite": "^6.3.5"
+  }
+}

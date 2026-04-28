@@ -1,0 +1,342 @@
+{
+  "specVersion": "automation-status/v1",
+  "generatedAt": "2026-03-26T10:00:00.000Z",
+  "system": {
+    "id": "openreactor",
+    "name": "OpenReactor",
+    "kind": "autonomous-software-delivery",
+    "status": "healthy"
+  },
+  "topology": {
+    "nodes": [
+      {
+        "id": "intake",
+        "kind": "source",
+        "label": "Intake",
+        "status": "healthy",
+        "counts": { "totalItems": 5, "queued": 5 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:301", "openreactor:issue:302", "openreactor:issue:303"], "visibleCount": 3, "truncated": true } }
+      },
+      {
+        "id": "triage-planning",
+        "kind": "processor",
+        "label": "Triage & Planning",
+        "status": "healthy",
+        "counts": { "totalItems": 1, "active": 1 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:298"], "visibleCount": 1, "truncated": false } }
+      },
+      {
+        "id": "execution",
+        "kind": "processor",
+        "label": "Execution",
+        "status": "healthy",
+        "capacity": { "maxConcurrency": 3 },
+        "counts": { "totalItems": 2, "active": 2 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:295", "openreactor:issue:290"], "visibleCount": 2, "truncated": false } }
+      },
+      {
+        "id": "retry",
+        "kind": "queue",
+        "label": "Retry",
+        "status": "healthy",
+        "counts": { "totalItems": 1, "queued": 1 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:280"], "visibleCount": 1, "truncated": false } }
+      },
+      {
+        "id": "blocked",
+        "kind": "queue",
+        "label": "Blocked",
+        "status": "degraded",
+        "counts": { "totalItems": 2, "blocked": 2 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:186", "openreactor:issue:220"], "visibleCount": 2, "truncated": false } }
+      },
+      {
+        "id": "completed",
+        "kind": "sink",
+        "label": "Merged",
+        "status": "healthy",
+        "counts": { "totalItems": 2, "completed": 2 },
+        "samples": { "items": { "itemIds": ["openreactor:issue:278", "openreactor:issue:277"], "visibleCount": 2, "truncated": false } }
+      },
+      {
+        "id": "watchdog",
+        "kind": "supervisor",
+        "label": "Watchdog",
+        "status": "healthy",
+        "counts": { "totalItems": 0 },
+        "samples": { "items": { "itemIds": [], "visibleCount": 0, "truncated": false } }
+      }
+    ],
+    "edges": [
+      { "id": "intake-to-triage", "fromNodeId": "intake", "toNodeId": "triage-planning", "kind": "flow", "status": "healthy" },
+      { "id": "triage-to-execution", "fromNodeId": "triage-planning", "toNodeId": "execution", "kind": "flow", "status": "healthy" },
+      { "id": "execution-to-retry", "fromNodeId": "execution", "toNodeId": "retry", "kind": "retry", "status": "healthy" },
+      { "id": "retry-to-execution", "fromNodeId": "retry", "toNodeId": "execution", "kind": "retry", "status": "healthy" },
+      { "id": "execution-to-blocked", "fromNodeId": "execution", "toNodeId": "blocked", "kind": "handoff", "status": "degraded" },
+      { "id": "execution-to-completed", "fromNodeId": "execution", "toNodeId": "completed", "kind": "flow", "status": "healthy" },
+      { "id": "watchdog-to-blocked", "fromNodeId": "watchdog", "toNodeId": "blocked", "kind": "control", "status": "healthy" }
+    ]
+  },
+  "snapshot": {
+    "items": [
+      {
+        "id": "openreactor:issue:301",
+        "kind": "issue",
+        "label": "Add dark mode to settings page",
+        "state": "queued",
+        "currentNodeId": "intake",
+        "createdAt": "2026-03-26T08:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 301, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/301", "supportCount": 12 } }
+      },
+      {
+        "id": "openreactor:issue:302",
+        "kind": "issue",
+        "label": "Improve error messages in submit form",
+        "state": "queued",
+        "currentNodeId": "intake",
+        "createdAt": "2026-03-26T08:30:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 302, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/302", "supportCount": 5 } }
+      },
+      {
+        "id": "openreactor:issue:303",
+        "kind": "issue",
+        "label": "Add keyboard shortcuts documentation",
+        "state": "queued",
+        "currentNodeId": "intake",
+        "createdAt": "2026-03-26T09:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 303, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/303", "supportCount": 3 } }
+      },
+      {
+        "id": "openreactor:issue:298",
+        "kind": "issue",
+        "label": "Refactor queue pagination logic",
+        "state": "running",
+        "currentNodeId": "triage-planning",
+        "assignedActorId": "openreactor:actor:triage",
+        "enteredStateAt": "2026-03-26T09:50:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 298, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/298" } }
+      },
+      {
+        "id": "openreactor:issue:295",
+        "kind": "issue",
+        "label": "Add leaderboard filtering by time range",
+        "state": "running",
+        "currentNodeId": "execution",
+        "assignedActorId": "openreactor:actor:295",
+        "enteredStateAt": "2026-03-26T09:30:00.000Z",
+        "retryCount": 0,
+        "extensions": { "openreactor": { "issueNumber": 295, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/295", "branchName": "openreactor/issue-295" } }
+      },
+      {
+        "id": "openreactor:issue:290",
+        "kind": "issue",
+        "label": "Polish playground story navigation",
+        "state": "running",
+        "currentNodeId": "execution",
+        "assignedActorId": "openreactor:actor:290",
+        "enteredStateAt": "2026-03-26T09:15:00.000Z",
+        "retryCount": 1,
+        "extensions": { "openreactor": { "issueNumber": 290, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/290", "branchName": "openreactor/issue-290", "toolLabel": "Claude UI agent" } }
+      },
+      {
+        "id": "openreactor:issue:280",
+        "kind": "issue",
+        "label": "Fix mobile layout on queue page",
+        "state": "retrying",
+        "currentNodeId": "retry",
+        "retryCount": 3,
+        "enteredStateAt": "2026-03-26T09:40:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 280, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/280" } }
+      },
+      {
+        "id": "openreactor:issue:186",
+        "kind": "issue",
+        "label": "Implement webhook retry backoff",
+        "state": "paused",
+        "currentNodeId": "blocked",
+        "blockedByIncidentIds": ["openreactor:incident:paused:186"],
+        "enteredStateAt": "2026-03-26T07:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 186, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/186", "autoHealAttempts": 2 } }
+      },
+      {
+        "id": "openreactor:issue:220",
+        "kind": "issue",
+        "label": "Add CSV export to leaderboard",
+        "state": "waiting",
+        "currentNodeId": "blocked",
+        "blockedByIncidentIds": ["openreactor:incident:handoff:220"],
+        "enteredStateAt": "2026-03-26T08:30:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 220, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/220", "prUrl": "https://github.com/rayzhudev/openreactor/pull/221" } }
+      },
+      {
+        "id": "openreactor:issue:278",
+        "kind": "pull-request",
+        "label": "Use live repo policy for rejection triage",
+        "state": "succeeded",
+        "outcome": "accepted",
+        "currentNodeId": "completed",
+        "enteredStateAt": "2026-03-26T06:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 278, "artifactKind": "pull-request", "pullRequestUrl": "https://github.com/rayzhudev/openreactor/pull/278" } }
+      },
+      {
+        "id": "openreactor:issue:277",
+        "kind": "pull-request",
+        "label": "Add runtime hardening foundations",
+        "state": "succeeded",
+        "outcome": "accepted",
+        "currentNodeId": "completed",
+        "enteredStateAt": "2026-03-26T05:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 277, "artifactKind": "pull-request", "pullRequestUrl": "https://github.com/rayzhudev/openreactor/pull/277" } }
+      },
+      {
+        "id": "openreactor:issue:276",
+        "kind": "issue",
+        "label": "Add playground goon material page",
+        "state": "succeeded",
+        "outcome": "decomposed",
+        "enteredStateAt": "2026-03-26T04:00:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 276, "artifactKind": "issue" } }
+      }
+    ],
+    "actors": [
+      {
+        "id": "openreactor:actor:295",
+        "kind": "agent",
+        "label": "Codex Agent",
+        "role": "general",
+        "status": "working",
+        "currentNodeId": "execution",
+        "currentItemId": "openreactor:issue:295",
+        "provider": "codex",
+        "model": "gpt-5.3-codex-spark",
+        "startedAt": "2026-03-26T09:30:00.000Z",
+        "lastHeartbeatAt": "2026-03-26T09:59:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 295, "toolName": "spawn_codex_issue_agent", "toolLabel": "Codex issue agent", "iteration": 1 } }
+      },
+      {
+        "id": "openreactor:actor:290",
+        "kind": "agent",
+        "label": "Claude UI Agent",
+        "role": "ui",
+        "status": "working",
+        "currentNodeId": "execution",
+        "currentItemId": "openreactor:issue:290",
+        "provider": "claude",
+        "model": "claude-sonnet-4-6",
+        "startedAt": "2026-03-26T09:15:00.000Z",
+        "lastHeartbeatAt": "2026-03-26T09:58:00.000Z",
+        "extensions": { "openreactor": { "issueNumber": 290, "toolName": "spawn_claude_ui_agent", "toolLabel": "Claude UI agent", "iteration": 2 } }
+      }
+    ],
+    "executions": [
+      {
+        "id": "openreactor:execution:active:295",
+        "itemId": "openreactor:issue:295",
+        "actorId": "openreactor:actor:295",
+        "nodeId": "execution",
+        "status": "running",
+        "attempt": 1,
+        "startedAt": "2026-03-26T09:30:00.000Z",
+        "updatedAt": "2026-03-26T09:59:00.000Z"
+      },
+      {
+        "id": "openreactor:execution:active:290",
+        "itemId": "openreactor:issue:290",
+        "actorId": "openreactor:actor:290",
+        "nodeId": "execution",
+        "status": "running",
+        "attempt": 2,
+        "startedAt": "2026-03-26T09:15:00.000Z",
+        "updatedAt": "2026-03-26T09:58:00.000Z"
+      }
+    ],
+    "incidents": [
+      {
+        "id": "openreactor:incident:paused:186",
+        "kind": "paused-issue",
+        "label": "Issue #186 paused — provider unavailable",
+        "severity": "warning",
+        "status": "active",
+        "scope": { "nodeIds": ["blocked"], "itemIds": ["openreactor:issue:186"] },
+        "startedAt": "2026-03-26T07:00:00.000Z",
+        "reason": "provider_unavailable"
+      },
+      {
+        "id": "openreactor:incident:handoff:220",
+        "kind": "maintainer-handoff",
+        "label": "Issue #220 needs maintainer review",
+        "severity": "info",
+        "status": "active",
+        "scope": { "nodeIds": ["blocked"], "itemIds": ["openreactor:issue:220"] },
+        "startedAt": "2026-03-26T08:30:00.000Z",
+        "reason": "PR requires manual merge conflict resolution"
+      }
+    ],
+    "services": [
+      {
+        "id": "reactor",
+        "label": "Reactor",
+        "status": "healthy",
+        "active": true,
+        "updatedAt": "2026-03-26T10:00:00.000Z",
+        "restarts": 1
+      },
+      {
+        "id": "watchdog",
+        "label": "Watchdog",
+        "status": "healthy",
+        "active": true,
+        "updatedAt": "2026-03-26T10:00:00.000Z",
+        "restarts": 0
+      }
+    ]
+  },
+  "activity": {
+    "recentEvents": [
+      {
+        "id": "evt-1",
+        "at": "2026-03-26T09:59:00.000Z",
+        "kind": "status",
+        "level": "info",
+        "subjectType": "item",
+        "subjectId": "openreactor:issue:295",
+        "message": "Codex agent is implementing leaderboard filtering."
+      },
+      {
+        "id": "evt-2",
+        "at": "2026-03-26T09:58:00.000Z",
+        "kind": "status",
+        "level": "info",
+        "subjectType": "item",
+        "subjectId": "openreactor:issue:290",
+        "message": "Claude UI agent polishing playground story navigation (attempt 2)."
+      },
+      {
+        "id": "evt-3",
+        "at": "2026-03-26T09:40:00.000Z",
+        "kind": "status",
+        "level": "warning",
+        "subjectType": "item",
+        "subjectId": "openreactor:issue:280",
+        "message": "Issue #280 entering retry queue (attempt 3)."
+      }
+    ]
+  },
+  "metrics": {
+    "totals": {
+      "activeAgents": 2,
+      "blockedItems": 2,
+      "pendingRetryItems": 1,
+      "completedItems": 42
+    },
+    "capacities": {
+      "maxConcurrentIssues": 3
+    }
+  },
+  "extensions": {
+    "openreactor": {
+      "repo": { "owner": "rayzhudev", "repo": "openreactor" },
+      "nodeOrder": ["intake", "triage-planning", "execution", "retry", "blocked", "completed", "watchdog"]
+    }
+  }
+}

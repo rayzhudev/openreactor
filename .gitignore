@@ -5,3 +5,4 @@ node_modules
 !.openreactor/repo/
 !.openreactor/repo/**
 public/styles.css
+packages/factory-floor/dist/

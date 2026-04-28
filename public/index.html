@@ -16,13 +16,21 @@
       } catch {}
     </script>
     <link rel="alternate" type="application/rss+xml" title="OpenReactor website updates" href="/updates.xml" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
     <main class="or-shell">
 
       <header class="or-topbar">
-        <p class="or-brand">OpenReactor</p>
+        <p class="or-brand">
+          <svg class="or-logo-mark" viewBox="0 0 400 400" aria-hidden="true">
+            <circle cx="200" cy="200" r="100" stroke="currentColor" stroke-width="24" stroke-dasharray="60 18.5398" stroke-dashoffset="30" fill="none" />
+            <circle cx="200" cy="200" r="65" stroke="currentColor" stroke-width="12" stroke-dasharray="30 21.0509" stroke-dashoffset="15" fill="none" />
+            <circle cx="200" cy="200" r="32" fill="#f97316" />
+          </svg>
+          <span>OpenReactor</span>
+        </p>
         <nav class="or-nav" aria-label="Site navigation">
           <a class="or-nav-link or-nav-link--active" href="/" aria-current="page">Intake</a>
           <a class="or-nav-link" href="/playground/">Playground</a>
@@ -92,12 +100,15 @@
           <p class="mt-2 text-[var(--ink-soft)] text-sm leading-relaxed">Requests flow through these stages as OpenReactor decides what to build, assigns agents, and ships accepted work.</p>
           <p id="openreactor-live-status" class="min-h-6 mt-2 text-[var(--ink-soft)] text-sm" role="status" aria-live="polite">Loading live OpenReactor metadata...</p>
 
-          <div id="openreactor-pipeline" class="or-pipeline mt-4" aria-label="OpenReactor pipeline stages"></div>
+          <div id="factory-visualization" class="factory-floor-shell mt-4 rounded-lg overflow-hidden border border-[var(--line)]"></div>
+
+          <div id="openreactor-pipeline" class="or-pipeline mt-4 hidden" aria-label="OpenReactor pipeline stages"></div>
 
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3" aria-label="OpenReactor service health">
             <span class="or-status-dot"><span class="or-dot" id="openreactor-dot-reactor"></span> Reactor: <strong id="openreactor-live-reactor">&mdash;</strong></span>
             <span class="or-status-dot"><span class="or-dot" id="openreactor-dot-watchdog"></span> Watchdog: <strong id="openreactor-live-watchdog">&mdash;</strong></span>
             <span class="or-status-dot"><span class="or-dot" id="openreactor-dot-agents"></span> Agents: <strong id="openreactor-live-active">&mdash;</strong></span>
+            <span class="or-status-dot">Blocked: <strong id="openreactor-live-blocked">&mdash;</strong></span>
           </div>
           <div class="grid gap-4 lg:grid-cols-2 mt-3">
             <section class="or-panel or-panel--tight">

@@ -1,5 +1,160 @@
 # Product Memory
 
+## 2026-04-28
+
+- Decision: use the segmented concentric-ring mark with the orange core as the
+  canonical OpenReactor logo and favicon.
+  Reason: the mark reads like a reactor target while staying simple enough for
+  the topbar and browser favicon. The ring dash lengths should divide evenly
+  around the circles so the symbol remains visually balanced.
+
+- Decision: represent the factory-floor source node as a pneumatic task pipe
+  with blank cards emerging from the opening.
+  Reason: a pipe communicates that new work items spawn into the factory more
+  immediately than a generic hopper, while avoiding text or product-specific
+  logos at the 75px runtime size.
+
+- Decision: keep the factory-floor drone provider logo on a dedicated top
+  plate and remove the runtime text label from drone sprites.
+  Reason: the provider mark is the stable identity signal for an agent. A
+  centered plate plus fixed CSS measurements keeps the SVG logo aligned with
+  the generated chassis, while the text label overlapped stations and made the
+  sprite read less like a game object.
+
+- Decision: use simple controlled role-overlay PNG symbols instead of accepting
+  generated role overlays that resemble tiny labels or number badges.
+  Reason: role overlays render at about 5-9px in the drone assembly. At that
+  size, deterministic high-contrast symbols stay clearer and avoid accidental
+  text/numerals from image generation.
+
+- Decision: cap visible factory-floor sink tokens to the latest three items and
+  expose the full pile through the sink node tooltip.
+  Reason: letting every completed issue or PR remain visibly stacked on a
+  75x75px pile quickly creates clutter. Showing the latest three preserves
+  motion/history feedback, while clicking the pile keeps older outcomes
+  available on demand.
+
+## 2026-04-24
+
+- Decision: replace the factory-floor sprite production process with a
+  Codex-native image generation workflow documented in `packages/factory-floor/SPRITES.md`.
+  Reason: the old ChatGPT Mac app automation path added brittle OS-level steps
+  and made the asset pipeline harder to reproduce from the repo itself.
+
+- Decision: keep factory-floor token status indicators renderer-built instead
+  of shipping generated badge PNGs.
+  Reason: maintainer handoff, stalled, fallback/rate-limit, CI failure, and
+  merge-conflict indicators render at about 12px, where generated raster badges
+  add large emitted assets without beating the clarity of controlled symbols.
+
+- Decision: generate non-overlay factory-floor sprites against an explicit
+  tile-grid scaffold and use a brighter, more glanceable industrial palette.
+  Reason: source, sink, station, watchdog, and drone body sprites need to fit
+  fixed runtime footprints. A grid scaffold makes edge alignment and visual
+  mass deliberate, while a lighter palette improves readability in the live
+  renderer.
+
+## 2026-04-11
+
+- Decision: downscale generated factory-floor sprite downloads to package-ready
+  resolutions before importing them into the embeddable renderer.
+  Reason: Vite library mode inlines imported image assets into the shipped JS
+  bundle. Raw 1024px ChatGPT downloads make the package balloon quickly, while
+  the visualization only renders those sprites at small on-screen sizes.
+
+- Decision: remove plain white background connected to the canvas edge from
+  generated factory-floor sprite downloads before accepting them into the repo.
+  Reason: ChatGPT app exports arrive as flattened PNGs with a white matte, but
+  the renderer needs transparent sprite assets so the floor grid and other
+  layered visuals do not pick up white boxes around the art.
+
+- Decision: import shipped factory-floor PNG assets with Vite's `?no-inline`
+  suffix instead of relying on default library-mode asset handling.
+  Reason: Vite library mode always inlines imported assets into the JS bundle
+  by default, which made the embeddable package explode past 10 MB once the
+  full sprite set was wired into the renderer. Explicit `?no-inline` imports
+  keep the package lean while still shipping hashed asset files.
+
+- Decision: keep factory-floor provider logos as controlled SVG assets instead
+  of generated raster badge overlays.
+  Reason: provider marks are tiny, high-precision symbols that need to stay
+  crisp and stable at small runtime sizes. SVG logos scale better, bundle more
+  cleanly, and avoid the visual drift that came from generated badge PNGs.
+
+- Decision: avoid complete machine-like conveyor sprites for factory-floor.
+  Reason: the visualization draws arbitrary straight runs, corners, and retry
+  loops, so full assembled conveyor illustrations do not compose cleanly across
+  routes.
+
+- Decision: render factory-floor conveyors as grid-aligned cell runs composed
+  from canonical renderer-built straight and corner tiles, with flow motion
+  animated separately in code.
+  Reason: stamping whole belt images along curved SVG paths still produces seam
+  risk and weak turn handling, while generated belt art drifts too easily for
+  infrastructure that must join perfectly. A discrete cell model matches the
+  layout grid, rotates cleanly into all cardinal directions, and keeps
+  tessellation and animation concerns separate.
+
+- Decision: resolve factory-floor conveyor visuals per occupied grid cell across
+  the whole belt network rather than rendering each edge independently.
+  Reason: Factorio-style side-loading and merges require a cell that belongs to
+  a straight run to stay visually straight even when a perpendicular feed joins
+  it. Per-edge rendering incorrectly turns those shared cells into corners and
+  produces wrong arrow directions.
+
+- Decision: derive each conveyor tile's geometry from its incoming and outgoing
+  sides rather than rotating a canonical tile by `enter`/`exit` direction.
+  Reason: `enter` in the routed belt cells represents travel direction from the
+  previous cell, not the literal side where the belt enters the current tile.
+  Converting that direction into an actual incoming side avoids mirrored corner
+  turns and backwards-pointing flow arrows.
+
+- Decision: continue factory-floor sprite rollout one asset at a time, and
+  integrate each accepted asset into the live renderer before generating the
+  next one.
+  Reason: judging generated sprites in isolation led to drift and wasted
+  generations. Integrating each sprite immediately into the demo keeps style,
+  scale, and package constraints visible while decisions are still cheap.
+
+- Decision: render moving factory-floor issue and pull-request items from
+  renderer-built glyphs instead of generated sprites, with belt-moving tokens
+  suppressing numeric badges.
+  Reason: tiny moving items lose too much identity when detailed generated
+  artwork is tinted and scaled to conveyor size. Code-native glyphs stay crisp,
+  tunable, and readable, and hiding number badges on moving tokens prevents the
+  badge from overwhelming the icon.
+
+- Decision: model factory-floor artifact kind as explicit item lifecycle state,
+  not as a stage-based visual inference, and reserve the merged sink for pull
+  requests only.
+  Reason: inferring issue-vs-PR from node position let decomposed issues leak
+  into the merged pile and made post-PR retry states regress back to issue
+  visuals. Explicit artifact kind keeps retries, waiting PRs, and merged output
+  semantically correct while decomposed issues terminate separately at triage.
+
+- Decision: keep the factory-floor waiting zone PR-only and represent
+  decomposition by child issues returning to intake rather than by a visible
+  decomposed pile.
+  Reason: the real workflow only enters maintainer waiting when there is a
+  reviewable PR open, so separate issue-vs-PR waiting lanes would be misleading.
+  For decomposition, the operationally meaningful visible effect is new child
+  issues joining intake; the parent issue closing as decomposed is bookkeeping,
+  not factory throughput.
+
+- Decision: trim transparent outer padding from station sprites and fit sprite
+  nodes exactly to their tile bounds in the renderer.
+  Reason: the earlier overscan rule only existed to hide padded PNG exports. It
+  caused station art to bleed outside its assigned footprint and made conveyors
+  miss the visible bench edge. Trimmed station art plus exact-fit rendering
+  keeps the scene reading like a game board instead of floating stickers.
+
+- Decision: let downward station-output belts extend one tile into the station
+  footprint and keep the belt layer explicitly below entity sprites.
+  Reason: game-like readability is better when the outgoing belt appears to run
+  under the station face instead of starting with a visible gap below it.
+  Making the z-order explicit avoids future regressions when DOM order or
+  renderer composition changes.
+
 ## 2026-03-23
 
 - Decision: treat `PRODUCT_SPEC.md` as both the current-state product source of
@@ -14,6 +169,33 @@
   Reason: telling agents to "update docs" is too vague. They work better when
   the repo says which file owns which kind of truth and when each file must be
   updated.
+
+## 2026-03-25
+
+- Decision: split the old visualization spec into a generic automation-status
+  contract and a separate factory-floor renderer spec.
+  Reason: the status API needs to remain renderer-agnostic and portable across
+  autonomous systems, while the factory-floor package is only one consumer of
+  that operational model.
+
+- Decision: treat workflow topology plus runtime snapshot as the primary status
+  model for observability, not a pipeline-stage array tied to OpenReactor's
+  current layout.
+  Reason: a graph-based model can represent OpenReactor and other autonomous
+  systems without forcing UI-specific or workflow-specific assumptions into the
+  API.
+
+- Decision: carry OpenReactor-specific observability detail in
+  `extensions.openreactor` on top of the generic automation-status contract.
+  Reason: the shared standard should stay portable across other autonomous
+  systems, while OpenReactor still needs to expose issue numbers, PR links,
+  tool metadata, and other repo-specific details for its own UI.
+
+- Decision: publish the automation-status standard with a machine-readable JSON
+  Schema and example payload alongside the prose spec.
+  Reason: a reusable observability standard should be implementable by other
+  systems without requiring them to infer field shapes only from narrative docs
+  or from OpenReactor's own source code.
 
 ## 2026-03-09
 
@@ -399,3 +581,24 @@
   OpenReactor already publishes branches through the GitHub token path, but it
   also needs explicit git author settings so commits do not inherit the local
   machine user's identity.
+
+- Decision: in the `factory-floor` visualisation, human waiting gates should
+  act as inline hold stations on the bottom run of the execution return loop
+  instead of sitting on a separate conveyor spur or floating inside the loop.
+  Reason: waiting is modeled as a hold/rejoin state around execution, so the
+  belt topology should show one coherent interrupted loop rather than a
+  misleading side branch or a disconnected box inside the belt path.
+
+- Decision: renderer-built conveyor loops that are interrupted by an inline
+  station must derive both belt halves from the interrupting node's occupied
+  grid cells rather than from hardcoded resume offsets.
+  Reason: when the station moves, fixed resume coordinates create missing belt
+  segments and visual gaps. Using the station footprint as the split contract
+  keeps loop rendering correct under placement changes.
+
+- Decision: the `factory-floor` watchdog should use a generated idle body
+  sprite with code-driven spray particles instead of a mandatory separate
+  full-body spraying sprite.
+  Reason: the body needs to match the other generated world assets, but the
+  spray itself is a small animated effect that is more robust and flexible in
+  code than as a second monolithic bitmap variant.

@@ -1,3 +1,5 @@
+const API_BASE = "https://openreactor.net";
+
 const form = document.querySelector("#request-form");
 const statusNode = document.querySelector("#form-status");
 const requestField = document.querySelector("#request");
@@ -32,6 +34,7 @@ const openReactorLiveAgentsNode = document.querySelector("#openreactor-live-agen
 const openReactorLiveBlockersNode = document.querySelector("#openreactor-live-blockers");
 const openReactorLiveEventsNode = document.querySelector("#openreactor-live-events");
 const openReactorPipelineNode = document.querySelector("#openreactor-pipeline");
+const factoryContainer = document.querySelector("#factory-visualization");
 const leaderboardList = document.querySelector("#leaderboard-list");
 const leaderboardStatusNode = document.querySelector("#leaderboard-status");
 const leaderboardSummaryNode = document.querySelector("#leaderboard-summary");
@@ -57,6 +60,10 @@ const authLoginNode = document.querySelector("#auth-login");
 const authDropdownNode = document.querySelector("#auth-dropdown");
 const authProfileLink = document.querySelector("#auth-profile-link");
 const authSignOutButton = document.querySelector("#auth-sign-out");
+
+let factoryFloor = null;
+let factoryFloorFitted = false;
+let openReactorStatusPayload = null;
 
 const SUBMIT_BUTTON_LABEL = "Submit";
 const MAX_REFERENCE_IMAGES = 4;
@@ -268,6 +275,8 @@ async function boot() {
   queueNewerButton.addEventListener("click", () => changeQueuePage(queueState.page - 1));
   queueOlderButton.addEventListener("click", () => changeQueuePage(queueState.page + 1));
 
+  void initFactoryFloorVisualization();
+
   updateRequestCount(requestField.value);
   renderSelectedReferenceImages([]);
   renderMyRequests();
@@ -310,13 +319,50 @@ function initSupportSession() {
   renderSupportSession();
 }
 
+async function initFactoryFloorVisualization() {
+  if (!factoryContainer) {
+    return;
+  }
+
+  try {
+    await import("./factory-floor/factory-floor.js");
+    const floor = document.createElement("openreactor-factory-floor");
+    floor.setAttribute("width", "100%");
+    floor.setAttribute("height", "100%");
+    floor.setAttribute("grid-visible", "true");
+    factoryContainer.replaceChildren(floor);
+    factoryFloor = floor;
+    updateFactoryFloor(openReactorStatusPayload);
+  } catch (error) {
+    console.error("Unable to load factory-floor renderer.", error);
+    const fallback = document.createElement("p");
+    fallback.className = "text-sm text-[var(--ink-soft)]";
+    fallback.textContent = "Factory visualization is unavailable right now.";
+    factoryContainer.replaceChildren(fallback);
+  }
+}
+
+function updateFactoryFloor(payload) {
+  if (!factoryFloor || !payload || payload.specVersion !== "automation-status/v1") {
+    return;
+  }
+
+  factoryFloor.update(payload);
+  if (!factoryFloorFitted) {
+    window.setTimeout(() => {
+      factoryFloor?.fitToContent?.();
+    }, 100);
+    factoryFloorFitted = true;
+  }
+}
+
 async function loadSupportSession() {
   if (!authSignInNode) {
     return;
   }
 
   try {
-    const response = await fetch("/api/session", {
+    const response = await fetch(`${API_BASE}/api/session`, {
       cache: "no-store",
       credentials: "same-origin"
     });
@@ -576,7 +622,7 @@ async function onSubmit(event) {
   const payload = buildPayload(request, website, scopePreference, selectedImages);
 
   try {
-    const response = await fetch("/api/requests", {
+    const response = await fetch(`${API_BASE}/api/requests`, {
       method: "POST",
       body: payload
     });
@@ -1104,11 +1150,11 @@ function closeAuthDropdown() {
 
 function buildSupportAuthUrl() {
   const returnTo = `${window.location.pathname}${window.location.search}`;
-  return `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`;
+  return `${API_BASE}/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 async function onSupportSignOut() {
-  await fetch("/api/session", {
+  await fetch(`${API_BASE}/api/session`, {
     method: "DELETE",
     credentials: "same-origin"
   });
@@ -1524,7 +1570,7 @@ async function loadLeaderboard() {
   leaderboardList.innerHTML = "";
 
   try {
-    const response = await fetch("/api/leaderboard", {
+    const response = await fetch(`${API_BASE}/api/leaderboard`, {
       cache: "no-store"
     });
     const data = await readJsonResponse(response, "leaderboard");
@@ -1549,7 +1595,7 @@ async function loadOpenReactorStatus(options = {}) {
   }
 
   try {
-    const response = await fetch("/api/openreactor-status", {
+    const response = await fetch(`${API_BASE}/api/openreactor-status`, {
       cache: "no-store"
     });
     const data = await readJsonResponse(response, "openreactor-status");
@@ -1568,7 +1614,7 @@ async function loadOpenReactorStatus(options = {}) {
 
 async function loadRepoMeta() {
   try {
-    const response = await fetch("/api/meta");
+    const response = await fetch(`${API_BASE}/api/meta`);
     const data = await readJsonResponse(response, "metadata");
 
     if (!response.ok) {
@@ -1594,36 +1640,16 @@ function renderRepoStarLink(repoUrl) {
 
 function renderOpenReactorStatus(data) {
   markOpenReactorRefresh();
-
-  openReactorStatus = {
-    available: Boolean(data.available),
-    services: data.services || {
-      reactor: null,
-      watchdog: null
-    },
-    agents: data.agents || {
-      activeCount: 0,
-      pendingRetryCount: 0,
-      maxConcurrentIssues: 0,
-      items: []
-    },
-    blockers: data.blockers || {
-      pausedCount: 0,
-      pausedIssues: [],
-      maintainerHandoffCount: 0,
-      maintainerHandoffs: []
-    },
-    activity: data.activity || {
-      recentEvents: []
-    },
-    pipeline: data.pipeline || null
-  };
+  openReactorStatusPayload = data;
+  openReactorStatus = normalizeOpenReactorStatusPayload(data);
 
   renderPipeline();
   renderOpenReactorLivePanels();
+  updateFactoryFloor(data);
 }
 
 function renderOpenReactorStatusError(message) {
+  openReactorStatusPayload = null;
   openReactorStatus = {
     available: false,
     services: {
@@ -1651,6 +1677,228 @@ function renderOpenReactorStatusError(message) {
   renderPipeline();
   renderOpenReactorLivePanels();
   setOpenReactorLiveStatus(message, "error");
+}
+
+function normalizeOpenReactorStatusPayload(data) {
+  if (data && data.pipeline && data.services && data.agents && data.blockers) {
+    return {
+      available: Boolean(data.available),
+      services: data.services || {
+        reactor: null,
+        watchdog: null
+      },
+      agents: data.agents || {
+        activeCount: 0,
+        pendingRetryCount: 0,
+        maxConcurrentIssues: 0,
+        items: []
+      },
+      blockers: data.blockers || {
+        pausedCount: 0,
+        pausedIssues: [],
+        maintainerHandoffCount: 0,
+        maintainerHandoffs: []
+      },
+      activity: data.activity || {
+        recentEvents: []
+      },
+      pipeline: data.pipeline || null
+    };
+  }
+
+  const nodes = Array.isArray(data?.topology?.nodes) ? data.topology.nodes : [];
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const items = Array.isArray(data?.snapshot?.items) ? data.snapshot.items : [];
+  const itemMap = new Map(items.map((item) => [item.id, item]));
+  const actors = Array.isArray(data?.snapshot?.actors) ? data.snapshot.actors : [];
+  const incidents = Array.isArray(data?.snapshot?.incidents) ? data.snapshot.incidents : [];
+  const services = Array.isArray(data?.snapshot?.services) ? data.snapshot.services : [];
+  const eventList = Array.isArray(data?.activity?.recentEvents) ? data.activity.recentEvents : [];
+  const nodeOrder = Array.isArray(data?.extensions?.openreactor?.nodeOrder)
+    ? data.extensions.openreactor.nodeOrder
+    : ["intake", "triage-planning", "execution", "waiting", "completed", "rejected", "watchdog"];
+
+  const normalizedServices = {
+    reactor: normalizeOpenReactorService(services.find((service) => service.id === "reactor") || null),
+    watchdog: normalizeOpenReactorService(services.find((service) => service.id === "watchdog") || null)
+  };
+
+  const normalizedActors = actors
+    .filter((actor) => actor.kind === "agent")
+    .map(normalizeOpenReactorActor);
+
+  const pausedIssues = incidents
+    .filter((incident) => incident.kind === "paused-issue")
+    .map(normalizePausedIncident);
+  const maintainerHandoffs = incidents
+    .filter((incident) => incident.kind === "maintainer-handoff")
+    .map(normalizeMaintainerHandoffIncident);
+
+  return {
+    available: !incidents.some((incident) => incident.kind === "runtime-unavailable"),
+    services: normalizedServices,
+    agents: {
+      activeCount: normalizedActors.length,
+      pendingRetryCount: Number(data?.metrics?.totals?.pendingRetryItems ?? 0),
+      maxConcurrentIssues: Number(data?.metrics?.capacities?.maxConcurrentIssues ?? 0),
+      items: normalizedActors
+    },
+    blockers: {
+      pausedCount: pausedIssues.length,
+      pausedIssues,
+      maintainerHandoffCount: maintainerHandoffs.length,
+      maintainerHandoffs
+    },
+    activity: {
+      recentEvents: eventList.map(normalizeOpenReactorEvent)
+    },
+    pipeline: {
+      stages: nodeOrder
+        .map((nodeId) => normalizeOpenReactorStage(nodeMap.get(nodeId), itemMap))
+        .filter(Boolean)
+    }
+  };
+}
+
+function normalizeOpenReactorStage(node, itemMap) {
+  if (!node) {
+    return null;
+  }
+
+  const sampleIds = Array.isArray(node.samples?.items?.itemIds) ? node.samples.items.itemIds : [];
+  const items = sampleIds
+    .map((itemId) => normalizeOpenReactorItem(itemMap.get(itemId)))
+    .filter(Boolean);
+
+  return {
+    key: node.id,
+    label: node.label,
+    available: node.status !== "unknown" && node.status !== "down",
+    itemCount: Number(node.counts?.totalItems ?? 0),
+    items,
+    pendingCount: Number(node.counts?.queued ?? 0),
+    error: typeof node.metadata?.error === "string" ? node.metadata.error : undefined
+  };
+}
+
+function normalizeOpenReactorItem(item) {
+  if (!item) {
+    return null;
+  }
+
+  const ext = readOpenReactorExtension(item.extensions);
+  return {
+    issueNumber: Number(ext.issueNumber ?? 0),
+    issueTitle: ext.issueTitle || item.label,
+    issueUrl: ext.issueUrl || (Array.isArray(item.relatedResourceUrls) ? item.relatedResourceUrls[0] : ""),
+    branchName: ext.branchName || "",
+    status: ext.rawStatus || item.state,
+    lane: ext.blockerKind || ext.primaryUse || item.outcome || item.state,
+    provider: ext.provider || item.provider,
+    providerLabel: ext.providerLabel || "",
+    toolName: ext.toolName || "",
+    toolLabel: ext.toolLabel || "",
+    primaryUse: ext.primaryUse || "",
+    iteration: Number(ext.iteration ?? 0),
+    updatedAt: item.updatedAt || ext.updatedAt || "",
+    startedAt: item.enteredStateAt || "",
+    lastHeartbeatAt: ext.lastHeartbeatAt || "",
+    summary: ext.summary || "",
+    prUrl: ext.prUrl || "",
+    instructions: ext.instructions || "",
+    lastFailureClass: ext.lastFailureClass || "",
+    autoHealAttempts: Number(ext.autoHealAttempts ?? 0),
+    repairIssueNumber: ext.repairIssueNumber || null,
+    repairIssueUrl: ext.repairIssueUrl || "",
+    transcriptPreview: Array.isArray(ext.transcriptPreview) ? ext.transcriptPreview : []
+  };
+}
+
+function normalizeOpenReactorActor(actor) {
+  const ext = readOpenReactorExtension(actor.extensions);
+  return {
+    issueNumber: Number(ext.issueNumber ?? 0),
+    issueTitle: ext.issueTitle || actor.label,
+    issueUrl: ext.issueUrl || "",
+    branchName: ext.branchName || "",
+    iteration: Number(ext.iteration ?? 0),
+    toolName: ext.toolName || "",
+    toolLabel: ext.toolLabel || actor.label,
+    provider: actor.provider || "",
+    primaryUse: ext.primaryUse || actor.role || "",
+    startedAt: actor.startedAt || "",
+    updatedAt: ext.updatedAt || "",
+    lastHeartbeatAt: actor.lastHeartbeatAt || "",
+    status: ext.rawStatus || actor.status,
+    transcriptPreview: Array.isArray(ext.transcriptPreview) ? ext.transcriptPreview : []
+  };
+}
+
+function normalizePausedIncident(incident) {
+  const ext = readOpenReactorExtension(incident.extensions);
+  return {
+    issueNumber: Number(ext.issueNumber ?? 0),
+    issueUrl: ext.issueUrl || "",
+    autoHealAttempts: Number(ext.autoHealAttempts ?? 0),
+    lastFailureClass: incident.reason || "",
+    lastAutoHealAt: incident.startedAt || "",
+    lastEscalatedAt: incident.updatedAt || "",
+    repairIssueNumber: ext.repairIssueNumber || null,
+    repairIssueUrl: ext.repairIssueUrl || ""
+  };
+}
+
+function normalizeMaintainerHandoffIncident(incident) {
+  const ext = readOpenReactorExtension(incident.extensions);
+  return {
+    issueNumber: Number(ext.issueNumber ?? 0),
+    issueTitle: ext.issueTitle || "",
+    issueUrl: ext.issueUrl || "",
+    branchName: ext.branchName || "",
+    updatedAt: incident.updatedAt || incident.startedAt || "",
+    prUrl: ext.prUrl || "",
+    instructions: ext.instructions || incident.reason || ""
+  };
+}
+
+function normalizeOpenReactorEvent(event) {
+  const ext = readOpenReactorExtension(event.extensions);
+  return {
+    id: event.id || "",
+    at: event.at || "",
+    kind: event.kind || "",
+    level: event.level || "info",
+    title: ext.title || "Runtime event",
+    message: event.message || "",
+    issueNumber: Number(ext.issueNumber ?? 0) || null,
+    iteration: Number(ext.iteration ?? 0) || null
+  };
+}
+
+function normalizeOpenReactorService(service) {
+  if (!service) {
+    return null;
+  }
+
+  const ext = readOpenReactorExtension(service.extensions);
+  return {
+    active: Boolean(service.active),
+    activeState: ext.activeState || service.status,
+    subState: ext.subState || "",
+    result: ext.result || "",
+    restarts: Number(service.restarts ?? 0),
+    execMainPid: Number(service.metadata?.execMainPid ?? 0),
+    snapshotGeneratedAt: service.updatedAt || null,
+    snapshotFresh: ext.snapshotFresh !== false
+  };
+}
+
+function readOpenReactorExtension(extensions) {
+  if (!extensions || typeof extensions.openreactor !== "object" || !extensions.openreactor) {
+    return {};
+  }
+
+  return extensions.openreactor;
 }
 
 function renderQueue(data) {
@@ -1719,7 +1967,7 @@ function renderQueueError(message) {
 }
 
 function buildQueueUrl(page) {
-  const url = new URL("/api/requests", window.location.origin);
+  const url = new URL("/api/requests", API_BASE);
   url.searchParams.set("page", `${page}`);
 
   const trackedIssueNumbers = myRequests
@@ -1820,7 +2068,9 @@ const FLOW_ICONS = {
   execution: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>',
   completed: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
   retry: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-  blocked: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+  blocked: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  waiting: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/></svg>',
+  rejected: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>'
 };
 
 const FLOW_MAIN = [
@@ -1831,8 +2081,8 @@ const FLOW_MAIN = [
 ];
 
 const FLOW_BRANCH = [
-  { key: "retry", label: "Retry" },
-  { key: "blocked", label: "Blocked" }
+  { key: "waiting", label: "Waiting" },
+  { key: "rejected", label: "Rejected" }
 ];
 
 function createFlowNode(pos, stage) {
@@ -2585,6 +2835,7 @@ function buildUpvoteButton(item) {
     el.innerHTML = thumbSvg;
     el.append(` ${count}`);
     el.title = "You've supported this issue";
+    el.setAttribute("aria-label", `Supported (${count} support${count === 1 ? "" : "s"})`);
     return el;
   }
 
@@ -2595,6 +2846,7 @@ function buildUpvoteButton(item) {
     button.innerHTML = thumbSvg;
     button.append(` ${count}`);
     button.title = "Support this issue on GitHub";
+    button.setAttribute("aria-label", `Support with GitHub (${count} support${count === 1 ? "" : "s"})`);
     button.addEventListener("click", () => {
       void handleUpvoteAction(item.number, button);
     });
@@ -2608,6 +2860,7 @@ function buildUpvoteButton(item) {
     link.innerHTML = thumbSvg;
     link.append(` ${count}`);
     link.title = "Sign in to GitHub to upvote";
+    link.setAttribute("aria-label", `Sign in to support this issue (${count} support${count === 1 ? "" : "s"})`);
     link.href = buildSupportAuthUrl();
     link.target = "_self";
     return link;
@@ -2788,7 +3041,7 @@ async function handleUpvoteAction(issueNumber, button) {
   button.style.opacity = "0.5";
 
   try {
-    const response = await fetch("/api/support", {
+    const response = await fetch(`${API_BASE}/api/support`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

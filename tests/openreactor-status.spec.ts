@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildIntakeStage, mergeOpenReactorStatusPayload } from "../functions/_shared";
+import { buildIntakeSnapshot, mergeOpenReactorStatusPayload } from "../functions/_shared";
 
 describe("openreactor status pipeline helpers", () => {
-  test("buildIntakeStage includes only queued request issues", () => {
-    const intakeStage = buildIntakeStage([
+  test("buildIntakeSnapshot includes only queued request issues", () => {
+    const intakeSnapshot = buildIntakeSnapshot([
       {
         number: 101,
         html_url: "https://github.com/rayzhudev/openreactor/issues/101",
@@ -39,68 +39,117 @@ describe("openreactor status pipeline helpers", () => {
       }
     ]);
 
-    expect(intakeStage.key).toBe("intake");
-    expect(intakeStage.itemCount).toBe(1);
-    expect(intakeStage.items).toHaveLength(1);
-    expect(intakeStage.items[0]).toMatchObject({
-      issueNumber: 101,
-      issueTitle: "Queue me",
-      status: "queued",
-      supportCount: 3
+    expect(intakeSnapshot.node.id).toBe("intake");
+    expect(intakeSnapshot.node.counts?.queued).toBe(1);
+    expect(intakeSnapshot.items).toHaveLength(1);
+    expect(intakeSnapshot.items[0]).toMatchObject({
+      id: "openreactor:issue:101",
+      label: "Queue me",
+      state: "queued"
+    });
+    expect(intakeSnapshot.items[0].extensions).toMatchObject({
+      openreactor: {
+        issueNumber: 101,
+        supportCount: 3
+      }
     });
   });
 
-  test("mergeOpenReactorStatusPayload prepends intake and falls back for missing local stages", () => {
-    const intakeStage = buildIntakeStage([], {
+  test("mergeOpenReactorStatusPayload injects intake and falls back for missing runtime data", () => {
+    const intakeSnapshot = buildIntakeSnapshot([], {
       available: false,
       error: "Repository-backed intake metadata is temporarily unavailable."
     });
-    const payload = mergeOpenReactorStatusPayload(null, intakeStage, "Live OpenReactor status is temporarily unavailable.");
+    const payload = mergeOpenReactorStatusPayload(
+      null,
+      intakeSnapshot,
+      "Live OpenReactor status is temporarily unavailable."
+    );
 
-    expect(payload.available).toBe(false);
-    expect(payload.error).toBe("Live OpenReactor status is temporarily unavailable.");
-    expect(payload.pipeline).toBeDefined();
-    expect((payload.pipeline as { stages: Array<{ key: string; available: boolean }> }).stages).toHaveLength(6);
-    expect((payload.pipeline as { stages: Array<{ key: string; available: boolean }> }).stages[0]).toMatchObject({
-      key: "intake",
-      available: false
+    expect(payload.specVersion).toBe("automation-status/v1");
+    expect(payload.system.status).toBe("degraded");
+    expect(payload.topology.nodes.map((node) => node.id)).toEqual([
+      "intake",
+      "triage-planning",
+      "execution",
+      "waiting",
+      "completed",
+      "rejected",
+      "watchdog"
+    ]);
+    expect(payload.snapshot.incidents[0]).toMatchObject({
+      kind: "runtime-unavailable",
+      reason: "Live OpenReactor status is temporarily unavailable."
     });
-    expect((payload.pipeline as { stages: Array<{ key: string; available: boolean; error?: string }> }).stages[1]).toMatchObject({
-      key: "triage-planning",
-      available: false,
-      error: "Live OpenReactor runtime metadata is unavailable."
+    expect(payload.topology.nodes[0]).toMatchObject({
+      id: "intake",
+      status: "down"
     });
   });
 
-  test("mergeOpenReactorStatusPayload preserves local pipeline stages", () => {
-    const intakeStage = buildIntakeStage([]);
+  test("mergeOpenReactorStatusPayload preserves local topology and prepends intake", () => {
+    const intakeSnapshot = buildIntakeSnapshot([]);
     const payload = mergeOpenReactorStatusPayload(
       {
-        ok: true,
-        available: true,
+        specVersion: "automation-status/v1",
         generatedAt: "2026-03-12T12:00:00.000Z",
-        pipeline: {
-          version: 1,
-          generatedAt: "2026-03-12T12:00:00.000Z",
-          stages: [
+        system: {
+          id: "openreactor",
+          name: "OpenReactor",
+          kind: "autonomous-software-delivery",
+          status: "healthy"
+        },
+        topology: {
+          nodes: [
             {
-              key: "execution",
+              id: "execution",
+              kind: "processor",
               label: "Execution",
-              available: true,
-              itemCount: 1,
-              items: [{ issueNumber: 212 }]
+              status: "healthy",
+              counts: {
+                totalItems: 1
+              },
+              samples: {
+                items: {
+                  itemIds: ["openreactor:issue:212"],
+                  visibleCount: 1,
+                  truncated: false
+                }
+              }
             }
-          ]
+          ],
+          edges: []
+        },
+        snapshot: {
+          items: [
+            {
+              id: "openreactor:issue:212",
+              kind: "issue",
+              label: "Issue #212",
+              state: "running",
+              currentNodeId: "execution"
+            }
+          ],
+          actors: [],
+          executions: [],
+          incidents: [],
+          services: []
+        },
+        activity: {
+          recentEvents: []
         }
       },
-      intakeStage
+      intakeSnapshot
     );
 
-    const stages = (payload.pipeline as { stages: Array<{ key: string; itemCount: number }> }).stages;
-    expect(stages.map((stage) => stage.key)).toEqual(["intake", "execution"]);
-    expect(stages[1]).toMatchObject({
-      key: "execution",
-      itemCount: 1
+    expect(payload.topology.nodes.map((node) => node.id)).toEqual([
+      "intake",
+      "execution"
+    ]);
+    expect(payload.snapshot.items).toHaveLength(1);
+    expect(payload.snapshot.items[0]).toMatchObject({
+      id: "openreactor:issue:212",
+      currentNodeId: "execution"
     });
   });
 });
