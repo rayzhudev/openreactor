@@ -1,0 +1,393 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openreactor.dev/schemas/automation-status/v1.json",
+  "title": "Automation Status Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specVersion", "generatedAt", "system", "topology", "snapshot", "activity"],
+  "properties": {
+    "specVersion": {
+      "type": "string",
+      "const": "automation-status/v1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "system": {
+      "$ref": "#/$defs/system"
+    },
+    "topology": {
+      "$ref": "#/$defs/topology"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/runtimeSnapshot"
+    },
+    "activity": {
+      "$ref": "#/$defs/activity"
+    },
+    "metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "extensions": {
+      "$ref": "#/$defs/freeformObject"
+    }
+  },
+  "$defs": {
+    "freeformObject": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "health": {
+      "type": "string",
+      "enum": ["healthy", "degraded", "paused", "down", "unknown"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warning", "error", "critical"]
+    },
+    "eventLevel": {
+      "type": "string",
+      "enum": ["info", "warning", "error"]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "totalItems": { "type": "number" },
+        "queued": { "type": "number" },
+        "active": { "type": "number" },
+        "blocked": { "type": "number" },
+        "completed": { "type": "number" },
+        "inTransit": { "type": "number" }
+      }
+    },
+    "itemSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["itemIds", "visibleCount", "truncated"],
+      "properties": {
+        "itemIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "visibleCount": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" }
+      }
+    },
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "environment": { "type": "string" },
+        "status": { "$ref": "#/$defs/health" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "source",
+            "queue",
+            "processor",
+            "router",
+            "sink",
+            "store",
+            "supervisor",
+            "scheduler",
+            "integration",
+            "human-gate"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "#/$defs/health" },
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxConcurrency": { "type": "number" },
+            "maxQueueDepth": { "type": "number" }
+          }
+        },
+        "counts": { "$ref": "#/$defs/counts" },
+        "samples": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": { "$ref": "#/$defs/itemSample" }
+          }
+        },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fromNodeId", "toNodeId", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "fromNodeId": { "type": "string", "minLength": 1 },
+        "toNodeId": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["flow", "retry", "handoff", "dependency", "control"]
+        },
+        "label": { "type": "string" },
+        "status": { "$ref": "#/$defs/health" },
+        "counts": { "$ref": "#/$defs/counts" },
+        "samples": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": { "$ref": "#/$defs/itemSample" }
+          }
+        },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/node" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edge" }
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "state": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "assigned",
+            "running",
+            "waiting",
+            "blocked",
+            "retrying",
+            "paused",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "deferred"
+          ]
+        },
+        "currentNodeId": { "type": "string" },
+        "currentEdgeId": { "type": "string" },
+        "assignedActorId": { "type": ["string", "null"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "enteredStateAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "priority": { "type": "string" },
+        "retryCount": { "type": "number" },
+        "outcome": { "type": "string" },
+        "blockedByIncidentIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "relatedResourceUrls": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "service", "human", "integration"]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "role": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["idle", "working", "waiting", "stalled", "failed", "unavailable"]
+        },
+        "currentNodeId": { "type": "string" },
+        "currentExecutionId": { "type": ["string", "null"] },
+        "currentItemId": { "type": ["string", "null"] },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "lastHeartbeatAt": { "type": "string", "format": "date-time" },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "itemId", "actorId", "nodeId", "status", "startedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "itemId": { "type": "string", "minLength": 1 },
+        "actorId": { "type": "string", "minLength": 1 },
+        "nodeId": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["running", "waiting", "succeeded", "failed", "cancelled"]
+        },
+        "attempt": { "type": "number" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "outcome": { "type": "string" },
+        "summary": { "type": ["string", "null"] },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "incident": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "severity", "status", "scope", "startedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "monitoring", "resolved"]
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "system": { "type": "boolean" },
+            "nodeIds": { "type": "array", "items": { "type": "string" } },
+            "edgeIds": { "type": "array", "items": { "type": "string" } },
+            "itemIds": { "type": "array", "items": { "type": "string" } },
+            "actorIds": { "type": "array", "items": { "type": "string" } },
+            "serviceIds": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "reason": { "type": ["string", "null"] },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "status", "active"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "down", "cooldown", "paused", "unknown"]
+        },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": ["string", "null"], "format": "date-time" },
+        "restarts": { "type": "number" },
+        "cooldownUntil": { "type": ["string", "null"], "format": "date-time" },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "runtimeSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "actors", "incidents", "services"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/item" }
+        },
+        "actors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/actor" }
+        },
+        "executions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/execution" }
+        },
+        "incidents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/incident" }
+        },
+        "services": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/service" }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "kind", "level", "subjectType", "subjectId", "message"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "at": { "type": "string", "format": "date-time" },
+        "kind": { "type": "string", "minLength": 1 },
+        "level": { "$ref": "#/$defs/eventLevel" },
+        "subjectType": {
+          "type": "string",
+          "enum": ["system", "node", "edge", "item", "actor", "execution", "incident", "service"]
+        },
+        "subjectId": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "metadata": { "$ref": "#/$defs/freeformObject" },
+        "extensions": { "$ref": "#/$defs/freeformObject" }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recentEvents"],
+      "properties": {
+        "recentEvents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/event" }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "totals": { "$ref": "#/$defs/freeformObject" },
+        "rates": { "$ref": "#/$defs/freeformObject" },
+        "durations": { "$ref": "#/$defs/freeformObject" },
+        "capacities": { "$ref": "#/$defs/freeformObject" }
+      }
+    }
+  }
+}

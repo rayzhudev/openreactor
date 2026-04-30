@@ -12,6 +12,10 @@ export interface ReactorLiveAgentSnapshot {
   toolName: AgentToolName;
   toolLabel: string;
   provider: "codex" | "claude";
+  providerLabel?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
+  serviceTier?: string | null;
   primaryUse: "general" | "planning" | "ui";
   sensitivity?: "low" | "medium" | "high";
   evidenceStrength?: "weak" | "moderate" | "strong";

@@ -361,6 +361,20 @@ The status service currently:
   can inspect each running OpenReactor instance directly from a laptop without
   wiring that endpoint into the public website
 
+## Automation Status Standard
+
+OpenReactor is now moving its live-status payload toward a renderer-agnostic
+automation status standard so the same contract can describe other autonomous
+systems beyond OpenReactor itself.
+
+Docs:
+
+- [AUTOMATION_STATUS_SPEC.md](/Users/ray/Projects/openreactor/AUTOMATION_STATUS_SPEC.md)
+- [AUTOMATION_STATUS_SCHEMA.json](/Users/ray/Projects/openreactor/AUTOMATION_STATUS_SCHEMA.json)
+- [AUTOMATION_STATUS_EXAMPLE.json](/Users/ray/Projects/openreactor/AUTOMATION_STATUS_EXAMPLE.json)
+- [OPENREACTOR_AUTOMATION_STATUS_MAPPING.md](/Users/ray/Projects/openreactor/OPENREACTOR_AUTOMATION_STATUS_MAPPING.md)
+- [FACTORY_FLOOR_SPEC.md](/Users/ray/Projects/openreactor/FACTORY_FLOOR_SPEC.md)
+
 The operational details below exist to support OpenReactor. They are not the
 point of the project. The point is to make the product lifecycle itself
 autonomous.

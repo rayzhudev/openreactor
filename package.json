@@ -3,9 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bunx @tailwindcss/cli -i src/input.css -o public/styles.css --watch & wrangler pages dev public",
-    "css:build": "bunx @tailwindcss/cli -i src/input.css -o public/styles.css --minify",
+    "dev": "bun run factory-floor:sync && bunx @tailwindcss/cli -i src/input.css -o public/styles.css --watch & wrangler pages dev public",
+    "css:build": "bun run factory-floor:sync && bunx @tailwindcss/cli -i src/input.css -o public/styles.css --minify",
+    "factory-floor:build": "bun run --cwd packages/factory-floor build",
+    "factory-floor:sync": "bun run factory-floor:build && bun run ./scripts/sync-factory-floor.ts",
     "deploy": "bun run css:build && wrangler pages deploy public --project-name openreactor",
     "check": "bun run css:build && tsc --noEmit",
     "agent-browser:install": "agent-browser install",
@@ -31,5 +36,8 @@
   "dependencies": {
     "@tailwindcss/cli": "^4.2.1",
     "tailwindcss": "^4.2.1"
+  },
+  "overrides": {
+    "fast-xml-parser": "5.3.3"
   }
 }

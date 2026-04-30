@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Factory Floor — Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --demo-bg: #f3f4f6;
+      --demo-panel: #ffffff;
+      --demo-panel-border: #d1d5db;
+      --demo-text: #111827;
+      --demo-text-soft: #4b5563;
+      --demo-text-faint: #6b7280;
+      --demo-accent: #c6643f;
+      --demo-grid-line: rgba(17, 24, 39, 0.08);
+    }
+
+    body { font-family: ui-sans-serif, system-ui, sans-serif; background: var(--demo-bg); color: var(--demo-text); }
+    header { padding: 12px 20px; background: #fff; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 14px; font-weight: 600; color: #111827; }
+    header button { padding: 4px 10px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; cursor: pointer; }
+    header button:hover { background: #f9fafb; }
+    header button.active { background: #111827; color: #fff; border-color: #111827; }
+    header span.tick { font-size: 11px; color: #9ca3af; }
+    #app-shell {
+      height: calc(100vh - 45px);
+      min-height: 0;
+    }
+    #floor-container { width: 100%; height: 100%; min-width: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Factory Floor Demo</h1>
+    <button id="btn-simulate">Simulate</button>
+    <button id="btn-static">Static Mock</button>
+    <button id="btn-poll">Poll Live</button>
+    <button id="btn-fit">Fit</button>
+    <span class="tick" id="tick-label"></span>
+  </header>
+  <div id="app-shell">
+    <div id="floor-container">
+      <openreactor-factory-floor
+        width="100%"
+        height="100%"
+        grid-visible="true"
+      ></openreactor-factory-floor>
+    </div>
+  </div>
+
+  <script type="module">
+    import "../src/index.ts";
+    import { createSimulation } from "./simulation.ts";
+
+    const floor = document.querySelector("openreactor-factory-floor");
+    const tickLabel = document.getElementById("tick-label");
+    const btnSim = document.getElementById("btn-simulate");
+    const btnStatic = document.getElementById("btn-static");
+    const btnPoll = document.getElementById("btn-poll");
+
+    let sim = null;
+    let tickCount = 0;
+    let fitted = false;
+
+    function stopAll() {
+      sim?.stop();
+      sim = null;
+      floor.removeAttribute("url");
+      btnSim.classList.remove("active");
+      btnStatic.classList.remove("active");
+      btnPoll.classList.remove("active");
+      tickLabel.textContent = "";
+    }
+
+    btnSim.addEventListener("click", () => {
+      stopAll();
+      btnSim.classList.add("active");
+      tickCount = 0;
+      fitted = false;
+      sim = createSimulation((payload) => {
+        tickCount++;
+        tickLabel.textContent = `tick ${tickCount}`;
+        floor.update(payload);
+        if (!fitted) {
+          setTimeout(() => floor.fitToContent(), 100);
+          fitted = true;
+        }
+      }, 2000);
+      sim.start();
+    });
+
+    btnStatic.addEventListener("click", async () => {
+      stopAll();
+      btnStatic.classList.add("active");
+      const resp = await fetch("./mock-data.json");
+      const data = await resp.json();
+      floor.update(data);
+      setTimeout(() => floor.fitToContent(), 100);
+    });
+
+    btnPoll.addEventListener("click", () => {
+      stopAll();
+      btnPoll.classList.add("active");
+      floor.setAttribute("url", "https://openreactor.net/api/openreactor-status");
+      floor.setAttribute("poll-interval", "5000");
+      setTimeout(() => floor.fitToContent(), 2000);
+    });
+
+    document.getElementById("btn-fit").addEventListener("click", () => {
+      floor.fitToContent();
+    });
+
+    // Auto-start simulation
+    btnSim.click();
+  </script>
+</body>
+</html>

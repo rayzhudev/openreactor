@@ -128,9 +128,27 @@ textarea, input, button { font: inherit; }
 }
 
 .or-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: var(--text-lg);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-tight);
+}
+
+.or-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.or-logo-mark {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
 }
 
 .or-nav {
@@ -584,204 +602,124 @@ textarea, input, button { font: inherit; }
   }
 }
 
-/* Pipeline flow diagram */
+/* Pipeline visualization */
 .or-pipeline {
-  padding: 1.5rem 0 0;
-}
-
-.or-flow-main {
   display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto 1fr auto;
+  grid-template-columns: repeat(6, 1fr);
   align-items: start;
-  gap: 0;
+  gap: 0.5rem;
 }
 
-.or-flow-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  position: relative;
+.or-pipeline-arrow {
+  display: none;
 }
 
-.or-flow-icon-box {
-  width: 3.5rem;
-  height: 3.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.or-pipeline-stage {
+  padding: 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  background: var(--paper);
-  color: var(--ink-soft);
-}
-
-.or-flow-node--active .or-flow-icon-box {
-  border-color: var(--queue-complete);
-  color: var(--queue-complete);
-  background: var(--queue-complete-bg);
-}
-
-.or-flow-node--offline .or-flow-icon-box {
-  opacity: 0.5;
-  border-style: dashed;
-}
-
-.or-flow-node-label {
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-  font-weight: 500;
-}
-
-.or-flow-badge {
-  position: absolute;
-  top: -0.375rem;
-  right: calc(50% - 2.125rem);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.125rem;
-  min-height: 1.125rem;
-  padding-inline: 0.25rem;
-  border-radius: 999px;
-  background: var(--badge-neutral);
-  color: var(--ink-soft);
-  font-size: 0.625rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.or-flow-badge--accent {
-  background: var(--queue-complete-bg);
-  color: var(--queue-complete);
-}
-
-.or-flow-connector {
-  height: 1px;
-  background: var(--line-strong);
-  margin-top: 1.75rem;
-  min-width: 1rem;
+  background: var(--surface);
+  min-width: 0;
   position: relative;
 }
 
-.or-flow-connector::after {
+.or-pipeline-stage:not(:last-child)::after {
   content: "";
   position: absolute;
-  right: 0;
+  right: -0.375rem;
   top: 50%;
   transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-top: 3px solid transparent;
-  border-bottom: 3px solid transparent;
-  border-left: 4px solid var(--line-strong);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 5px solid var(--line);
 }
 
-/* Branch section (Retry + Blocked below Execution) */
-.or-flow-branch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 12rem;
-  margin: 0 auto;
+.or-pipeline-stage--offline {
+  opacity: 0.5;
+  border-style: dashed;
 }
 
-.or-flow-vert {
-  width: 1px;
-  height: 1.25rem;
-  background: var(--line-strong);
+.or-pipeline-stage--offline::after {
+  border-left-style: dashed;
 }
 
-.or-flow-tbar {
-  position: relative;
-  height: 1px;
-  background: var(--line-strong);
-  align-self: stretch;
+.or-pipeline-stage--active {
+  border-color: var(--accent);
 }
 
-.or-flow-tbar::before,
-.or-flow-tbar::after {
-  content: "";
-  position: absolute;
-  width: 1px;
-  height: 0.75rem;
-  background: var(--line-strong);
-  top: 0;
-}
-
-.or-flow-tbar::before { left: 0; }
-.or-flow-tbar::after { right: 0; }
-
-.or-flow-branch-nodes {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  margin-top: 0.75rem;
-}
-
-/* Branch wrapper centered under execution (cols 4-6) */
-.or-flow-branch-wrap {
-  grid-column: 4 / 7;
-  grid-row: 2;
-}
-
-/* Service status dots */
-.or-status-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-}
-
-.or-dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: 50%;
-  background: var(--ink-faint);
-  flex-shrink: 0;
-}
-
-.or-dot--active {
-  background: var(--queue-complete);
-}
-
-.or-dot--error {
-  background: var(--queue-rejected);
-}
-
-@media (max-width: 47.99rem) {
-  .or-pipeline {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .or-flow-main {
-    min-width: 28rem;
-  }
-
-  .or-flow-icon-box {
-    width: 2.75rem;
-    height: 2.75rem;
-  }
-
-  .or-flow-icon-box svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .or-flow-connector {
-    margin-top: 1.375rem;
-  }
-
-  .or-flow-branch {
-    width: 9rem;
-  }
+.or-pipeline-stage--active::after {
+  border-left-color: var(--accent);
 }
 
 .or-count-chip--accent {
   background: var(--accent-muted);
   color: var(--accent);
+}
+
+.or-pipeline-items {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.or-pipeline-item {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  min-width: 0;
+}
+
+.or-pipeline-item-link {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.or-pipeline-item-link:hover {
+  color: var(--accent-dark);
+}
+
+@media (max-width: 63.99rem) {
+  .or-pipeline {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .or-pipeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .or-pipeline-stage::after {
+    display: none;
+  }
+}
+
+@keyframes or-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.or-pipeline-stage--active {
+  animation: or-pulse 3s ease-in-out infinite;
+}
+
+.factory-floor-shell {
+  height: min(62vh, 36rem);
+  min-height: 22rem;
+  background: var(--paper);
+}
+
+@media (max-width: 47.99rem) {
+  .factory-floor-shell {
+    height: 30rem;
+    min-height: 26rem;
+  }
 }
 
 /* Snowfall animation for playground */

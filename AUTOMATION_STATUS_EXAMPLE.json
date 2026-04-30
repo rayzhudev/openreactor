@@ -1,0 +1,239 @@
+{
+  "specVersion": "automation-status/v1",
+  "generatedAt": "2026-03-25T05:00:00.000Z",
+  "system": {
+    "id": "openreactor",
+    "name": "OpenReactor",
+    "kind": "autonomous-software-delivery",
+    "status": "degraded"
+  },
+  "topology": {
+    "nodes": [
+      {
+        "id": "intake",
+        "kind": "source",
+        "label": "Intake",
+        "status": "healthy",
+        "counts": {
+          "totalItems": 4,
+          "queued": 4
+        },
+        "samples": {
+          "items": {
+            "itemIds": ["openreactor:issue:401", "openreactor:issue:402"],
+            "visibleCount": 2,
+            "truncated": true
+          }
+        }
+      },
+      {
+        "id": "execution",
+        "kind": "processor",
+        "label": "Execution",
+        "status": "healthy",
+        "capacity": {
+          "maxConcurrency": 3
+        },
+        "counts": {
+          "totalItems": 2,
+          "active": 2
+        },
+        "samples": {
+          "items": {
+            "itemIds": ["openreactor:issue:201", "openreactor:issue:204"],
+            "visibleCount": 2,
+            "truncated": false
+          }
+        }
+      },
+      {
+        "id": "blocked",
+        "kind": "queue",
+        "label": "Blocked",
+        "status": "degraded",
+        "counts": {
+          "totalItems": 1,
+          "blocked": 1
+        },
+        "samples": {
+          "items": {
+            "itemIds": ["openreactor:issue:186"],
+            "visibleCount": 1,
+            "truncated": false
+          }
+        }
+      },
+      {
+        "id": "watchdog",
+        "kind": "supervisor",
+        "label": "Watchdog",
+        "status": "degraded",
+        "counts": {
+          "totalItems": 0
+        },
+        "samples": {
+          "items": {
+            "itemIds": [],
+            "visibleCount": 0,
+            "truncated": false
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "intake-to-execution",
+        "fromNodeId": "intake",
+        "toNodeId": "execution",
+        "kind": "flow",
+        "status": "healthy"
+      },
+      {
+        "id": "execution-to-blocked",
+        "fromNodeId": "execution",
+        "toNodeId": "blocked",
+        "kind": "handoff",
+        "status": "degraded"
+      }
+    ]
+  },
+  "snapshot": {
+    "items": [
+      {
+        "id": "openreactor:issue:201",
+        "kind": "issue",
+        "label": "Polish the public queue cards",
+        "state": "running",
+        "currentNodeId": "execution",
+        "assignedActorId": "openreactor:actor:201",
+        "enteredStateAt": "2026-03-25T04:45:00.000Z",
+        "updatedAt": "2026-03-25T04:58:00.000Z",
+        "relatedResourceUrls": ["https://github.com/rayzhudev/openreactor/issues/201"],
+        "extensions": {
+          "openreactor": {
+            "issueNumber": 201,
+            "branchName": "openreactor/issue-201",
+            "toolLabel": "Claude UI agent"
+          }
+        }
+      },
+      {
+        "id": "openreactor:issue:186",
+        "kind": "issue",
+        "label": "Issue #186",
+        "state": "paused",
+        "currentNodeId": "blocked",
+        "updatedAt": "2026-03-25T04:55:00.000Z",
+        "extensions": {
+          "openreactor": {
+            "issueNumber": 186,
+            "lastFailureClass": "provider_unavailable",
+            "autoHealAttempts": 2
+          }
+        }
+      }
+    ],
+    "actors": [
+      {
+        "id": "openreactor:actor:201",
+        "kind": "agent",
+        "label": "Claude UI agent",
+        "role": "ui",
+        "status": "working",
+        "currentNodeId": "execution",
+        "currentItemId": "openreactor:issue:201",
+        "provider": "claude",
+        "startedAt": "2026-03-25T04:45:00.000Z",
+        "lastHeartbeatAt": "2026-03-25T04:59:00.000Z"
+      }
+    ],
+    "executions": [
+      {
+        "id": "openreactor:execution:active:201",
+        "itemId": "openreactor:issue:201",
+        "actorId": "openreactor:actor:201",
+        "nodeId": "execution",
+        "status": "running",
+        "attempt": 2,
+        "startedAt": "2026-03-25T04:45:00.000Z",
+        "updatedAt": "2026-03-25T04:59:00.000Z"
+      }
+    ],
+    "incidents": [
+      {
+        "id": "openreactor:incident:paused:186",
+        "kind": "provider-outage",
+        "label": "Issue #186 is paused",
+        "severity": "error",
+        "status": "active",
+        "scope": {
+          "nodeIds": ["blocked"],
+          "itemIds": ["openreactor:issue:186"]
+        },
+        "startedAt": "2026-03-25T04:50:00.000Z",
+        "updatedAt": "2026-03-25T04:55:00.000Z",
+        "reason": "provider_unavailable"
+      },
+      {
+        "id": "openreactor:incident:service:watchdog",
+        "kind": "service-cooldown",
+        "label": "Watchdog is cooldown",
+        "severity": "warning",
+        "status": "active",
+        "scope": {
+          "serviceIds": ["watchdog"],
+          "nodeIds": ["watchdog"]
+        },
+        "startedAt": "2026-03-25T04:56:00.000Z",
+        "updatedAt": "2026-03-25T04:56:00.000Z"
+      }
+    ],
+    "services": [
+      {
+        "id": "reactor",
+        "label": "Reactor",
+        "status": "healthy",
+        "active": true,
+        "updatedAt": "2026-03-25T05:00:00.000Z",
+        "restarts": 1
+      },
+      {
+        "id": "watchdog",
+        "label": "Watchdog",
+        "status": "cooldown",
+        "active": true,
+        "updatedAt": "2026-03-25T05:00:00.000Z",
+        "restarts": 0,
+        "cooldownUntil": "2026-03-25T05:10:00.000Z"
+      }
+    ]
+  },
+  "activity": {
+    "recentEvents": [
+      {
+        "id": "event-1",
+        "at": "2026-03-25T04:59:00.000Z",
+        "kind": "status",
+        "level": "info",
+        "subjectType": "item",
+        "subjectId": "openreactor:issue:201",
+        "message": "Claude UI agent is actively iterating on the queue cards."
+      }
+    ]
+  },
+  "metrics": {
+    "totals": {
+      "activeAgents": 1,
+      "blockedItems": 1,
+      "pendingRetryItems": 0
+    },
+    "capacities": {
+      "maxConcurrentIssues": 3
+    }
+  },
+  "extensions": {
+    "openreactor": {
+      "nodeOrder": ["intake", "triage-planning", "execution", "retry", "blocked", "completed", "watchdog"]
+    }
+  }
+}

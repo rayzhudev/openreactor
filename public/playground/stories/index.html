@@ -12,13 +12,23 @@
         else if (savedTheme === "light") document.documentElement.classList.add("light");
       } catch {}
     </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
     <main class="or-shell">
 
       <header class="or-topbar">
-        <p class="or-brand"><a class="text-inherit no-underline" href="/">OpenReactor</a></p>
+        <p class="or-brand">
+          <a class="or-brand-link" href="/" aria-label="OpenReactor home">
+            <svg class="or-logo-mark" viewBox="0 0 400 400" aria-hidden="true">
+              <circle cx="200" cy="200" r="100" stroke="currentColor" stroke-width="24" stroke-dasharray="60 18.5398" stroke-dashoffset="30" fill="none" />
+              <circle cx="200" cy="200" r="65" stroke="currentColor" stroke-width="12" stroke-dasharray="30 21.0509" stroke-dashoffset="15" fill="none" />
+              <circle cx="200" cy="200" r="32" fill="#f97316" />
+            </svg>
+            <span>OpenReactor</span>
+          </a>
+        </p>
         <nav class="or-nav" aria-label="Site navigation">
           <a class="or-nav-link" href="/">Intake</a>
           <a class="or-nav-link or-nav-link--active" href="/playground/" aria-current="page">Playground</a>

@@ -1,8 +1,9 @@
 import { Buffer } from "node:buffer";
 import { createPrivateKey } from "node:crypto";
 import {
+  createOpenReactorIssueItemId,
   mergeOpenReactorStatusPayload,
-  type OpenReactorPipelineStage,
+  type OpenReactorIntakeSnapshot,
   type OpenReactorStatusPayload
 } from "../packages/contracts/src/openreactor-status";
 export { mergeOpenReactorStatusPayload } from "../packages/contracts/src/openreactor-status";
@@ -275,7 +276,7 @@ export async function handleOpenReactorStatus(env: Env): Promise<Response> {
     }
   }
 
-  let intakeStage = buildIntakeStage([], {
+  let intakeSnapshot = buildIntakeSnapshot([], {
     available: false,
     error: isRepoConfigured(normalized)
       ? "Repository-backed intake metadata is temporarily unavailable."
@@ -285,14 +286,14 @@ export async function handleOpenReactorStatus(env: Env): Promise<Response> {
   if (isRepoConfigured(normalized)) {
     try {
       const issues = await listRequestIssues(normalized);
-      intakeStage = buildIntakeStage(issues);
+      intakeSnapshot = buildIntakeSnapshot(issues);
     } catch (error) {
       console.error("Unable to load intake-stage request metadata.", error);
     }
   }
 
   return jsonResponse(
-    mergeOpenReactorStatusPayload(localStatus, intakeStage, localError || localStatus?.error || "")
+    mergeOpenReactorStatusPayload(localStatus, intakeSnapshot, localError)
   );
 }
 
@@ -314,47 +315,78 @@ async function fetchLocalOpenReactorStatus(env: NormalizedEnv): Promise<OpenReac
     };
   });
   const text = await response.text();
-  const data = text ? (JSON.parse(text) as OpenReactorStatusPayload) : {};
+  const data = text ? JSON.parse(text) : null;
+  const errorMessage =
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    typeof (data as { error?: unknown }).error === "string"
+      ? (data as { error: string }).error
+      : "Live OpenReactor status is temporarily unavailable.";
 
   if (!response.ok) {
-    throw new Error(
-      typeof data.error === "string"
-        ? data.error
-        : "Live OpenReactor status is temporarily unavailable."
-    );
+    throw new Error(errorMessage);
   }
 
-  return data;
+  return data as OpenReactorStatusPayload;
 }
 
-export function buildIntakeStage(
+export function buildIntakeSnapshot(
   issues: GitHubIssue[],
   input?: {
     available?: boolean;
     error?: string;
   }
-): OpenReactorPipelineStage {
+): OpenReactorIntakeSnapshot {
   const queuedIssues = issues.filter((issue) => getIssueStatus(issue) === "queued");
-  const items = queuedIssues.slice(0, MAX_ARCHIVE_ITEMS).map((issue) => ({
-    lane: "intake",
-    issueNumber: issue.number,
-    issueTitle: issue.title.replace(/^\[Request\]\s*/, ""),
-    issueUrl: issue.html_url,
-    createdAt: issue.created_at,
-    status: "queued",
-    supportCount: issue.reactions?.["+1"] ?? 0,
-    commentCount: issue.comments ?? 0,
-    githubUsername: getIssueGitHubUsername(issue)
-  }));
+  const items = queuedIssues.slice(0, MAX_ARCHIVE_ITEMS).map((issue) => {
+    const issueTitle = issue.title.replace(/^\[Request\]\s*/, "");
+    return {
+      id: createOpenReactorIssueItemId(issue.number),
+      kind: "issue",
+      label: issueTitle,
+      state: "queued" as const,
+      currentNodeId: "intake",
+      createdAt: issue.created_at,
+      enteredStateAt: issue.created_at,
+      updatedAt: issue.created_at,
+      relatedResourceUrls: [issue.html_url],
+      extensions: {
+        openreactor: {
+          issueNumber: issue.number,
+          issueTitle,
+          issueUrl: issue.html_url,
+          supportCount: issue.reactions?.["+1"] ?? 0,
+          commentCount: issue.comments ?? 0,
+          githubUsername: getIssueGitHubUsername(issue)
+        }
+      }
+    };
+  });
 
   return {
-    key: "intake",
-    label: "Intake",
-    available: input?.available ?? true,
-    itemCount: queuedIssues.length,
-    items,
-    source: "github",
-    ...(input?.error ? { error: input.error } : {})
+    node: {
+      id: "intake",
+      kind: "source",
+      label: "Intake",
+      status: input?.available ?? true ? "healthy" : "down",
+      counts: {
+        totalItems: queuedIssues.length,
+        queued: queuedIssues.length
+      },
+      samples: {
+        items: {
+          itemIds: items.map((item) => item.id),
+          visibleCount: items.length,
+          truncated: queuedIssues.length > items.length
+        }
+      },
+      metadata: {
+        source: "github",
+        ...(input?.error ? { error: input.error } : {})
+      }
+    },
+    items
   };
 }
 

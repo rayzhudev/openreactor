@@ -67,6 +67,7 @@ A request should be rejected/deferred if:
   exercises the issue-to-PR loop end to end so workflow regressions are caught
   through a real run
 - OpenReactor status service: machine-local read-only metadata endpoint that exposes intake, triage/planning, execution, retry, blocked, and completed pipeline metadata to the website without giving the website direct control over the local runtime
+- OpenReactor status contract: a graph-oriented automation-status payload that is intended to generalize beyond OpenReactor-specific pipeline layouts, with OpenReactor details carried in namespaced extensions
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
 - Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state such as run records, event logs, transcripts, live snapshots, watchdog state, archives, and repo-local steering/workspace-policy files
 - Persistence (planned): application database for website/backend features that require stored data
@@ -194,6 +195,31 @@ Current state:
 - the website also ships a richer live OpenReactor surface showing pipeline
   stages, service health, active agents, retries, blocked work, and recent
   completed runs
+- the embeddable `@openreactor/factory-floor` renderer now uses brighter
+  tile-grid-scaffolded generated station sprites for intake, triage/planning,
+  and execution, generated sink pile sprites for merged and rejected output,
+  sprite-composed agent drones
+  using a shared chassis plus provider and role overlays, and generated
+  watchdog idle/spraying body sprites while keeping conveyors renderer-built
+  and code-animated; human waiting gates remain renderer-built dashed hold
+  stations that interrupt the bottom run of the execution return loop, waiting
+  work in the demo re-enters execution when the blocker clears and is treated
+  as PR-only maintainer handoff work, watchdog spray remains procedural
+  particle animation, and moving work items still render from renderer-built
+  issue and pull-request glyphs tinted by runtime state in code; numeric
+  identifiers are hidden on belt-moving tokens and shown where items have more
+  visual space, renderer-built status symbols are used for maintainer handoff,
+  stalled work, fallback/rate-limit, CI failure, and merge-conflict states so
+  those tiny overlays stay crisp at token scale, the merged sink is reserved
+  for pull requests only, sink piles show only the latest three completed
+  issue/PR tokens in the scene while sink click tooltips list the pile contents
+  newest-first, rejected issues
+  remain the visible triage side-output, and decomposed parent issues no
+  longer sit in a visible sink because the meaningful factory-floor effect of
+  decomposition is the child issues re-entering intake as fresh issue work
+- the live status payload is now moving toward a generic automation-status
+  standard so other autonomous systems can publish compatible observability
+  data without inheriting OpenReactor's UI layout assumptions
 - the live surface now also exposes recent runtime events and transcript
   previews from active runs
 - the website ships a contributor leaderboard derived from merged PRs
