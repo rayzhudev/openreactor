@@ -43,9 +43,9 @@ const ISSUE_TITLES = [
 ];
 
 const AGENT_TEMPLATES = [
-  { role: "general", label: "Codex Agent", provider: "codex", model: "gpt-5.3-codex-spark" },
+  { role: "general", label: "Codex Agent", provider: "codex", model: "gpt-5.5" },
   { role: "ui", label: "Claude UI Agent", provider: "claude", model: "claude-sonnet-4-6" },
-  { role: "planning", label: "Codex Planner", provider: "codex", model: "gpt-5.3-codex-spark" },
+  { role: "planning", label: "Codex Planner", provider: "codex", model: "gpt-5.5" },
 ];
 
 type Stage = "intake" | "triage-planning" | "execution" | "waiting" | "completed" | "decomposed" | "rejected";
@@ -417,7 +417,7 @@ function buildPayload(sim: SimState): AutomationStatusPayload {
       currentNodeId: "triage-planning",
       currentItemId: `openreactor:issue:${issue.number}`,
       provider: "codex",
-      model: "gpt-5.3-codex-spark",
+      model: "gpt-5.5",
       startedAt: now,
       lastHeartbeatAt: now,
       extensions: {
@@ -440,7 +440,7 @@ function buildPayload(sim: SimState): AutomationStatusPayload {
       currentNodeId: "triage-planning",
       currentItemId: `openreactor:issue:${issue.number}`,
       provider: "codex",
-      model: "gpt-5.3-codex-spark",
+      model: "gpt-5.5",
       startedAt: now,
       lastHeartbeatAt: now,
       extensions: {

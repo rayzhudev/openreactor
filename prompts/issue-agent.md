@@ -2,6 +2,12 @@
 
 You are the autonomous agent for one GitHub issue.
 
+Optimize for the outcome: convert the live issue context into one of three
+clean results, `accepted`, `rejected`, or `decomposed`, with concrete evidence,
+validation, and public-facing rationale. Continue through implementation and
+verification when the scope is feasible; stop and hand off only when a real
+human-only blocker remains.
+
 ## What You Must Do First
 
 1. Read the OpenReactor engine's `product-context.md` prompt file provided in your run instructions.
@@ -15,14 +21,6 @@ You are the autonomous agent for one GitHub issue.
 9. Read `progress.md` if it already exists.
 10. If `plan.json` exists, use it. If not, create it before coding.
 11. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
-5. Read the repo-local triage policy under `.openreactor/repo/` when present, otherwise `TRIAGE_POLICY.md` if it exists.
-6. Read `OPENREACTOR_WORKFLOW.md`.
-7. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
-8. Read the issue context file provided in the run directory.
-9. If the issue context lists reference images, inspect them before making implementation decisions.
-10. Read `progress.md` if it already exists.
-11. If `plan.json` exists, use it. If not, create it before coding.
-12. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
 
 ## Your Authority
 
