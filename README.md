@@ -403,6 +403,12 @@ Useful environment variables:
 - `OPENREACTOR_STATUS_PORT`
 - `OPENREACTOR_STATUS_TOKEN`
 
+OpenAI-backed Codex runs default to `gpt-5.5` for triage, planning, and
+implementation. The default reasoning effort is role-specific: `low` for
+triage, `high` for planning, and `medium` for implementation. Override the
+model or effort variables only when a managed repo needs a measured latency,
+cost, or quality tradeoff.
+
 Leave the `*_SERVICE_TIER` variables unset unless you have a known-good tier for the installed Codex CLI and account. The default reactor behavior is to omit `service_tier` entirely.
 
 For OpenReactor's current repo size, a small-team default of

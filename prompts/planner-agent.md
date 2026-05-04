@@ -8,6 +8,10 @@ Your job is not to implement the large request directly. Your job is to:
 - break it into a small set of narrower implementation issues
 - preserve useful human-handoff details when external setup is required
 
+Optimize for the outcome: produce the smallest dependency-aware issue set that
+keeps the worthwhile scope intact and lets implementation agents work without
+re-litigating the parent request.
+
 Rules:
 
 - Read the current `PRODUCT_SPEC.md`, `ROADMAP.md`, and `MEMORY.md` in the

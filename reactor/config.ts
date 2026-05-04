@@ -49,6 +49,7 @@ export interface OrchestratorConfig {
 }
 
 const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 
 export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorConfig {
   const engineRoot = clean(process.env.OPENREACTOR_ENGINE_ROOT) || ENGINE_ROOT;
@@ -87,20 +88,20 @@ export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorCon
     githubAppClientId: clean(valueOf("GITHUB_APP_CLIENT_ID", localEnv)),
     githubAppInstallationId: clean(valueOf("GITHUB_APP_INSTALLATION_ID", localEnv)),
     githubAppPrivateKey: clean(valueOf("GITHUB_APP_PRIVATE_KEY", localEnv)).replace(/\\n/g, "\n"),
-    triageModel: clean(process.env.OPENREACTOR_TRIAGE_MODEL) || "gpt-5.3-codex-spark",
+    triageModel: clean(process.env.OPENREACTOR_TRIAGE_MODEL) || DEFAULT_OPENAI_MODEL,
     triageReasoningEffort:
       clean(process.env.OPENREACTOR_TRIAGE_REASONING_EFFORT) || "low",
     triageServiceTier: clean(process.env.OPENREACTOR_TRIAGE_SERVICE_TIER),
     plannerModel:
       clean(process.env.OPENREACTOR_PLANNER_MODEL) ||
       clean(process.env.OPENREACTOR_AGENT_MODEL) ||
-      "gpt-5.4",
+      DEFAULT_OPENAI_MODEL,
     plannerReasoningEffort:
       clean(process.env.OPENREACTOR_PLANNER_REASONING_EFFORT) || "high",
     plannerServiceTier:
       clean(process.env.OPENREACTOR_PLANNER_SERVICE_TIER) ||
       clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
-    agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL) || "gpt-5.4",
+    agentModel: clean(process.env.OPENREACTOR_AGENT_MODEL) || DEFAULT_OPENAI_MODEL,
     agentReasoningEffort:
       clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",
     agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
