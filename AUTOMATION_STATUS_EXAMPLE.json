@@ -113,7 +113,7 @@
           "openreactor": {
             "issueNumber": 201,
             "branchName": "openreactor/issue-201",
-            "toolLabel": "Claude UI agent"
+            "toolLabel": "Codex UI agent"
           }
         }
       },
@@ -137,12 +137,12 @@
       {
         "id": "openreactor:actor:201",
         "kind": "agent",
-        "label": "Claude UI agent",
+        "label": "Codex UI agent",
         "role": "ui",
         "status": "working",
         "currentNodeId": "execution",
         "currentItemId": "openreactor:issue:201",
-        "provider": "claude",
+        "provider": "codex",
         "startedAt": "2026-03-25T04:45:00.000Z",
         "lastHeartbeatAt": "2026-03-25T04:59:00.000Z"
       }
@@ -217,7 +217,7 @@
         "level": "info",
         "subjectType": "item",
         "subjectId": "openreactor:issue:201",
-        "message": "Claude UI agent is actively iterating on the queue cards."
+        "message": "Codex UI agent is actively iterating on the queue cards."
       }
     ]
   },

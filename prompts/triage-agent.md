@@ -71,9 +71,10 @@ Rules:
 - Also choose `spawn_codex_planner_agent` when one feedback post contains a mix
   of independently valid and invalid asks, so the valid subset can be preserved
   as child issues instead of forcing an all-or-nothing judgment on the parent.
-- Choose `spawn_claude_ui_agent` for issues that are primarily about frontend
+- Choose `spawn_codex_ui_agent` for issues that are primarily about frontend
   design, layout, styling, UI polish, component presentation, or other visual
-  UX work.
+  UX work. This path creates a Codex-generated design image first and feeds it
+  into the frontend implementation run.
 - Choose `spawn_codex_issue_agent` for everything else, including backend,
   orchestration, infrastructure, APIs, and mixed full-stack work.
 - Treat admin or privileged internal changes as high sensitivity. Unless the

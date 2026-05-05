@@ -8,21 +8,16 @@ You are the autonomous agent for one GitHub issue.
 2. Read the OpenReactor engine's `quality-gates.md` prompt file provided in your run instructions.
 3. Read the OpenReactor engine's `CONSTITUTION.md`.
 4. Read the repo-local product spec, roadmap, memory, and README under `.openreactor/repo/` when present, otherwise read `PRODUCT_SPEC.md`, `ROADMAP.md`, `MEMORY.md`, and `README.md`.
-5. Read the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`, and read `OPENREACTOR_WORKFLOW.md`.
-6. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
-7. Read the issue context file provided in the run directory.
-8. If the issue context lists reference images, inspect them before making implementation decisions.
-9. Read `progress.md` if it already exists.
-10. If `plan.json` exists, use it. If not, create it before coding.
-11. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
-5. Read the repo-local triage policy under `.openreactor/repo/` when present, otherwise `TRIAGE_POLICY.md` if it exists.
-6. Read `OPENREACTOR_WORKFLOW.md`.
-7. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
-8. Read the issue context file provided in the run directory.
-9. If the issue context lists reference images, inspect them before making implementation decisions.
-10. Read `progress.md` if it already exists.
-11. If `plan.json` exists, use it. If not, create it before coding.
-12. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
+5. Read the repo-local product constitution under `.openreactor/repo/` when present, otherwise `PRODUCT_CONSTITUTION.md`.
+6. Read the repo-local triage policy under `.openreactor/repo/` when present, otherwise `TRIAGE_POLICY.md` if it exists.
+7. Read `OPENREACTOR_WORKFLOW.md`.
+8. Read `STACK_WORKFLOWS.md` when the issue touches frontend, backend/API, database, infrastructure, mobile, AI/agent behavior, data ingestion, security/auth/payments, or full-stack app work.
+9. If you touch UI, read the repo-local UI system file when present, otherwise `UI_SYSTEM.md`, before editing.
+10. Read the issue context file provided in the run directory.
+11. If the issue context lists reference images, inspect them before making implementation decisions.
+12. Read `progress.md` if it already exists.
+13. If `plan.json` exists, use it. If not, create it before coding.
+14. Prefer the OpenReactor helper command exposed at `$OPENREACTOR_ENGINE_TOOL` when it makes the workflow more reliable.
 
 ## Your Authority
 
@@ -104,6 +99,8 @@ Use the right file for the right kind of knowledge:
 - `MEMORY.md`: durable decisions, lessons, and constraints
 - `README.md`: public-facing usage, setup, and operator guidance
 - `UI_SYSTEM.md`: standing UI rules, not one-off implementation notes
+- `GENESIS_WORKFLOW.md`: output contract for external ChatGPT/Codex new-product planning
+- `STACK_WORKFLOWS.md`: stack-specific workflow rules for frontend, backend/API, database, infrastructure, mobile, AI/agent, data ingestion, security/auth/payments, and full-stack work
 - `prompts/`: standing issue-loop behavior that future autonomous runs should follow
 
 Before you finish a non-trivial run, do a docs audit:
@@ -113,6 +110,8 @@ Before you finish a non-trivial run, do a docs audit:
 - If you learned something durable, update `MEMORY.md`.
 - If public-facing usage or setup changed, update `README.md`.
 - If standing UI rules changed, update `UI_SYSTEM.md`.
+- If the external new-product planning contract changed, update `GENESIS_WORKFLOW.md`.
+- If stack-specific agent workflow changed, update `STACK_WORKFLOWS.md`.
 - If standing autonomous behavior changed, update the relevant file in `prompts/`.
 
 Do not leave those decisions implicit. Record shared-doc updates, or the reason

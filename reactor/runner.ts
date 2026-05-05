@@ -128,6 +128,10 @@ export interface IssueRuntimePaths {
   triageLogPath: string;
   contextPath: string;
   referenceImagesDir: string;
+  uiDesignPromptPath: string;
+  uiDesignLogPath: string;
+  uiDesignBriefPath: string;
+  uiDesignImagePath: string;
   progressPath: string;
   tasksPath: string;
   planPath: string;
@@ -188,6 +192,10 @@ export function issueRuntimePaths(config: OrchestratorConfig, issueNumber: numbe
     triageLogPath: path.join(runDir, "triage.log"),
     contextPath: path.join(runDir, "context.md"),
     referenceImagesDir: path.join(runDir, "reference-images"),
+    uiDesignPromptPath: path.join(runDir, "ui-design-prepass.prompt.md"),
+    uiDesignLogPath: path.join(runDir, "ui-design-prepass.log"),
+    uiDesignBriefPath: path.join(runDir, "ui-design-brief.md"),
+    uiDesignImagePath: path.join(runDir, "ui-design-reference.svg"),
     progressPath: path.join(runDir, "progress.md"),
     tasksPath: path.join(runDir, "tasks.md"),
     planPath: path.join(runDir, "plan.json")
@@ -289,6 +297,8 @@ export async function writeIssueContext(
     `- Progress log: ${relativeFromRepo(config, paths.progressPath)}`,
     `- Task tracker: ${relativeFromRepo(config, paths.tasksPath)}`,
     `- Plan file: ${relativeFromRepo(config, paths.planPath)}`,
+    `- UI design reference image: ${relativeFromRepo(config, paths.uiDesignImagePath)}`,
+    `- UI design brief: ${relativeFromRepo(config, paths.uiDesignBriefPath)}`,
     `- Run state: ${relativeFromRepo(config, paths.runFilePath)}`,
     `- Reference images: ${relativeFromRepo(config, paths.referenceImagesDir)}`,
     "",
@@ -299,6 +309,7 @@ export async function writeIssueContext(
     `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
     ...(repoDocs.triagePolicy ? [`- ${relativeFromWorktree(paths, repoDocs.triagePolicy)}`] : []),
     `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "STACK_WORKFLOWS.md"))}`,
     `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
     `- ${relativeFromWorktree(paths, repoDocs.readme)}`
@@ -470,11 +481,19 @@ export async function spawnIssueAgent(input: {
   if (tool.name === "spawn_claude_issue_agent") {
     return spawnClaudeIssueAgent(input);
   }
-  if (tool.provider === "claude") {
-    return spawnClaudeUiIssueAgent(input);
+  if (tool.name === "spawn_codex_ui_agent") {
+    return spawnCodexUiIssueAgent(input);
   }
 
   return spawnCodexIssueAgent(input);
+}
+
+interface CodexAgentSpawnOptions {
+  toolName: AgentToolName;
+  model: string;
+  reasoningEffort: string;
+  serviceTier: string;
+  imagePaths?: string[];
 }
 
 async function spawnCodexIssueAgent(input: {
@@ -485,103 +504,13 @@ async function spawnCodexIssueAgent(input: {
   githubToken: string;
   referenceImages?: RunReferenceImage[];
 }): Promise<ActiveRun> {
-  const { config, issue, paths, githubToken } = input;
-  const iteration = input.record.iteration + 1;
-  const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
-  const resultPath = path.join(paths.runDir, `iteration-${iteration}.result.json`);
-  const logPath = path.join(paths.runDir, `iteration-${iteration}.log`);
-  const promptPath = path.join(paths.runDir, `iteration-${iteration}.prompt.md`);
-  const prompt = await buildAgentPrompt(
-    config,
-    issue,
-    paths,
-    iteration,
-    "spawn_codex_issue_agent",
-    input.record.requestAuthority ?? "feedback",
-    input.record.steeringUsername ?? null
-  );
-
-  await fs.writeFile(promptPath, prompt, "utf8");
-
-  const args = buildCodexArgs({
-    model: config.agentModel,
-    reasoningEffort: config.agentReasoningEffort,
-    serviceTier: config.agentServiceTier,
-    fullAccess: true,
-    outputSchemaPath: schemaPath,
-    outputPath: resultPath,
+  return spawnCodexAgent(input, {
+    toolName: "spawn_codex_issue_agent",
+    model: input.config.agentModel,
+    reasoningEffort: input.config.agentReasoningEffort,
+    serviceTier: input.config.agentServiceTier,
     imagePaths: input.referenceImages?.map((image) => image.localPath)
   });
-
-  const child = spawn("codex", args, {
-    cwd: paths.worktreePath,
-    env: {
-      ...process.env,
-      GH_TOKEN: githubToken,
-      GITHUB_TOKEN: githubToken,
-      OPENREACTOR_REPO_OWNER: config.owner,
-      OPENREACTOR_REPO_NAME: config.repo,
-      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
-      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
-      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
-      OPENREACTOR_ISSUE_URL: issue.html_url,
-      OPENREACTOR_RUN_DIR: paths.runDir,
-      OPENREACTOR_PLAN_PATH: paths.planPath,
-      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
-      OPENREACTOR_TASKS_PATH: paths.tasksPath,
-      OPENREACTOR_BRANCH_NAME: paths.branchName,
-      AGENT_BROWSER_SESSION: `openreactor-issue-${issue.number}`,
-      AGENT_BROWSER_PROFILE: path.join(paths.runDir, "agent-browser-profile"),
-      AGENT_BROWSER_DOWNLOAD_PATH: path.join(paths.runDir, "agent-browser-downloads"),
-      AGENT_BROWSER_CONTENT_BOUNDARIES: "1",
-      AGENT_BROWSER_MAX_OUTPUT: "50000",
-      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
-    },
-    stdio: ["pipe", "pipe", "pipe"]
-  });
-
-  child.stdin.end(prompt);
-
-  await attachProcessLogging(child, logPath);
-
-  const record: RunRecord = {
-    ...input.record,
-    agentTool: "spawn_codex_issue_agent",
-    status: "running",
-    iteration,
-    startFailureCount: 0,
-    updatedAt: new Date().toISOString(),
-    lastHeartbeatAt: new Date().toISOString(),
-    lastError: ""
-  };
-  await writeRunRecord(paths, record);
-
-  const heartbeatTimer = setInterval(() => {
-    record.updatedAt = new Date().toISOString();
-    record.lastHeartbeatAt = record.updatedAt;
-    void writeRunRecord(paths, record);
-  }, 10_000);
-
-  return {
-    issue,
-    record,
-    process: child,
-    heartbeatTimer,
-    resultPath,
-    logPath,
-    startedAt: Date.now(),
-    executionTemplate: {
-      providerKey: "codex",
-      providerLabel: providerLabelFor("codex"),
-      model: config.agentModel,
-      reasoningEffort: config.agentReasoningEffort,
-      serviceTier: config.agentServiceTier ?? null,
-      toolName: "spawn_codex_issue_agent",
-      toolLabel: getAgentTool("spawn_codex_issue_agent").label,
-      primaryUse: getAgentTool("spawn_codex_issue_agent").primaryUse
-    },
-    parseResult: () => parseAgentResult(resultPath)
-  };
 }
 
 async function spawnCodexPlannerAgent(input: {
@@ -592,6 +521,47 @@ async function spawnCodexPlannerAgent(input: {
   githubToken: string;
   referenceImages?: RunReferenceImage[];
 }): Promise<ActiveRun> {
+  return spawnCodexAgent(input, {
+    toolName: "spawn_codex_planner_agent",
+    model: input.config.plannerModel,
+    reasoningEffort: input.config.plannerReasoningEffort,
+    serviceTier: input.config.plannerServiceTier,
+    imagePaths: input.referenceImages?.map((image) => image.localPath)
+  });
+}
+
+async function spawnCodexUiIssueAgent(input: {
+  config: OrchestratorConfig;
+  issue: GitHubIssue;
+  paths: IssueRuntimePaths;
+  record: RunRecord;
+  githubToken: string;
+  referenceImages?: RunReferenceImage[];
+}): Promise<ActiveRun> {
+  const designImagePaths = await prepareCodexUiDesignReference(input);
+  return spawnCodexAgent(input, {
+    toolName: "spawn_codex_ui_agent",
+    model: input.config.codexUiModel,
+    reasoningEffort: input.config.codexUiReasoningEffort,
+    serviceTier: input.config.codexUiServiceTier,
+    imagePaths: [
+      ...designImagePaths,
+      ...(input.referenceImages?.map((image) => image.localPath) ?? [])
+    ]
+  });
+}
+
+async function spawnCodexAgent(
+  input: {
+    config: OrchestratorConfig;
+    issue: GitHubIssue;
+    paths: IssueRuntimePaths;
+    record: RunRecord;
+    githubToken: string;
+    referenceImages?: RunReferenceImage[];
+  },
+  options: CodexAgentSpawnOptions
+): Promise<ActiveRun> {
   const { config, issue, paths, githubToken } = input;
   const iteration = input.record.iteration + 1;
   const schemaPath = path.join(config.engineRoot, "reactor", "agent-result.schema.json");
@@ -603,7 +573,7 @@ async function spawnCodexPlannerAgent(input: {
     issue,
     paths,
     iteration,
-    "spawn_codex_planner_agent",
+    options.toolName,
     input.record.requestAuthority ?? "feedback",
     input.record.steeringUsername ?? null
   );
@@ -611,34 +581,18 @@ async function spawnCodexPlannerAgent(input: {
   await fs.writeFile(promptPath, prompt, "utf8");
 
   const args = buildCodexArgs({
-    model: config.plannerModel,
-    reasoningEffort: config.plannerReasoningEffort,
-    serviceTier: config.plannerServiceTier,
+    model: options.model,
+    reasoningEffort: options.reasoningEffort,
+    serviceTier: options.serviceTier,
     fullAccess: true,
     outputSchemaPath: schemaPath,
     outputPath: resultPath,
-    imagePaths: input.referenceImages?.map((image) => image.localPath)
+    imagePaths: options.imagePaths
   });
 
   const child = spawn("codex", args, {
     cwd: paths.worktreePath,
-    env: {
-      ...process.env,
-      GH_TOKEN: githubToken,
-      GITHUB_TOKEN: githubToken,
-      OPENREACTOR_REPO_OWNER: config.owner,
-      OPENREACTOR_REPO_NAME: config.repo,
-      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
-      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
-      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
-      OPENREACTOR_ISSUE_URL: issue.html_url,
-      OPENREACTOR_RUN_DIR: paths.runDir,
-      OPENREACTOR_PLAN_PATH: paths.planPath,
-      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
-      OPENREACTOR_TASKS_PATH: paths.tasksPath,
-      OPENREACTOR_BRANCH_NAME: paths.branchName,
-      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
-    },
+    env: buildAgentEnv(config, issue, paths, githubToken),
     stdio: ["pipe", "pipe", "pipe"]
   });
 
@@ -648,7 +602,7 @@ async function spawnCodexPlannerAgent(input: {
 
   const record: RunRecord = {
     ...input.record,
-    agentTool: "spawn_codex_planner_agent",
+    agentTool: options.toolName,
     status: "running",
     iteration,
     startFailureCount: 0,
@@ -675,25 +629,73 @@ async function spawnCodexPlannerAgent(input: {
     executionTemplate: {
       providerKey: "codex",
       providerLabel: providerLabelFor("codex"),
-      model: config.plannerModel,
-      reasoningEffort: config.plannerReasoningEffort,
-      serviceTier: config.plannerServiceTier ?? null,
-      toolName: "spawn_codex_planner_agent",
-      toolLabel: getAgentTool("spawn_codex_planner_agent").label,
-      primaryUse: getAgentTool("spawn_codex_planner_agent").primaryUse
+      model: options.model,
+      reasoningEffort: options.reasoningEffort,
+      serviceTier: options.serviceTier || null,
+      toolName: options.toolName,
+      toolLabel: getAgentTool(options.toolName).label,
+      primaryUse: getAgentTool(options.toolName).primaryUse
     },
     parseResult: () => parseAgentResult(resultPath)
   };
 }
 
-async function spawnClaudeUiIssueAgent(input: {
+async function prepareCodexUiDesignReference(input: {
   config: OrchestratorConfig;
   issue: GitHubIssue;
   paths: IssueRuntimePaths;
   record: RunRecord;
   githubToken: string;
-}): Promise<ActiveRun> {
-  return spawnClaudeAgent(input, "spawn_claude_ui_agent");
+  referenceImages?: RunReferenceImage[];
+}): Promise<string[]> {
+  const { config, issue, paths, githubToken } = input;
+  await fs.mkdir(paths.runDir, { recursive: true });
+
+  const prompt = await buildUiDesignPrepassPrompt(
+    config,
+    issue,
+    paths,
+    input.record,
+    input.referenceImages ?? []
+  );
+  await fs.writeFile(paths.uiDesignPromptPath, prompt, "utf8");
+
+  const child = spawn("codex", buildCodexExecArgs({
+    model: config.uiDesignModel,
+    reasoningEffort: config.uiDesignReasoningEffort,
+    serviceTier: config.uiDesignServiceTier,
+    fullAccess: true,
+    imagePaths: input.referenceImages?.map((image) => image.localPath)
+  }), {
+    cwd: paths.worktreePath,
+    env: buildAgentEnv(config, issue, paths, githubToken, {
+      OPENREACTOR_UI_DESIGN_IMAGE_PATH: paths.uiDesignImagePath,
+      OPENREACTOR_UI_DESIGN_BRIEF_PATH: paths.uiDesignBriefPath
+    }),
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+
+  child.stdin.end(prompt);
+  await attachProcessLogging(child, paths.uiDesignLogPath);
+
+  const exitCode = await waitForExit(child);
+  if (exitCode !== 0) {
+    throw new Error(`Codex UI design prepass exited with code ${exitCode ?? "unknown"}`);
+  }
+
+  const imageExists = await pathExists(paths.uiDesignImagePath);
+  const briefExists = await pathExists(paths.uiDesignBriefPath);
+  if (!imageExists || !briefExists) {
+    throw new Error(
+      [
+        "Codex UI design prepass did not produce the required artifacts.",
+        imageExists ? "" : `Missing image: ${paths.uiDesignImagePath}`,
+        briefExists ? "" : `Missing brief: ${paths.uiDesignBriefPath}`
+      ].filter(Boolean).join(" ")
+    );
+  }
+
+  return [paths.uiDesignImagePath];
 }
 
 async function spawnClaudeIssueAgent(input: {
@@ -746,31 +748,15 @@ async function spawnClaudeAgent(
   await fs.writeFile(promptPath, prompt, "utf8");
 
   const args = buildClaudeArgs({
-    model: config.claudeUiModel,
-    effort: config.claudeUiEffort,
+    model: config.claudeModel,
+    effort: config.claudeEffort,
     schema,
     runDir: paths.runDir
   });
 
-  const child = spawn(config.claudeUiBin, args, {
+  const child = spawn(config.claudeBin, args, {
     cwd: paths.worktreePath,
-    env: {
-      ...process.env,
-      GH_TOKEN: githubToken,
-      GITHUB_TOKEN: githubToken,
-      OPENREACTOR_REPO_OWNER: config.owner,
-      OPENREACTOR_REPO_NAME: config.repo,
-      OPENREACTOR_ENGINE_ROOT: config.engineRoot,
-      OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
-      OPENREACTOR_ISSUE_NUMBER: String(issue.number),
-      OPENREACTOR_ISSUE_URL: issue.html_url,
-      OPENREACTOR_RUN_DIR: paths.runDir,
-      OPENREACTOR_PLAN_PATH: paths.planPath,
-      OPENREACTOR_PROGRESS_PATH: paths.progressPath,
-      OPENREACTOR_TASKS_PATH: paths.tasksPath,
-      OPENREACTOR_BRANCH_NAME: paths.branchName,
-      PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`
-    },
+    env: buildAgentEnv(config, issue, paths, githubToken),
     stdio: ["pipe", "pipe", "pipe"]
   });
 
@@ -807,8 +793,8 @@ async function spawnClaudeAgent(
     executionTemplate: {
       providerKey: "claude",
       providerLabel: providerLabelFor("claude"),
-      model: config.claudeUiModel,
-      reasoningEffort: config.claudeUiEffort,
+      model: config.claudeModel,
+      reasoningEffort: config.claudeEffort,
       serviceTier: null,
       toolName,
       toolLabel: getAgentTool(toolName).label,
@@ -858,6 +844,7 @@ export async function runIssueTriage(input: {
     cwd: config.repoRoot,
     env: {
       ...process.env,
+      ...(config.workspacePolicy.env ?? {}),
       GH_TOKEN: githubToken,
       GITHUB_TOKEN: githubToken,
       OPENREACTOR_REPO_OWNER: config.owner,
@@ -933,6 +920,63 @@ export async function finalizeIssueAgentRun(input: {
   };
 }
 
+async function buildUiDesignPrepassPrompt(
+  config: OrchestratorConfig,
+  issue: GitHubIssue,
+  paths: IssueRuntimePaths,
+  record: RunRecord,
+  referenceImages: RunReferenceImage[]
+): Promise<string> {
+  const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
+  const uiSystemPath = repoDocs.uiSystem ?? path.join(config.engineRoot, "UI_SYSTEM.md");
+
+  return [
+    `You are OpenReactor's Codex UI design prepass for GitHub issue #${issue.number}.`,
+    "",
+    "Your output will be fed as an image attachment into the frontend implementation agent. Spend the reasoning budget on product interpretation, visual hierarchy, responsive behavior, and concrete UI states before creating the artifact.",
+    "",
+    "Read these files first:",
+    `- ${relativeFromWorktree(paths, uiSystemPath)}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "product-context.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "STACK_WORKFLOWS.md"))}`,
+    `- ${relativeFromWorktree(paths, repoDocs.productSpec)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.productConstitution)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.roadmap)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
+    `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
+    `- ${relativeFromWorktree(paths, paths.contextPath)}`,
+    "",
+    "Issue context:",
+    `- Issue URL: ${issue.html_url}`,
+    `- Title: ${issue.title}`,
+    `- Request authority: ${record.requestAuthority ?? "feedback"}`,
+    `- Target surface: ${record.targetSurface ?? "unknown"}`,
+    `- Sensitivity: ${record.sensitivity ?? "unknown"}`,
+    "",
+    "Reference images already attached to the issue:",
+    formatReferenceImageContext(config, paths, referenceImages),
+    "",
+    "Create these exact artifacts:",
+    `- Image: ${paths.uiDesignImagePath}`,
+    `- Brief: ${paths.uiDesignBriefPath}`,
+    "",
+    "Image artifact requirements:",
+    "- Write a single self-contained SVG image file. It should be a concrete product screen or flow state, not a moodboard.",
+    "- Show the layout, hierarchy, navigation, primary and secondary actions, component density, and relevant empty/loading/error states where they affect the implementation.",
+    "- Include exact visible labels when they materially affect implementation, and keep all text legible.",
+    "- Respect existing product constraints and UI system rules. If issue reference images conflict with your generated direction, the issue reference images win.",
+    "- Do not use external image URLs, secrets, private tokens, or brand assets that are not already present in the repo.",
+    "",
+    "Brief requirements:",
+    "- Summarize the product intent, target screen/state, key layout decisions, responsive behavior, and interaction states.",
+    "- List implementation acceptance criteria the frontend agent should verify in browser.",
+    "- Call out any repo constraints or uncertainties the implementation agent should resolve in code.",
+    "",
+    "Do not edit product code, docs, tests, package files, git state, or GitHub. Only create or overwrite the two design artifacts above."
+  ].join("\n");
+}
+
 async function buildAgentPrompt(
   config: OrchestratorConfig,
   issue: GitHubIssue,
@@ -946,16 +990,19 @@ async function buildAgentPrompt(
   const trustedSubmitter = getTrustedSubmitterSignal(config, issue);
   const repoDocs = await resolveRepoDocumentationPaths(paths.worktreePath);
   const extraFiles =
-    agentTool === "spawn_claude_ui_agent"
+    agentTool === "spawn_codex_ui_agent"
       ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))}`]
       : agentTool === "spawn_codex_planner_agent" || agentTool === "spawn_claude_planner_agent"
         ? [`- ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "planner-agent.md"))}`]
         : [];
   const toolRules =
-    agentTool === "spawn_claude_ui_agent"
+    agentTool === "spawn_codex_ui_agent"
       ? [
           `- This issue was dispatched via ${tool.label}. Treat it as a UI-heavy task unless the code proves otherwise.`,
           `- Use ${relativeFromWorktree(paths, path.join(config.engineRoot, "prompts", "ui-agent.md"))} as your frontend design skill equivalent while making design decisions.`,
+          `- Inspect the generated design reference image at ${relativeFromWorktree(paths, paths.uiDesignImagePath)} and the design brief at ${relativeFromWorktree(paths, paths.uiDesignBriefPath)} before changing UI code.`,
+          "- Treat the generated design image as strong design direction for layout, hierarchy, density, and interaction states, while still adapting it to the existing codebase and accessibility constraints.",
+          "- If issue-provided reference images conflict with the generated design image, prioritize the issue-provided reference images.",
           "- Prefer tight, polished UI work over broad refactors when solving the issue."
         ]
       : agentTool === "spawn_claude_planner_agent"
@@ -999,6 +1046,7 @@ async function buildAgentPrompt(
     `- ${relativeFromWorktree(paths, repoDocs.memory)}`,
     `- ${relativeFromWorktree(paths, repoDocs.readme)}`,
     `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
+    `- ${relativeFromWorktree(paths, path.join(config.engineRoot, "STACK_WORKFLOWS.md"))}`,
     ...extraFiles,
     `- ${relativeFromWorktree(paths, paths.contextPath)}`,
     `- ${relativeFromWorktree(paths, paths.planPath)}`,
@@ -1096,6 +1144,7 @@ async function buildTriagePrompt(
     `- ${relativeFromRepo(config, repoDocs.productConstitution)}`,
     ...(repoDocs.triagePolicy ? [`- ${relativeFromRepo(config, repoDocs.triagePolicy)}`] : []),
     `- ${relativeFromRepo(config, path.join(config.engineRoot, "OPENREACTOR_WORKFLOW.md"))}`,
+    `- ${relativeFromRepo(config, path.join(config.engineRoot, "STACK_WORKFLOWS.md"))}`,
     `- ${relativeFromRepo(config, repoDocs.roadmap)}`,
     `- ${relativeFromRepo(config, repoDocs.memory)}`,
     `- ${relativeFromRepo(config, repoDocs.readme)}`,
@@ -1248,6 +1297,41 @@ function formatRecentDiscussion(comments: GitHubIssueComment[]): string {
 
 function providerLabelFor(provider: "codex" | "claude"): string {
   return provider === "claude" ? "Anthropic" : "OpenAI";
+}
+
+function buildAgentEnv(
+  config: OrchestratorConfig,
+  issue: GitHubIssue,
+  paths: IssueRuntimePaths,
+  githubToken: string,
+  extraEnv: Record<string, string> = {}
+): NodeJS.ProcessEnv {
+  const inheritedPath = config.workspacePolicy.env?.PATH ?? process.env.PATH ?? "";
+
+  return {
+    ...process.env,
+    ...(config.workspacePolicy.env ?? {}),
+    GH_TOKEN: githubToken,
+    GITHUB_TOKEN: githubToken,
+    OPENREACTOR_REPO_OWNER: config.owner,
+    OPENREACTOR_REPO_NAME: config.repo,
+    OPENREACTOR_ENGINE_ROOT: config.engineRoot,
+    OPENREACTOR_ENGINE_TOOL: path.join(config.engineRoot, "reactor", "tool.ts"),
+    OPENREACTOR_ISSUE_NUMBER: String(issue.number),
+    OPENREACTOR_ISSUE_URL: issue.html_url,
+    OPENREACTOR_RUN_DIR: paths.runDir,
+    OPENREACTOR_PLAN_PATH: paths.planPath,
+    OPENREACTOR_PROGRESS_PATH: paths.progressPath,
+    OPENREACTOR_TASKS_PATH: paths.tasksPath,
+    OPENREACTOR_BRANCH_NAME: paths.branchName,
+    AGENT_BROWSER_SESSION: `openreactor-issue-${issue.number}`,
+    AGENT_BROWSER_PROFILE: path.join(paths.runDir, "agent-browser-profile"),
+    AGENT_BROWSER_DOWNLOAD_PATH: path.join(paths.runDir, "agent-browser-downloads"),
+    AGENT_BROWSER_CONTENT_BOUNDARIES: "1",
+    AGENT_BROWSER_MAX_OUTPUT: "50000",
+    ...extraEnv,
+    PATH: `${path.join(paths.worktreePath, "node_modules", ".bin")}${path.delimiter}${inheritedPath}`
+  };
 }
 
 function buildExecutionMetadata(
@@ -1441,6 +1525,24 @@ function buildCodexArgs(input: {
   outputPath: string;
   imagePaths?: string[];
 }): string[] {
+  const args = buildCodexExecArgs(input);
+  args.push(
+    "--output-schema",
+    input.outputSchemaPath,
+    "-o",
+    input.outputPath
+  );
+
+  return args;
+}
+
+function buildCodexExecArgs(input: {
+  model: string;
+  reasoningEffort: string;
+  serviceTier: string;
+  fullAccess: boolean;
+  imagePaths?: string[];
+}): string[] {
   const args = [
     "-m",
     input.model,
@@ -1465,11 +1567,7 @@ function buildCodexArgs(input: {
   args.push(
     "exec",
     "-",
-    "--skip-git-repo-check",
-    "--output-schema",
-    input.outputSchemaPath,
-    "-o",
-    input.outputPath
+    "--skip-git-repo-check"
   );
 
   return args;

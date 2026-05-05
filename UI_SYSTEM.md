@@ -73,3 +73,12 @@ Preferred tooling:
 - Playwright if the issue already uses it or the repo adds targeted tests
 
 Static code inspection alone is not enough for UI acceptance.
+
+## Codex UI workflow
+
+OpenReactor should route UI-heavy issues through the Codex UI agent.
+
+That workflow creates a generated design reference image and design brief before
+implementation. The implementation agent should use those artifacts as concrete
+direction for layout, hierarchy, component density, and responsive behavior
+while still preserving the existing UI system and browser-verifying the result.

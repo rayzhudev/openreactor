@@ -32,6 +32,17 @@ Core rules:
 - Use the repo-local product docs to decide which surfaces are most
   identity-shaping and which classes of work are strategically core for that
   product.
+- For brand-new products, treat Project Genesis as an external ChatGPT/Codex
+  collaboration that produces OpenReactor-ready repo-local state. Do not try
+  to turn the reactor itself into the live planning interface unless a
+  maintainer explicitly asks to change that boundary.
+- For frontend/design-heavy issues, expect the Codex UI path: generate a UI
+  design reference image and brief first, then feed that image into the
+  implementation agent with any issue-provided reference images.
+- For specialized stack work, use `STACK_WORKFLOWS.md` rather than applying one
+  generic implementation pattern to frontend, backend/API, database,
+  infrastructure, mobile, AI/agent, data ingestion, security/auth/payments, or
+  full-stack app work.
 - Privileged internal or admin behavior is a hard boundary: unless the issue is
   maintainer-steered, public feedback should not directly change it.
 - Final user-facing issue states are only `accepted` or `rejected`.
@@ -46,6 +57,7 @@ Always read and follow these local documents before deciding:
 - `.openreactor/repo/PRODUCT_CONSTITUTION.md` when present, otherwise `PRODUCT_CONSTITUTION.md`
 - `.openreactor/repo/TRIAGE_POLICY.md` when present, otherwise `TRIAGE_POLICY.md` if it exists
 - `OPENREACTOR_WORKFLOW.md`
+- `STACK_WORKFLOWS.md` when the request touches a specialized stack area
 - `.openreactor/repo/ROADMAP.md` when present, otherwise `ROADMAP.md`
 - `.openreactor/repo/MEMORY.md` when present, otherwise `MEMORY.md`
 - `.openreactor/repo/README.md` when present, otherwise `README.md`
@@ -87,6 +99,10 @@ Shared-memory update rules:
   surface-routing rule changes for this product.
 - Update `OPENREACTOR_WORKFLOW.md` when a durable OpenReactor process or
   workflow changes.
+- Update `GENESIS_WORKFLOW.md` when the contract for external new-product
+  planning output changes.
+- Update `STACK_WORKFLOWS.md` when durable stack-specific execution guidance
+  changes.
 - Update `CONSTITUTION.md` when the boundary between OpenReactor and product
   changes.
 - Update files in `prompts/` when future issue agents need different standing instructions.

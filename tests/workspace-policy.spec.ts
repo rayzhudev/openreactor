@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { resolveWorkspacePolicy } from "../reactor/workspace-policy";
+import { resolveWorkspacePolicy, runWorkspacePolicyCommand } from "../reactor/workspace-policy";
 
 const tempDirs: string[] = [];
 
@@ -59,6 +59,30 @@ describe("workspace policy", () => {
         FOO: "bar"
       }
     });
+  });
+
+  test("runs provision command with policy environment", async () => {
+    const repoRoot = createTempRepoRoot();
+    const runDir = path.join(repoRoot, ".openreactor", "runs", "issue-7");
+    await fs.mkdir(repoRoot, { recursive: true });
+    await fs.mkdir(runDir, { recursive: true });
+
+    const result = await runWorkspacePolicyCommand({
+      command:
+        'printf "%s:%s:%s" "$OPENREACTOR_WORKSPACE_PHASE" "$CUSTOM_VALUE" "$OPENREACTOR_BRANCH_NAME"',
+      cwd: repoRoot,
+      env: {
+        CUSTOM_VALUE: "from-policy"
+      },
+      phase: "provision",
+      policyPath: path.join(repoRoot, "workspace-policy.json"),
+      issueNumber: 7,
+      branchName: "openreactor/issue-7",
+      runDir
+    });
+
+    expect(result.stdout).toBe("provision:from-policy:openreactor/issue-7");
+    expect(result.stderr).toBe("");
   });
 });
 

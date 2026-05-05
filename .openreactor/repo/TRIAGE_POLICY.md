@@ -43,6 +43,12 @@ behavior.
 
 - Do not reject a request solely because it implies substantial backend or
   implementation work.
+- Route frontend/design-heavy requests to the Codex UI workflow so a generated
+  design image and brief are created before implementation.
+- Route large but directionally valid full-stack work to planning when it needs
+  decomposition across UI, backend/API, data model, infrastructure, mobile,
+  AI/agent behavior, data ingestion, security/auth/payments, or deployment
+  slices.
 - Reject requests that would publish, reproduce, translate, or route large
   amounts of copyrighted third-party text, media, or other protected content
   without clear rights to do so. Those are not refinement problems; they are

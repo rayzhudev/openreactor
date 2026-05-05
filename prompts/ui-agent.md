@@ -5,6 +5,12 @@ Use this prompt as the frontend design skill equivalent for UI-heavy issues.
 Rules:
 
 - Read `UI_SYSTEM.md` before making visual decisions.
+- If the run instructions mention a generated UI design reference image and
+  design brief, inspect both before editing UI code. Treat them as the primary
+  implementation artifact for layout, hierarchy, density, and interaction
+  states, subject to existing product constraints and accessibility.
+- If issue-provided reference images conflict with the generated design image,
+  prioritize the issue-provided reference images.
 - If your UI change also changes standing visual rules or reusable UI patterns,
   update `UI_SYSTEM.md` in the same run instead of leaving the new rule only in
   code.

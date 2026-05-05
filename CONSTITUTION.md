@@ -77,6 +77,8 @@ Read the relevant document for the surface you are working on:
 
 - [PRODUCT_CONSTITUTION.md](/home/ray/projects/openreactor/PRODUCT_CONSTITUTION.md)
 - [OPENREACTOR_WORKFLOW.md](/home/ray/projects/openreactor/OPENREACTOR_WORKFLOW.md)
+- [GENESIS_WORKFLOW.md](/home/ray/projects/openreactor/GENESIS_WORKFLOW.md)
+- [STACK_WORKFLOWS.md](/home/ray/projects/openreactor/STACK_WORKFLOWS.md)
 
 If a change crosses the boundary, default to the stricter OpenReactor rules
 unless the maintainer has explicitly steered otherwise.

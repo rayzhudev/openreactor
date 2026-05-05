@@ -1,5 +1,15 @@
 # Product Memory
 
+## 2026-05-04
+
+- Decision: treat Project Genesis as an external ChatGPT/Codex collaboration
+  that produces OpenReactor-ready repo-local state, not as a live mode inside
+  the reactor itself.
+  Reason: Genesis needs fast back-and-forth clarification, disagreement, and
+  product judgment before implementation starts. OpenReactor is better kept as
+  the backend execution loop that consumes committed product docs and GitHub
+  issues.
+
 ## 2026-04-28
 
 - Decision: use the segmented concentric-ring mark with the orange core as the
@@ -456,9 +466,29 @@
   image input.
   Reason: markdown image links in the issue body are not a reliable substitute
   for actual multimodal input when an agent needs to inspect a UI reference or
-  other uploaded image while implementing the issue, and Claude Code can read
-  image files by local path when that directory is included in its allowed
-  scope.
+  other uploaded image while implementing the issue.
+
+- Decision: frontend/design-heavy work should use a Codex UI path rather than
+  Claude UI. That path first runs a Codex design-image prepass at `xhigh`
+  reasoning, writes a concrete design image and brief, then feeds the image to
+  the implementation Codex agent.
+  Reason: UI implementation quality improves when the agent receives a concrete
+  visual target, and the Codex frontend guidance plus multimodal image input is
+  a better fit for this workflow than the previous Claude-specialized path.
+
+- Decision: OpenReactor should keep stack-specific workflows in
+  `STACK_WORKFLOWS.md`.
+  Reason: frontend, backend, mobile, infrastructure, AI, data, security, and
+  full-stack app work have different failure modes. More specific workflow
+  profiles should improve agent performance without overloading every issue
+  prompt with every niche rule.
+
+- Decision: managed-repo issue startup should run workspace policy provision
+  hooks before spawning implementation agents, and policy env should be
+  forwarded into those agent processes.
+  Reason: full-stack, mobile, infrastructure, and backend app builds often fail
+  because the local workspace is not provisioned, even when the code task is
+  otherwise clear.
 
 - Decision: start separating shared OpenReactor runtime code from repo-local
   product steering state by introducing a committed `.openreactor/repo/`

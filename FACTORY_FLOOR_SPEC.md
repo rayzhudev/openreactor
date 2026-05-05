@@ -355,7 +355,7 @@ Iteration badge and status light.
     <div class="ff-actor-bay__workspace"><!-- active token --></div>
   </div>
   <div class="ff-actor-bay__nameplate">
-    <span class="ff-actor-bay__name">Claude UI agent</span>
+    <span class="ff-actor-bay__name">Codex UI agent</span>
     <span class="ff-actor-bay__task">#201 Polish queue cards</span>
   </div>
   <div class="ff-actor-bay__status-light"></div>

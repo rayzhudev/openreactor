@@ -1,33 +1,21 @@
-# openreactor
+# openreactor Repo State
 
-This directory contains the repo-local OpenReactor state for this product.
+This directory is the product steering layer for the OpenReactor product.
 
-OpenReactor's shared engine lives outside this repo-local state. What belongs here is the product-specific material that future issue agents should inherit:
+OpenReactor itself is the shared autonomous issue-to-PR execution engine. This
+repo's product state describes the public OpenReactor website, request intake,
+queue visibility, playground surface, and the maintainer-controlled engine
+workflow that those product surfaces explain.
 
-- what this repo is for
-- what counts as a good change
-- what to avoid
-- how triage should classify and route requests for this product
-- roadmap direction
-- durable memory from past work
+Agents should treat these files as the repo-local source of product truth:
 
-Treat these files as the product steering layer for this repository.
+- `PRODUCT_SPEC.md`: current OpenReactor product behavior and limitations
+- `PRODUCT_CONSTITUTION.md`: durable product rules
+- `TRIAGE_POLICY.md`: request classification and routing rules
+- `ROADMAP.md`: current sequencing
+- `MEMORY.md`: durable decisions and lessons
 
-## Bootstrap signals
-
-### README signal
-
-OpenReactor is an agentic harness that allows software products to evolve on
-their own.
-
-The core idea is simple: the full product lifecycle can now be automated, not
-just the code-writing step. Requests can enter a system, get judged, get turned
-into real product work, move through branches and pull requests, deploy, and
-feed their learnings back into the system again.
-
-### Issue signal
-
-- #192 [Request] Add/ auto-generate new features every 24 hours and upload to the website
-  <!-- openreactor:feature-request --> ## Summary Add/ auto-generate new features every 24 hours and upload to the website ## Problem Add/ auto-generate new features every 24 hours and upload to the website. ## Desired Ou…
-- #233 [Request] add the ability to select a component and request feature changes directly from the ui of the specific compnent
-  <!-- openreactor:feature-request --> ## Summary add the ability to select a component and request feature changes directly from the ui of the specific compnent ## Problem add the ability to select a component and reques…
+For new managed products, this directory should usually be created by a Project
+Genesis conversation with a ChatGPT/Codex agent before OpenReactor starts
+implementation. Genesis writes concrete product steering files and a small
+initial backlog; the reactor then consumes that committed state.

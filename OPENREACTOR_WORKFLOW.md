@@ -66,7 +66,9 @@ maintainer consideration.
 - If the selected implementation provider is unavailable, OpenReactor should
   retry the run through the other provider before giving up on the issue. Only
   when both providers appear unavailable should it pause the issue and wait for
-  provider recovery.
+  provider recovery. UI-specialized work is the exception: OpenReactor should
+  use the Codex UI path for frontend work rather than falling back to a
+  non-image-capable Claude UI path.
 - When OpenReactor asks GitHub for auto-merge on an accepted PR, it should
   fall back to a direct merge only when the target repo does not support
   native GitHub auto-merge at all. Clean accepted PRs should not be left open
@@ -93,6 +95,15 @@ maintainer consideration.
   not only markdown links to them. If another implementation path cannot
   accept deterministic image attachments yet, OpenReactor should route that
   issue through a path that can.
+- Frontend/design-heavy issues should route to `spawn_codex_ui_agent`. That
+  path should run a Codex UI design prepass with `xhigh` reasoning, create a
+  concrete design image and brief in the run directory, then attach that image
+  to the implementation Codex run along with any issue-provided reference
+  images.
+- OpenReactor should use stack-specific workflows for known high-variance work:
+  frontend/UI, backend/API, database/data model, infrastructure/deployment,
+  mobile, AI/agent behavior, data ingestion, security/auth/payments, and
+  broad full-stack app builds.
 - OpenReactor should refresh PR execution footers after the run finishes so
   the final PR body deterministically reflects the implementation agent that
   actually produced the result.
@@ -132,6 +143,27 @@ OpenReactor should separate:
 - shared engine/runtime code
 - repo-local product steering state
 
+### Project Genesis
+
+New products should usually go through a Project Genesis pass before
+OpenReactor starts autonomous implementation.
+
+Genesis is a real-time product-design collaboration between the product owner
+and a ChatGPT/Codex agent. It is where the agent asks clarifying questions,
+pushes back on weak assumptions, defines the v0 product nucleus, and writes
+OpenReactor-ready repo state.
+
+OpenReactor should consume the Genesis output after it has been reviewed and
+committed. The reactor should not be stretched into a live planning interface;
+its job is backend execution against durable repo-local product state and
+GitHub issues.
+
+The canonical Genesis output contract lives in
+[`GENESIS_WORKFLOW.md`](GENESIS_WORKFLOW.md).
+
+The canonical stack-specific execution guidance lives in
+[`STACK_WORKFLOWS.md`](STACK_WORKFLOWS.md).
+
 The repo-local state is where product-specific direction, roadmap, and durable
 memory should live for a managed repository. The current committed layout is:
 
@@ -159,7 +191,8 @@ OpenReactor engine repo. Repo-local constitutions should carry product-specific
 rules, but shared workflow logic should not be stranded in one private managed
 repo.
 
-For managed repos, initialization should prefer inference over blank setup:
+For managed repos that did not go through Project Genesis, initialization
+should still prefer inference over blank setup:
 
 - read the repo README
 - read the initial GitHub issues, especially a PRD-style issue if one exists
@@ -187,6 +220,15 @@ The current local deployment model is intentionally simple:
 Legacy repos that already have the older top-level product docs may continue to
 run while the bootstrap PR is open. Repos that do not have either repo-local
 state or the legacy top-level docs should wait for the bootstrap first.
+
+Before starting a brand-new product from Genesis output, operators should run:
+
+```bash
+bun run reactor:tool check-genesis
+```
+
+That check verifies that required `.openreactor/repo/` steering files exist and
+do not still look like untouched bootstrap placeholders.
 
 This avoids a separate onboarding wizard while still keeping the runtime local
 and the per-repo steering state committed inside the managed repository.

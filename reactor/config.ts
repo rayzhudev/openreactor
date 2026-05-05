@@ -42,9 +42,15 @@ export interface OrchestratorConfig {
   agentModel: string;
   agentReasoningEffort: string;
   agentServiceTier: string;
-  claudeUiModel: string;
-  claudeUiEffort: string;
-  claudeUiBin: string;
+  codexUiModel: string;
+  codexUiReasoningEffort: string;
+  codexUiServiceTier: string;
+  uiDesignModel: string;
+  uiDesignReasoningEffort: string;
+  uiDesignServiceTier: string;
+  claudeModel: string;
+  claudeEffort: string;
+  claudeBin: string;
   botMentionAliases: string[];
 }
 
@@ -104,9 +110,31 @@ export function loadConfig(repoRoot = resolveManagedRepoRoot()): OrchestratorCon
     agentReasoningEffort:
       clean(process.env.OPENREACTOR_AGENT_REASONING_EFFORT) || "medium",
     agentServiceTier: clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
-    claudeUiModel: clean(process.env.OPENREACTOR_CLAUDE_UI_MODEL) || "sonnet",
-    claudeUiEffort: clean(process.env.OPENREACTOR_CLAUDE_UI_EFFORT) || "medium",
-    claudeUiBin: clean(process.env.OPENREACTOR_CLAUDE_UI_BIN) || "claude",
+    codexUiModel:
+      clean(process.env.OPENREACTOR_CODEX_UI_MODEL) ||
+      clean(process.env.OPENREACTOR_AGENT_MODEL) ||
+      "gpt-5.5",
+    codexUiReasoningEffort:
+      clean(process.env.OPENREACTOR_CODEX_UI_REASONING_EFFORT) || "high",
+    codexUiServiceTier:
+      clean(process.env.OPENREACTOR_CODEX_UI_SERVICE_TIER) ||
+      clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
+    uiDesignModel:
+      clean(process.env.OPENREACTOR_UI_DESIGN_MODEL) ||
+      clean(process.env.OPENREACTOR_CODEX_UI_MODEL) ||
+      clean(process.env.OPENREACTOR_AGENT_MODEL) ||
+      "gpt-5.5",
+    uiDesignReasoningEffort:
+      clean(process.env.OPENREACTOR_UI_DESIGN_REASONING_EFFORT) || "xhigh",
+    uiDesignServiceTier:
+      clean(process.env.OPENREACTOR_UI_DESIGN_SERVICE_TIER) ||
+      clean(process.env.OPENREACTOR_CODEX_UI_SERVICE_TIER) ||
+      clean(process.env.OPENREACTOR_AGENT_SERVICE_TIER),
+    claudeModel:
+      clean(process.env.OPENREACTOR_CLAUDE_MODEL) ||
+      "sonnet",
+    claudeEffort: clean(process.env.OPENREACTOR_CLAUDE_EFFORT) || "medium",
+    claudeBin: clean(process.env.OPENREACTOR_CLAUDE_BIN) || "claude",
     botMentionAliases: listFromEnv(
       "OPENREACTOR_BOT_MENTION_ALIASES",
       [
