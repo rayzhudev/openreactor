@@ -10,6 +10,23 @@
   the backend execution loop that consumes committed product docs and GitHub
   issues.
 
+## 2026-04-30
+
+- Decision: default OpenAI-backed Codex reactor runs now use `gpt-5.5` for
+  triage, planning, and implementation while preserving the existing
+  role-specific reasoning efforts.
+  Reason: current OpenAI guidance names `gpt-5.5` as the latest model and
+  recommends starting migrations by updating the model string while tuning
+  prompts and reasoning effort against the workflow rather than changing every
+  parameter at once.
+
+- Decision: keep OpenReactor's agent prompts outcome-first while preserving
+  the detailed product, governance, and GitHub contracts the workflow depends
+  on.
+  Reason: GPT-5.5 responds well to explicit outcomes and stopping conditions,
+  but OpenReactor still needs durable rules for acceptance, decomposition,
+  documentation, validation, and maintainer handoff.
+
 ## 2026-04-28
 
 - Decision: use the segmented concentric-ring mark with the orange core as the

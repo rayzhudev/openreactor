@@ -208,7 +208,7 @@
         "currentNodeId": "execution",
         "currentItemId": "openreactor:issue:295",
         "provider": "codex",
-        "model": "gpt-5.3-codex-spark",
+        "model": "gpt-5.5",
         "startedAt": "2026-03-26T09:30:00.000Z",
         "lastHeartbeatAt": "2026-03-26T09:59:00.000Z",
         "extensions": { "openreactor": { "issueNumber": 295, "toolName": "spawn_codex_issue_agent", "toolLabel": "Codex issue agent", "iteration": 1 } }

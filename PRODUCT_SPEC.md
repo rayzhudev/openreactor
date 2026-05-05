@@ -122,6 +122,13 @@ Each run receives:
 - current issue body + labels + context
 - local run files such as `plan.json` and `progress.md`
 
+Default OpenAI-backed Codex runs currently target `gpt-5.5` for triage,
+planning, and implementation. The default reasoning efforts remain tuned by
+role: `low` for triage, `high` for planning, and `medium` for implementation.
+Operators can override those defaults with the corresponding
+`OPENREACTOR_*_MODEL` and `OPENREACTOR_*_REASONING_EFFORT` environment
+variables.
+
 Final issue outcomes are:
 - `accepted`
 - `rejected`
