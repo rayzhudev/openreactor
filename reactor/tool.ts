@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config";
 import { buildExecutionFooter, renderBodyWithExecutionFooter } from "./execution-footer";
-import { initializeRepoState, REPO_STATE_DIR } from "./repo-state";
+import { checkRepoStateReadiness, initializeRepoState, REPO_STATE_DIR } from "./repo-state";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,6 +37,11 @@ async function main(): Promise<void> {
 
   if (command === "init-repo-state") {
     await initRepoState(rest);
+    return;
+  }
+
+  if (command === "check-genesis") {
+    await checkGenesis(rest);
     return;
   }
 
@@ -252,6 +257,26 @@ async function initRepoState(args: string[]): Promise<void> {
       2
     )
   );
+}
+
+async function checkGenesis(args: string[]): Promise<void> {
+  const cwd = path.resolve(optionalStringArg(args, "--cwd") || process.cwd());
+  const readiness = await checkRepoStateReadiness(cwd);
+
+  console.log(
+    JSON.stringify(
+      {
+        repoRoot: cwd,
+        ...readiness
+      },
+      null,
+      2
+    )
+  );
+
+  if (!readiness.ready) {
+    process.exitCode = 1;
+  }
 }
 
 async function startInstance(args: string[]): Promise<void> {
@@ -628,6 +653,7 @@ function printHelp(): void {
       "  ensure-pr --issue <number> --branch <branch> --title <title> --body-file <file> [--base main] [--cwd <dir>] [--merge-method squash] [--no-auto-merge]",
       "  coauthor-trailer --username <github-login>",
       "  init-repo-state [--cwd <dir>] [--repo-name <name>]",
+      "  check-genesis [--cwd <dir>]",
       "  start-instance [--cwd <dir>] [--owner <owner>] [--repo <repo>] [--instance-name <name>] [--status-port <port>] [--status-token <token>]",
       "",
       "Notes:",
@@ -635,6 +661,7 @@ function printHelp(): void {
       "  Auto-merge is enabled by default. Pass --no-auto-merge when the PR should wait for human or manual review.",
       "  coauthor-trailer resolves a GitHub login to a GitHub-recognized Co-authored-by trailer using the account's user id.",
       "  init-repo-state creates the committed repo-local product steering files under .openreactor/repo/.",
+      "  check-genesis verifies that the repo-local product steering files are present and no longer look like bootstrap placeholders.",
       "  start-instance writes a repo-specific env file and starts transient reactor, watchdog, and local status services for that repo."
     ].join("\n")
   );

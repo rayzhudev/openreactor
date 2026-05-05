@@ -147,6 +147,25 @@ OpenReactor is moving toward a split between:
 - the shared OpenReactor engine, which stays centralized
 - the repo-local product steering state, which travels with the target repo
 
+### Project Genesis
+
+New products should usually begin with a **Project Genesis** pass before
+OpenReactor starts implementation work.
+
+Genesis is an interactive product-design workflow run with a ChatGPT/Codex
+agent in direct collaboration with the product owner. That agent asks
+questions, challenges weak assumptions, narrows the first build, and writes the
+repo-local product state that OpenReactor needs.
+
+OpenReactor should then consume the committed Genesis output as backend
+execution state. It should not be treated as the real-time interview interface
+for the planning phase.
+
+The canonical output contract lives in
+[GENESIS_WORKFLOW.md](GENESIS_WORKFLOW.md). Stack-specific execution guidance
+for frontend, backend, mobile, infrastructure, AI, data, auth, and full-stack
+work lives in [STACK_WORKFLOWS.md](STACK_WORKFLOWS.md).
+
 The first committed shape for that repo-local state is:
 
 - `.openreactor/repo/README.md`
@@ -175,6 +194,12 @@ Bootstrap that repo-local steering layer manually with:
 bun run reactor:tool init-repo-state
 ```
 
+Check whether a Genesis output is ready for implementation with:
+
+```bash
+bun run reactor:tool check-genesis
+```
+
 That bootstrap now tries to seed the repo-local files from:
 
 - the repo README, if one exists
@@ -182,16 +207,20 @@ That bootstrap now tries to seed the repo-local files from:
 
 The intended managed-repo flow is:
 
-1. user creates a repo and writes an initial PRD, usually as a README or an
-   initial GitHub issue,
-2. user installs the OpenReactor GitHub App on that repo,
-3. the local OpenReactor runtime starts against a clone of that repo,
-4. OpenReactor infers a first-pass product description from the repo README and
-   the existing GitHub issue discussion,
-5. OpenReactor automatically opens a bootstrap PR creating `.openreactor/repo/`
-   from that material,
+1. user collaborates with a ChatGPT/Codex Genesis agent on the initial product
+   direction,
+2. the Genesis agent writes OpenReactor-ready repo-local state under
+   `.openreactor/repo/` and, when useful, a small initial issue backlog,
+3. user reviews and commits or merges that Genesis output,
+4. user installs the OpenReactor GitHub App on that repo,
+5. the local OpenReactor runtime starts against a clone of that repo,
 6. once that repo-local state exists on `main`, OpenReactor proceeds with the
    normal issue loop.
+
+The fallback bootstrap flow still exists for repos that did not go through
+Genesis. In that case, OpenReactor can infer a first-pass repo state from the
+README and existing GitHub issues, then open a bootstrap PR for maintainer
+review.
 
 For older repos that already have the legacy top-level product docs
 (`README.md`, `PRODUCT_SPEC.md`, `PRODUCT_CONSTITUTION.md`, `ROADMAP.md`,
@@ -396,9 +425,15 @@ Useful environment variables:
 - `OPENREACTOR_AGENT_MODEL`
 - `OPENREACTOR_AGENT_REASONING_EFFORT`
 - `OPENREACTOR_AGENT_SERVICE_TIER`
-- `OPENREACTOR_CLAUDE_UI_MODEL`
-- `OPENREACTOR_CLAUDE_UI_EFFORT`
-- `OPENREACTOR_CLAUDE_UI_BIN`
+- `OPENREACTOR_CODEX_UI_MODEL`
+- `OPENREACTOR_CODEX_UI_REASONING_EFFORT`
+- `OPENREACTOR_CODEX_UI_SERVICE_TIER`
+- `OPENREACTOR_UI_DESIGN_MODEL`
+- `OPENREACTOR_UI_DESIGN_REASONING_EFFORT`
+- `OPENREACTOR_UI_DESIGN_SERVICE_TIER`
+- `OPENREACTOR_CLAUDE_MODEL`
+- `OPENREACTOR_CLAUDE_EFFORT`
+- `OPENREACTOR_CLAUDE_BIN`
 - `OPENREACTOR_STATUS_BIND_HOST`
 - `OPENREACTOR_STATUS_PORT`
 - `OPENREACTOR_STATUS_TOKEN`
@@ -421,6 +456,7 @@ Helper tooling for issue agents:
 
 ```bash
 bun run reactor:tool --help
+bun run reactor:tool check-genesis
 bun run reactor:tool coauthor-trailer --username octocat
 bun run agent-browser:install
 ```

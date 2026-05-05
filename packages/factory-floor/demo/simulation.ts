@@ -44,7 +44,7 @@ const ISSUE_TITLES = [
 
 const AGENT_TEMPLATES = [
   { role: "general", label: "Codex Agent", provider: "codex", model: "gpt-5.5" },
-  { role: "ui", label: "Claude UI Agent", provider: "claude", model: "claude-sonnet-4-6" },
+  { role: "ui", label: "Codex UI Agent", provider: "codex", model: "gpt-5.5" },
   { role: "planning", label: "Codex Planner", provider: "codex", model: "gpt-5.5" },
 ];
 

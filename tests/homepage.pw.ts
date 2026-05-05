@@ -288,9 +288,9 @@ test.beforeEach(async ({ page }) => {
                   issueUrl: "https://github.com/rayzhudev/openreactor/issues/201",
                   branchName: "openreactor/issue-201",
                   iteration: 2,
-                  toolName: "spawn_claude_ui_agent",
-                  toolLabel: "Claude UI agent",
-                  provider: "claude",
+                  toolName: "spawn_codex_ui_agent",
+                  toolLabel: "Codex UI agent",
+                  provider: "codex",
                   primaryUse: "ui",
                   updatedAt: "2026-03-12T11:58:00.000Z",
                   lastHeartbeatAt: "2026-03-12T11:59:00.000Z",
@@ -390,12 +390,12 @@ test.beforeEach(async ({ page }) => {
             {
               id: "openreactor:actor:201",
               kind: "agent",
-              label: "Claude UI agent",
+              label: "Codex UI agent",
               role: "ui",
               status: "working",
               currentNodeId: "execution",
               currentItemId: "openreactor:issue:201",
-              provider: "claude",
+              provider: "codex",
               startedAt: "2026-03-12T11:50:00.000Z",
               lastHeartbeatAt: "2026-03-12T11:59:00.000Z",
               extensions: {
@@ -405,8 +405,8 @@ test.beforeEach(async ({ page }) => {
                   issueUrl: "https://github.com/rayzhudev/openreactor/issues/201",
                   branchName: "openreactor/issue-201",
                   iteration: 2,
-                  toolName: "spawn_claude_ui_agent",
-                  toolLabel: "Claude UI agent",
+                  toolName: "spawn_codex_ui_agent",
+                  toolLabel: "Codex UI agent",
                   primaryUse: "ui",
                   updatedAt: "2026-03-12T11:58:00.000Z",
                   rawStatus: "running"
@@ -549,7 +549,7 @@ test.beforeEach(async ({ page }) => {
               level: "info",
               subjectType: "item",
               subjectId: "openreactor:issue:201",
-              message: "Claude UI agent is actively iterating on the queue cards.",
+              message: "Codex UI agent is actively iterating on the queue cards.",
               extensions: {
                 openreactor: {
                   title: "Agent heartbeat",
@@ -616,7 +616,7 @@ test("renders the redesign and submits a request through the mocked API", async 
   });
   expect(factoryNodeCount).toBeGreaterThan(0);
   await expect(page.locator("#openreactor-live-agents")).toContainText("Polish the public queue cards");
-  await expect(page.locator("#openreactor-live-agents")).toContainText("Claude UI agent");
+  await expect(page.locator("#openreactor-live-agents")).toContainText("Codex UI agent");
   await expect(page.locator("#openreactor-live-blockers")).toContainText("Maintainer action");
   await expect(page.locator("#openreactor-live-blockers")).toContainText("schema_mismatch");
 

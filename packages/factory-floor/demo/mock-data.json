@@ -136,7 +136,7 @@
         "assignedActorId": "openreactor:actor:290",
         "enteredStateAt": "2026-03-26T09:15:00.000Z",
         "retryCount": 1,
-        "extensions": { "openreactor": { "issueNumber": 290, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/290", "branchName": "openreactor/issue-290", "toolLabel": "Claude UI agent" } }
+        "extensions": { "openreactor": { "issueNumber": 290, "issueUrl": "https://github.com/rayzhudev/openreactor/issues/290", "branchName": "openreactor/issue-290", "toolLabel": "Codex UI agent" } }
       },
       {
         "id": "openreactor:issue:280",
@@ -216,16 +216,16 @@
       {
         "id": "openreactor:actor:290",
         "kind": "agent",
-        "label": "Claude UI Agent",
+        "label": "Codex UI Agent",
         "role": "ui",
         "status": "working",
         "currentNodeId": "execution",
         "currentItemId": "openreactor:issue:290",
-        "provider": "claude",
-        "model": "claude-sonnet-4-6",
+        "provider": "codex",
+        "model": "gpt-5.5",
         "startedAt": "2026-03-26T09:15:00.000Z",
         "lastHeartbeatAt": "2026-03-26T09:58:00.000Z",
-        "extensions": { "openreactor": { "issueNumber": 290, "toolName": "spawn_claude_ui_agent", "toolLabel": "Claude UI agent", "iteration": 2 } }
+        "extensions": { "openreactor": { "issueNumber": 290, "toolName": "spawn_codex_ui_agent", "toolLabel": "Codex UI agent", "iteration": 2 } }
       }
     ],
     "executions": [
@@ -309,7 +309,7 @@
         "level": "info",
         "subjectType": "item",
         "subjectId": "openreactor:issue:290",
-        "message": "Claude UI agent polishing playground story navigation (attempt 2)."
+        "message": "Codex UI agent polishing playground story navigation (attempt 2)."
       },
       {
         "id": "evt-3",

@@ -37,8 +37,9 @@ This document is binding for all agents unless superseded by explicit maintainer
 
 ### 3.3 Scope filter
 A request should be rejected/deferred if:
-- effort is too large for one iteration,
-- it requires unavailable infrastructure/secrets,
+- effort is too large for one iteration and cannot be usefully decomposed,
+- it requires unavailable infrastructure/secrets with no safe implementation
+  slice or human handoff path,
 - it significantly diverges from current product direction.
 
 ## 4) User Experience (MVP)
@@ -58,6 +59,24 @@ A request should be rejected/deferred if:
 10. Clean accepted PRs may be merged automatically by the reactor or watchdog, depending on repository capabilities and current runtime state.
 11. On merge to `main`, the website deploys automatically.
 
+## 4.1) Project Genesis
+
+For a brand-new product, the initial product-design phase is intentionally
+outside the OpenReactor runtime.
+
+Project Genesis should be a real-time collaboration between the product owner
+and a ChatGPT/Codex agent. That agent turns the initial product prompt into
+OpenReactor-ready repo-local state, including product spec, constitution,
+triage policy, roadmap, memory, optional workspace policy, and a small initial
+issue backlog.
+
+OpenReactor then consumes the committed Genesis output as backend execution
+state. The reactor should not be treated as the interactive planning surface
+for new-product discovery.
+
+The shipped contract for this workflow is documented in
+`GENESIS_WORKFLOW.md`.
+
 ## 5) System Architecture (MVP)
 - Frontend: public website for request intake and queue visibility
 - Website backend: API/backend for intake and future product features that require stored data
@@ -68,6 +87,8 @@ A request should be rejected/deferred if:
   through a real run
 - OpenReactor status service: machine-local read-only metadata endpoint that exposes intake, triage/planning, execution, retry, blocked, and completed pipeline metadata to the website without giving the website direct control over the local runtime
 - OpenReactor status contract: a graph-oriented automation-status payload that is intended to generalize beyond OpenReactor-specific pipeline layouts, with OpenReactor details carried in namespaced extensions
+- Project Genesis contract: documented external ChatGPT/Codex planning workflow that produces OpenReactor-ready repo-local product state before the reactor begins implementation on a new product
+- Stack workflow contract: documented stack-specific execution patterns for frontend, backend/API, database, infrastructure, mobile, AI/agent, data ingestion, security/auth/payments, and full-stack builds
 - GitHub integration: issues, labels, comments, branches, PRs, merge state
 - Persistence (current): GitHub for durable workflow state, local `.openreactor/` files for transient run state such as run records, event logs, transcripts, live snapshots, watchdog state, archives, and repo-local steering/workspace-policy files
 - Persistence (planned): application database for website/backend features that require stored data
@@ -79,6 +100,9 @@ Current agent-workflow state lives in:
 - GitHub pull requests
 - local `.openreactor/runs/*` state files
 - repo-local `workspace-policy.json` or `.openreactor/repo/workspace-policy.json` execution policy files
+- generated UI design prepass artifacts for Codex UI runs:
+  `ui-design-reference.svg` and `ui-design-brief.md` in the issue run
+  directory
 
 Planned backend data model for product features that require stored data:
 - feature_requests
@@ -132,6 +156,12 @@ Agent behavior requirements:
 - enforce minimum acceptance evidence for shipped work, including a real branch,
   a real PR, and at least one passing reported check
 - require browser-verification evidence before accepting UI work
+- route frontend/design-heavy issues to the Codex UI agent, which first runs a
+  Codex `xhigh` design-image prepass and then feeds the generated image into
+  the implementation run with any issue-provided reference images
+- use stack-specific workflow guidance from `STACK_WORKFLOWS.md` when a request
+  touches backend/API, data model, infrastructure, mobile, AI/agent, data
+  ingestion, security/auth/payments, or broad full-stack app work
 
 ## 7.1) Canonical GitHub Support Signal
 
@@ -177,6 +207,9 @@ Split the product backend from the agent runtime:
 - GitHub polling is the current trigger mechanism; webhooks are optional later
 - GitHub + local run files are sufficient for the first autonomous loop
 - richer backend storage remains planned when the product itself needs it
+- workspace policy provision commands now run during managed-repo issue startup
+  before the implementation agent starts, with non-secret policy environment
+  values forwarded into agent processes
 
 ## 9) Deployment and CD
 - Main branch deploys automatically.
@@ -289,8 +322,11 @@ What is already live:
     surface with recent activity and transcript previews,
 19. a shared status contract package used by the local status service and the
     website bridge,
-20. and an OpenReactor Autonomous Test Run command for deliberate end-to-end
-    canary verification.
+20. an OpenReactor Autonomous Test Run command for deliberate end-to-end
+    canary verification,
+21. and a documented Project Genesis output contract for preparing
+    OpenReactor-ready repo-local state through an external ChatGPT/Codex
+    planning conversation.
 
 The following are still deferred:
 
@@ -299,5 +335,6 @@ The following are still deferred:
 - accepted/rejected aggregate metrics in the public site,
 - PR cycle-time reporting in the public site,
 - latest product-memory reporting in the public site,
+- first-class Genesis automation or a hosted interactive Genesis UI,
 - application-backed stored data features for the website/backend,
 - and richer product features that genuinely require a separate durable backend.

@@ -19,6 +19,19 @@ feed their learnings back into the system again.
 - Visitors can browse `/playground/` for low-sensitivity experiments and odd
   side pages, including joke-forward features such as the goon material
   recommender, without those experiments redefining the main intake surface.
+- Product owners can run an external ChatGPT/Codex Project Genesis
+  collaboration before starting OpenReactor on a new repo. Genesis produces
+  OpenReactor-ready `.openreactor/repo/` state and a small initial backlog;
+  the reactor then consumes that committed state as its backend execution
+  input.
+- UI-heavy issues route through the Codex UI workflow: Codex first creates a
+  generated design image and brief with `xhigh` reasoning, then the
+  implementation Codex agent receives that image along with issue-provided
+  references.
+- Specialized work should follow the stack workflow profiles in
+  `STACK_WORKFLOWS.md`, including backend/API, data model, infrastructure,
+  mobile, AI/agent, data ingestion, security/auth/payments, and full-stack app
+  slices.
 
 Highest-sensitivity flows:
 
@@ -36,3 +49,10 @@ Highest-sensitivity flows:
   low-risk and avoid explicit or unsafe content on the main intake surface.
 - Public pages should stay lightweight and static-first unless a request
   clearly needs backend or runtime integration.
+- OpenReactor should not become the real-time planning interface for Project
+  Genesis. Keep interactive product discovery in the external Codex
+  conversation and hand the reactor durable repo-local state once the direction
+  is concrete.
+- Workspace policy provision hooks now run before implementation agents start
+  on managed-repo issue worktrees. Secrets still belong outside committed
+  policy files.

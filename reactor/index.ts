@@ -55,6 +55,7 @@ import {
   REPO_STATE_DIR,
   type RepoStateSeedIssue
 } from "./repo-state";
+import { runWorkspacePolicyCommand } from "./workspace-policy";
 
 const execFileAsync = promisify(execFile);
 
@@ -536,7 +537,7 @@ class Reactor {
       const tool = getAgentTool(toolName);
       await this.syncIssueStatusComment(issue.number, {
         status: "in-progress",
-        phase: toolName === "spawn_codex_planner_agent" ? "planning" : "implementation",
+        phase: tool.primaryUse === "planning" ? "planning" : "implementation",
         detail:
           [
             normalizedResult.toolReason ??
@@ -1064,12 +1065,10 @@ class Reactor {
     try {
       const comments = await this.github.listIssueComments(issue.number);
       const hasReferenceImages = issueHasReferenceImages(issue, comments);
-      const agentTool =
-        requestedAgentTool === "spawn_claude_ui_agent" && hasReferenceImages
-          ? "spawn_codex_issue_agent"
-          : requestedAgentTool;
+      const agentTool = requestedAgentTool;
       record.agentTool = agentTool;
       await ensureIssueWorktree(this.config, paths);
+      await this.runWorkspaceProvision(issue, paths, record.iteration + 1);
       const referenceImages = await writeIssueContext(this.config, issue, paths, {
         requestAuthority: record.requestAuthority,
         steeringUsername: record.steeringUsername,
@@ -1100,8 +1099,8 @@ class Reactor {
           existingRecord
             ? `Retry iteration ${record.iteration + 1} is running after the previous attempt ended without a final decision.`
             : "Full issue agent is reviewing the request and deciding the best product change.",
-          requestedAgentTool === "spawn_claude_ui_agent" && hasReferenceImages
-            ? "OpenReactor routed this run through Codex because reference images are attached and the current Claude CLI path does not yet support deterministic image attachments."
+          record.agentTool === "spawn_codex_ui_agent"
+            ? "OpenReactor will generate a UI design reference image with Codex before implementation."
             : "",
           referenceImages.length
             ? `Attached ${referenceImages.length} reference image${referenceImages.length === 1 ? "" : "s"} to the agent input.`
@@ -1129,6 +1128,73 @@ class Reactor {
         record,
         selectedTool: record.agentTool ?? requestedAgentTool
       });
+    }
+  }
+
+  private async runWorkspaceProvision(
+    issue: GitHubIssue,
+    paths: IssueRuntimePaths,
+    iteration: number
+  ): Promise<void> {
+    const command = this.config.workspacePolicy.provisionCommand?.trim();
+    if (!command) {
+      return;
+    }
+
+    const logPath = path.join(paths.runDir, "workspace-provision.log");
+    await appendRunActivity(paths.runDir, {
+      issueNumber: issue.number,
+      iteration,
+      kind: "workspace",
+      title: "Provisioning worktree",
+      message: "Running the workspace policy provision command before the agent starts.",
+      data: {
+        command,
+        policyPath: this.config.workspacePolicyPath
+      }
+    });
+
+    try {
+      const result = await runWorkspacePolicyCommand({
+        command,
+        cwd: paths.worktreePath,
+        env: this.config.workspacePolicy.env,
+        phase: "provision",
+        policyPath: this.config.workspacePolicyPath,
+        issueNumber: issue.number,
+        branchName: paths.branchName,
+        runDir: paths.runDir
+      });
+      await fs.writeFile(
+        logPath,
+        [result.stdout, result.stderr].filter(Boolean).join("\n"),
+        "utf8"
+      );
+      await appendRunActivity(paths.runDir, {
+        issueNumber: issue.number,
+        iteration,
+        kind: "workspace",
+        title: "Worktree provisioned",
+        message: "Workspace policy provision command completed.",
+        data: {
+          logPath
+        }
+      });
+    } catch (error) {
+      await fs.writeFile(logPath, formatError(error), "utf8").catch(() => {});
+      await appendRunActivity(paths.runDir, {
+        issueNumber: issue.number,
+        iteration,
+        kind: "workspace",
+        level: "error",
+        title: "Workspace provisioning failed",
+        message: formatError(error),
+        data: {
+          command,
+          logPath
+        }
+      });
+      throw error;
     }
   }
 
@@ -1586,18 +1652,16 @@ class Reactor {
     }
 
     const providerLabels = uniqueProviderLabels(triedTools);
-    if (!providerLabels.includes("Codex")) {
-      providerLabels.push("Codex");
-    }
-    if (!providerLabels.includes("Claude")) {
-      providerLabels.push("Claude");
-    }
+    const providerSummary =
+      providerLabels.length > 1
+        ? `${providerLabels.join(" and ")} both appear unavailable`
+        : `${providerLabels[0] ?? "The selected AI provider"} appears unavailable`;
 
     record.agentTool = preferredToolName;
     record.providerFallbackToolsTried = [];
     record.status = "failed";
     record.lastError =
-      `${phase}: both AI providers appear unavailable. Last provider outage: ${outageReason}.`;
+      `${phase}: ${providerSummary}. Last provider outage: ${outageReason}.`;
     record.updatedAt = new Date().toISOString();
     record.lastHeartbeatAt = record.updatedAt;
     await writeRunRecord(issueRuntimePaths(this.config, issue.number), record);
@@ -1608,14 +1672,12 @@ class Reactor {
       status: "queued",
       phase: "paused",
       iteration: record.iteration,
-      detail:
-        `${providerLabels.join(" and ")} both appear unavailable, so OpenReactor paused this ` +
-        `issue until a provider recovers.`
+      detail: `${providerSummary}, so OpenReactor paused this issue until provider availability recovers.`
     });
     await this.github.createComment(
       issue.number,
       [
-        "OpenReactor paused this issue because both AI providers appear unavailable.",
+        `OpenReactor paused this issue because ${providerSummary}.`,
         "",
         `Phase: ${phase}`,
         `Last provider outage signal: ${outageReason}`,

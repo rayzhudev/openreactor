@@ -1,9 +1,9 @@
 export type AgentToolName =
   | "spawn_codex_issue_agent"
+  | "spawn_codex_ui_agent"
   | "spawn_codex_planner_agent"
   | "spawn_claude_issue_agent"
-  | "spawn_claude_planner_agent"
-  | "spawn_claude_ui_agent";
+  | "spawn_claude_planner_agent";
 
 export interface AgentToolDefinition {
   name: AgentToolName;
@@ -35,6 +35,15 @@ export const AGENT_TOOLS: Record<AgentToolName, AgentToolDefinition> = {
     primaryUse: "planning",
     triageSelectable: true
   },
+  spawn_codex_ui_agent: {
+    name: "spawn_codex_ui_agent",
+    label: "Codex UI Agent",
+    description:
+      "Frontend-focused Codex agent for visual design, layout, styling, interaction polish, and UI-heavy product work. Runs a high-reasoning design-image prepass before implementation.",
+    provider: "codex",
+    primaryUse: "ui",
+    triageSelectable: true
+  },
   spawn_claude_issue_agent: {
     name: "spawn_claude_issue_agent",
     label: "Claude Issue Agent",
@@ -52,25 +61,16 @@ export const AGENT_TOOLS: Record<AgentToolName, AgentToolDefinition> = {
     provider: "claude",
     primaryUse: "planning",
     triageSelectable: false
-  },
-  spawn_claude_ui_agent: {
-    name: "spawn_claude_ui_agent",
-    label: "Claude UI Agent",
-    description:
-      "Frontend-focused implementation agent for visual design, layout, styling, interaction polish, and other UI-heavy work.",
-    provider: "claude",
-    primaryUse: "ui",
-    triageSelectable: true
   }
 };
 
 export function isAgentToolName(value: string | null | undefined): value is AgentToolName {
   return (
     value === "spawn_codex_issue_agent" ||
+    value === "spawn_codex_ui_agent" ||
     value === "spawn_codex_planner_agent" ||
     value === "spawn_claude_issue_agent" ||
-    value === "spawn_claude_planner_agent" ||
-    value === "spawn_claude_ui_agent"
+    value === "spawn_claude_planner_agent"
   );
 }
 
@@ -97,12 +97,12 @@ export function getFallbackToolForProviderOutage(
       return "spawn_claude_issue_agent";
     case "spawn_codex_planner_agent":
       return "spawn_claude_planner_agent";
+    case "spawn_codex_ui_agent":
+      return null;
     case "spawn_claude_issue_agent":
       return "spawn_codex_issue_agent";
     case "spawn_claude_planner_agent":
       return "spawn_codex_planner_agent";
-    case "spawn_claude_ui_agent":
-      return "spawn_codex_issue_agent";
     default:
       return null;
   }

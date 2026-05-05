@@ -2,6 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export const REPO_STATE_DIR = path.join(".openreactor", "repo");
+export const REQUIRED_REPO_STATE_DOCS = [
+  "README.md",
+  "PRODUCT_SPEC.md",
+  "PRODUCT_CONSTITUTION.md",
+  "TRIAGE_POLICY.md",
+  "ROADMAP.md",
+  "MEMORY.md"
+] as const;
 export const REPO_RUNTIME_GITIGNORE_RULES = [
   ".openreactor/*",
   "!.openreactor/repo/",
@@ -29,6 +37,13 @@ export interface RepoStateSeeds {
   issues?: RepoStateSeedIssue[];
 }
 
+export interface RepoStateReadiness {
+  ready: boolean;
+  repoStateDir: string;
+  missing: string[];
+  placeholders: string[];
+}
+
 export async function resolveRepoDocumentationPaths(repoRoot: string): Promise<RepoDocumentationPaths> {
   return {
     readme: await preferRepoStateDoc(repoRoot, "README.md"),
@@ -38,6 +53,32 @@ export async function resolveRepoDocumentationPaths(repoRoot: string): Promise<R
     roadmap: await preferRepoStateDoc(repoRoot, "ROADMAP.md"),
     memory: await preferRepoStateDoc(repoRoot, "MEMORY.md"),
     uiSystem: await resolveOptionalRepoDoc(repoRoot, "UI_SYSTEM.md")
+  };
+}
+
+export async function checkRepoStateReadiness(repoRoot: string): Promise<RepoStateReadiness> {
+  const repoStateDir = path.join(repoRoot, REPO_STATE_DIR);
+  const missing: string[] = [];
+  const placeholders: string[] = [];
+
+  for (const fileName of REQUIRED_REPO_STATE_DOCS) {
+    const filePath = path.join(repoStateDir, fileName);
+    const content = await readOptionalText(filePath);
+    if (content === null) {
+      missing.push(fileName);
+      continue;
+    }
+
+    if (isLikelyBootstrapPlaceholder(fileName, content)) {
+      placeholders.push(fileName);
+    }
+  }
+
+  return {
+    ready: missing.length === 0 && placeholders.length === 0,
+    repoStateDir,
+    missing,
+    placeholders
   };
 }
 
@@ -358,6 +399,11 @@ const BOOTSTRAP_PLACEHOLDER_MARKERS: Record<string, string[]> = {
     "State what this product is meant to optimize for.",
     "- List the durable product rules agents should treat as binding.",
     "- Note what kinds of requests should be rejected."
+  ],
+  "TRIAGE_POLICY.md": [
+    "This file contains repo-specific decision policy for triage and issue agents.",
+    "- Define what counts as `main` for this repo.",
+    "- Explain what kinds of requests are usually core product work for this repo."
   ],
   "ROADMAP.md": [
     "- Add the current priorities for this repo.",
